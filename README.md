@@ -36,6 +36,8 @@ Saved data from MMT 0.1.x is converted automatically.
   settings that stay on each client, `M.OnSyncReceived(m, from)` after settings arrived,
   `M:SyncToTeam()` and `M:SyncButton(frame)` for windows of your own. Example on /mmt > Help.
 - A new module folder needs a full game restart (not just /reload) before the game lists it.
+- Writing your own module: see [CreateModules.md](CreateModules.md) (team management
+  API, team communication, two complete examples).
 
 ## Settings (/mmt)
 - **Team**: Add group / Add me / Add target, or type "First Last". Reorder with Up/Dn.
