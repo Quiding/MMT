@@ -9,7 +9,8 @@
 --
 -- Sending goes through the core's send queue (Comm.lua): the parts use the
 -- bulk prefix "MMTB" at low priority, outside instances by whisper to each
--- recipient (not throttled there), inside instances to the group. A throttled
+-- recipient (not throttled there), inside instances to the group; in guild
+-- mode one copy on the guild channel when that is faster. A throttled
 -- message is sent again instead of being lost. Answers (SYNCACK) use the
 -- normal prefix at high priority.
 --
@@ -159,10 +160,30 @@ local function Start(kind, label, payload)
     local id = tostring(math.random(100000, 999999))
     local parts = math.ceil(#payload / CHUNK)
     -- outside instances every recipient gets whispers (not throttled there);
-    -- inside, one copy to the group plus whispers for those outside it
+    -- inside, one copy to the group plus whispers for those outside it.
+    -- Guild mode outside instances: one copy on the guild channel for the
+    -- recipients in the guild (plus whispers for the rest) when that is
+    -- faster: whispers cost the data rate once per recipient, the guild
+    -- channel once, but after 10 messages only 1 per second.
     local targets = {}
     local inInstance = IsInInstance and IsInInstance()
-    if inInstance and channel then
+    local inGuild = {}
+    if ns.GuildMode() and not inInstance then
+        for key in pairs(ns.db.team) do
+            local nk = ns.NormKey(key)
+            if not ns.IsSelf(key) and expected[nk] and ns.guildRoster[key] then inGuild[nk] = true end
+        end
+    end
+    local guildCount = 0
+    for _ in pairs(inGuild) do guildCount = guildCount + 1 end
+    local useGuild = guildCount >= 2
+        and ns.CommEstimate(parts + 1, #payload, true) < ns.CommEstimate((parts + 1) * guildCount, #payload * guildCount, false)
+    if useGuild then
+        targets[#targets + 1] = { channel = "GUILD" }
+        for _, nk in ipairs(order) do
+            if not inGuild[nk] then targets[#targets + 1] = { channel = "WHISPER", target = whisperName[nk] } end
+        end
+    elseif inInstance and channel then
         targets[#targets + 1] = { channel = channel }
         for _, key in ipairs(whisper) do targets[#targets + 1] = { channel = "WHISPER", target = ns.WhisperTarget(key) } end
     else
@@ -178,7 +199,8 @@ local function Start(kind, label, payload)
 
     local names = {}
     for _, nk in ipairs(order) do names[#names + 1] = Name(expected[nk]) end
-    local seconds = ns.CommEstimate(s.total, #payload * #targets, inInstance)
+    local seconds = ns.CommEstimate(s.total, #payload * #targets, inInstance or useGuild)
+    ns.Debug("SYNC %s: %d part(s), %d target(s)%s", label, parts, #targets, useGuild and (", guild channel for " .. guildCount) or "")
     ns.Print("Sharing %s with: %s", label, table.concat(names, ", "))
     ns.Print("%d part(s), %d message(s), about %d s. Recipients confirm in chat when they have everything.",
         parts, s.total, seconds)
@@ -299,7 +321,7 @@ local function Transfer(nk, key, sender, id, parts, channel)
         if t and t.timer then t.timer:Cancel() end
         t = { id = id, parts = parts, got = 0, chunks = {}, sender = sender, key = key,
               who = SenderDisplay(key, sender),
-              channel = (channel == "WHISPER") and "WHISPER" or (GroupChannel() or "WHISPER") }
+              channel = (channel == "WHISPER" or channel == "GUILD") and "WHISPER" or (GroupChannel() or "WHISPER") }
         incoming[nk] = t
     end
     return t

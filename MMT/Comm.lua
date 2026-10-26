@@ -381,11 +381,21 @@ function ns.SendToTeam(msg, onlyOnline, prio, prefix, scope)
             Send(msg, "WHISPER", ns.WhisperTarget(key), prio, nil, prefix)
         end
     end
-    if prio == "BULK" and not (IsInInstance and IsInInstance()) then
-        for key in pairs(ns.db.team) do Whisper(key) end
-        return
-    end
     local guild = ns.GuildMode()
+    if prio == "BULK" and not (IsInInstance and IsInInstance()) then
+        -- whispers cost the data rate once per member; one guild message
+        -- reaches every member in the guild (worth it from 3 of them on)
+        local inGuild = 0
+        if guild then
+            for key, online in pairs(ns.guildRoster) do
+                if online and not ns.IsSelf(key) and ns.db.team[key] then inGuild = inGuild + 1 end
+            end
+        end
+        if inGuild < 3 then
+            for key in pairs(ns.db.team) do Whisper(key) end
+            return
+        end
+    end
     local channel = guild and "GUILD" or GroupChannel()
     if channel then Send(msg, channel, nil, prio, nil, prefix) end
     for key in pairs(ns.db.team) do
