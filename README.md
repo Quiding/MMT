@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.25: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.26: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -297,6 +297,11 @@ Team abandon is QTAB:<questID>.
   Large transfers use it too when that is faster: a settings sync goes once on the guild
   channel instead of once per recipient by whisper (from 2 recipients in the guild, when
   the estimate is lower), other large data from 3 online team members in the guild on.
+- Large transfers on the guild or group channel are spread over four prefixes ("MMTB" to
+  "MMTB4"): the game's allowance of 1 message per second counts per prefix, so they go up
+  to four times as fast (the data-rate cap still applies).
+- Settings syncs are compressed (Deflate, then Base64) when the client has
+  `C_EncodingUtil`; the debug report shows `compress=true` then.
 - Modules: `MMT.SendToTeam(msg, onlyOnline, prio)`, `MMT.SendAddon(msg, channel, target, prio)`,
   `MMT.SendLong(text[, target])` for texts of any size (Help > Team communication).
 - Leader tag (FTL): `MMT.SendToLeader(msg[, prio])` reaches only the FTL leader (whispered

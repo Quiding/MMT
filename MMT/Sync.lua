@@ -20,7 +20,8 @@
 --   SYNCACK:<id>:<status>                answer of a recipient:
 --       RECV (all parts there), ACCEPT, DECLINE, NOMOD (module not loaded),
 --       FAIL:<got>/<parts> (parts missing), BAD (payload could not be read)
--- Payloads: core "MMT1:<serialized {name, data}>",
+-- Payloads (compressed as "Z1:<base64 of deflate>" when the client can):
+--           core "MMT1:<serialized {name, data}>",
 --           module "MMTM1:<ModuleName>:<serialized settings>".
 
 local _, ns = ...
@@ -158,6 +159,8 @@ local function Start(kind, label, payload)
     end
 
     local id = tostring(math.random(100000, 999999))
+    local plainSize = #payload
+    payload = ns.Pack(payload)   -- compressed when the client can
     local parts = math.ceil(#payload / CHUNK)
     -- outside instances every recipient gets whispers (not throttled there);
     -- inside, one copy to the group plus whispers for those outside it.
@@ -176,8 +179,9 @@ local function Start(kind, label, payload)
     end
     local guildCount = 0
     for _ in pairs(inGuild) do guildCount = guildCount + 1 end
+    local prefixes = #ns.bulkPrefixes
     local useGuild = guildCount >= 2
-        and ns.CommEstimate(parts + 1, #payload, true) < ns.CommEstimate((parts + 1) * guildCount, #payload * guildCount, false)
+        and ns.CommEstimate(parts + 1, #payload, true, prefixes) < ns.CommEstimate((parts + 1) * guildCount, #payload * guildCount, false)
     if useGuild then
         targets[#targets + 1] = { channel = "GUILD" }
         for _, nk in ipairs(order) do
@@ -199,8 +203,9 @@ local function Start(kind, label, payload)
 
     local names = {}
     for _, nk in ipairs(order) do names[#names + 1] = Name(expected[nk]) end
-    local seconds = ns.CommEstimate(s.total, #payload * #targets, inInstance or useGuild)
-    ns.Debug("SYNC %s: %d part(s), %d target(s)%s", label, parts, #targets, useGuild and (", guild channel for " .. guildCount) or "")
+    local seconds = ns.CommEstimate(s.total, #payload * #targets, inInstance or useGuild, prefixes)
+    ns.Debug("SYNC %s: %d bytes (%d before packing), %d part(s), %d target(s)%s", label, #payload, plainSize, parts, #targets,
+        useGuild and (", guild channel for " .. guildCount) or "")
     ns.Print("Sharing %s with: %s", label, table.concat(names, ", "))
     ns.Print("%d part(s), %d message(s), about %d s. Recipients confirm in chat when they have everything.",
         parts, s.total, seconds)
@@ -339,7 +344,12 @@ local function AskOrAccept(text, label, accept, decline)
 end
 
 local function Complete(t)
-    local payload = table.concat(t.chunks)
+    local payload = ns.Unpack(table.concat(t.chunks))
+    if not payload then
+        ns.Print("%sCould not unpack|r the settings from %s (sent compressed, but this client can't decompress).", BAD, Name(t.who))
+        Answer(t, "BAD")
+        return
+    end
     local label = KindLabel(t.kind, t.profile)
 
     local modName, body = payload:match("^MMTM1:([%w_]+):(.*)$")

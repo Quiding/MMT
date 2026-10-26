@@ -81,9 +81,10 @@ function ns.BuildDebugReport()
     local ver, build, _, toc = GetBuildInfo()
     add(("MMT %s  client %s build %s  interface %s  locale %s"):format(
         ns.version, tostring(ver), tostring(build), tostring(toc), tostring(GetLocale())))
-    add(("API: C_Container=%s C_ChatInfo=%s GetNormalizedRealmName=%s MAX_TRADABLE_ITEMS=%s maxLevel=%s UnitPhaseReason=%s"):format(
+    add(("API: C_Container=%s C_ChatInfo=%s GetNormalizedRealmName=%s MAX_TRADABLE_ITEMS=%s maxLevel=%s UnitPhaseReason=%s compress=%s"):format(
         tostring(C_Container ~= nil), tostring(C_ChatInfo ~= nil), tostring(GetNormalizedRealmName ~= nil),
-        tostring(MAX_TRADABLE_ITEMS), tostring(GetMaxPlayerLevel and GetMaxPlayerLevel()), tostring(UnitPhaseReason ~= nil)))
+        tostring(MAX_TRADABLE_ITEMS), tostring(GetMaxPlayerLevel and GetMaxPlayerLevel()), tostring(UnitPhaseReason ~= nil),
+        tostring(ns.CanCompress and ns.CanCompress())))
     add("ERR_CHAT_PLAYER_NOT_FOUND_S = " .. Repr(ERR_CHAT_PLAYER_NOT_FOUND_S))
     local reasons = {}
     for value, label in pairs(ns.PHASE_LABELS) do reasons[#reasons + 1] = value .. "=" .. label end

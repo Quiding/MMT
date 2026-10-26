@@ -39,6 +39,13 @@ local RESULT = {
 }
 
 ns.bulkPrefix = ns.prefix .. "B"   -- "MMTB": large transfers
+-- The game counts the group/guild allowance (10 messages, then 1 per second)
+-- per prefix, so large transfers on those channels are spread over four
+-- prefixes: up to 4 messages per second (the data-rate cap still applies).
+ns.bulkPrefixes = { ns.bulkPrefix, ns.bulkPrefix .. "2", ns.bulkPrefix .. "3", ns.bulkPrefix .. "4" }
+local isBulk, isOurs = {}, { [ns.prefix] = true }
+for _, p in ipairs(ns.bulkPrefixes) do isBulk[p], isOurs[p] = true, true end
+function ns.IsOurPrefix(prefix) return isOurs[prefix] == true end
 
 ---------------------------------------------------------------------------
 -- Send queue
@@ -108,12 +115,27 @@ Pump = function()
             local item = q[1]
             local size = #item.msg + #item.prefix + OVERHEAD
             if bytesAvail < size then break end
+            -- large transfers on group/guild: the bulk prefix with most allowance left
+            if isBulk[item.prefix] and Counted(item.channel) then
+                local best, most = item.prefix, -1
+                for _, p in ipairs(ns.bulkPrefixes) do
+                    local t = Bucket(p).tokens
+                    if t > most then best, most = p, t end
+                end
+                item.prefix = best
+            end
             local b = Counted(item.channel) and Bucket(item.prefix)
             if b and b.tokens < 1 then break end
             local res = RawSend(item)
             if IsThrottle(res) then
                 ns.commStats.throttled = ns.commStats.throttled + 1
-                if b then b.tokens = 0 else whisperThrottledUntil = GetTime() + 15 end
+                if b then
+                    b.tokens = 0
+                    -- if the game counts the bulk prefixes together after all, wait for all of them
+                    if isBulk[item.prefix] then for _, p in ipairs(ns.bulkPrefixes) do Bucket(p).tokens = 0 end end
+                else
+                    whisperThrottledUntil = GetTime() + 15
+                end
                 item.tries = (item.tries or 0) + 1
                 if item.tries < MAX_TRIES then break end
                 table.remove(q, 1)
@@ -155,9 +177,45 @@ function ns.CommQueued()
 end
 
 -- rough seconds for sending `messages` messages with `bytes` bytes in total
-function ns.CommEstimate(messages, bytes, counted)
+---------------------------------------------------------------------------
+-- Compression for large transfers (when the client has C_EncodingUtil):
+-- Deflate, then Base64 (addon messages stay plain text). "Z1:" marks it.
+---------------------------------------------------------------------------
+local function Enc() return C_EncodingUtil end
+local function Method() return Enum and Enum.CompressionMethod and Enum.CompressionMethod.Deflate end
+
+function ns.CanCompress()
+    local e = Enc()
+    return (e and e.CompressString and e.DecompressString and e.EncodeBase64 and e.DecodeBase64) and true or false
+end
+
+-- the text compressed when that makes it shorter, else as it is
+function ns.Pack(text)
+    if not ns.CanCompress() or #text < 200 then return text end
+    local e = Enc()
+    local ok, z = pcall(e.CompressString, text, Method())
+    if not ok or type(z) ~= "string" then return text end
+    local ok2, b = pcall(e.EncodeBase64, z)
+    if ok2 and type(b) == "string" and #b + 3 < #text then return "Z1:" .. b end
+    return text
+end
+
+-- the original text; nil if it can't be unpacked here
+function ns.Unpack(text)
+    if text:sub(1, 3) ~= "Z1:" then return text end
+    if not ns.CanCompress() then return nil end
+    local e = Enc()
+    local ok, z = pcall(e.DecodeBase64, text:sub(4))
+    if not ok or type(z) ~= "string" then return nil end
+    local ok2, plain = pcall(e.DecompressString, z, Method())
+    if ok2 and type(plain) == "string" then return plain end
+end
+
+-- (counted: on group/guild channels; prefixes: how many prefixes share them)
+function ns.CommEstimate(messages, bytes, counted, prefixes)
+    local p = prefixes or 1
     local byRate = (bytes + messages * OVERHEAD) / Rate()
-    local byAllowance = counted and math.max(0, messages - ALLOWANCE) / REGEN or 0
+    local byAllowance = counted and math.max(0, messages - ALLOWANCE * p) / (REGEN * p) or 0
     return math.max(1, math.ceil(math.max(byRate, byAllowance)))
 end
 
@@ -569,7 +627,7 @@ local function ReceivePart(text, channel, sender)
 end
 
 ns.On("CHAT_MSG_ADDON", function(prefix, text, channel, sender)
-    if (prefix == ns.prefix or prefix == ns.bulkPrefix) and type(text) == "string" and not ns.IsSecret(text)
+    if isOurs[prefix] and type(text) == "string" and not ns.IsSecret(text)
         and text:sub(1, 4) == "MPT:" then
         if ns.db and not ns.IsSelf(sender) then ReceivePart(text, channel, sender) end
         return
@@ -578,7 +636,7 @@ ns.On("CHAT_MSG_ADDON", function(prefix, text, channel, sender)
 end)
 
 Receive = function(prefix, text, channel, sender)
-    if (prefix ~= ns.prefix and prefix ~= ns.bulkPrefix) or not ns.db or type(text) ~= "string" or ns.IsSecret(text) then return end
+    if not isOurs[prefix] or not ns.db or type(text) ~= "string" or ns.IsSecret(text) then return end
     if ns.IsSelf(sender) then return end
     local fromGroup = channel == "PARTY" or channel == "RAID" or channel == "INSTANCE_CHAT"
     local key = ns.Resolve(sender)
@@ -688,8 +746,9 @@ end
 ns.OnLogin(function()
     if RegisterPrefix then
         local ok = RegisterPrefix(ns.prefix)
-        local okB = RegisterPrefix(ns.bulkPrefix)
-        ns.Debug("RegisterAddonMessagePrefix %s -> %s, %s -> %s", ns.prefix, tostring(ok), ns.bulkPrefix, tostring(okB))
+        local res = {}
+        for _, p in ipairs(ns.bulkPrefixes) do res[#res + 1] = p .. " -> " .. tostring(RegisterPrefix(p)) end
+        ns.Debug("RegisterAddonMessagePrefix %s -> %s, %s", ns.prefix, tostring(ok), table.concat(res, ", "))
     end
     if ns.GuildMode() then
         if C_GuildInfo and C_GuildInfo.GuildRoster then C_GuildInfo.GuildRoster() elseif GuildRoster then GuildRoster() end
