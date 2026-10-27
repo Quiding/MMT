@@ -360,12 +360,20 @@ local function Members()
         if ns.IsSelf(key) then
             inTeam = true
             if ns.db.xp.showSelf then list[#list + 1] = key end
-        elseif ns.IsOnline(key) and ns.status[key] then
-            list[#list + 1] = key
+        elseif (ns.IsOnline(key) and ns.status[key]) or ns.DebugMode() then
+            list[#list + 1] = key   -- debug mode: offline members too
         end
     end
     if not inTeam and ns.db.xp.showSelf and me then table.insert(list, 1, me) end
     return list
+end
+
+-- a member's status; in debug mode members never heard from get an empty one
+local function StatusOf(key)
+    if ns.status[key] then return ns.status[key] end
+    if ns.IsSelf(key) then return ns.UpdateOwnStatus() end
+    local m = ns.db.team[key]
+    return { level = 0, cur = 0, max = 0, rested = 0, class = m and m.class, noData = true }
 end
 
 local GOLD_ICON = "|TInterface\\MoneyFrame\\UI-GoldIcon:0:0:1:0|t"
@@ -408,6 +416,7 @@ end
 local function ValueText(key, s)
     local x = ns.db.xp
     local parts = {}
+    if s.noData then return Hex(0.5, 0.5, 0.5) .. "offline, no data|r" end
     if x.showLevel then parts[#parts + 1] = Hex(0.75, 0.75, 0.75) .. "L" .. s.level .. "|r" end
     if s.isMax or s.max <= 0 then
         parts[#parts + 1] = "max"
@@ -417,6 +426,8 @@ local function ValueText(key, s)
             parts[#parts + 1] = Hex(0.75, 0.6, 1) .. ("R %d%%"):format(math.floor(s.rested / s.max * 100 + 0.5)) .. "|r"
         end
     end
+    -- debug mode lists offline members with their last known values
+    if not ns.IsSelf(key) and not ns.IsOnline(key) then parts[#parts + 1] = Hex(0.5, 0.5, 0.5) .. "offline|r" end
     return table.concat(parts, "  ")
 end
 
@@ -458,7 +469,7 @@ local function Update()
     -- first pass: inventory texts and the widest one (all bars start at the same x)
     local invText, invW = {}, 0
     for i, key in ipairs(list) do
-        local s = ns.status[key] or ns.UpdateOwnStatus()
+        local s = StatusOf(key)
         local row = Row(i)
         invText[i] = table.concat(InventoryText(s), "  ")
         ns.ApplyFont(row.inv, x.font, x.size, x.outline)
@@ -470,7 +481,7 @@ local function Update()
     local rep = x.barMode == "REP"
 
     for i, key in ipairs(list) do
-        local s = ns.status[key] or ns.UpdateOwnStatus()
+        local s = StatusOf(key)
         local row = Row(i)
         row.key, row.status = key, s
         row:EnableMouse(not x.clickThrough)

@@ -153,7 +153,7 @@ local function Members()
         if MMT.IsSelf(key) then
             inTeam = true
             list[#list + 1] = key
-        elseif mod.QuestsOf(key) and (MMT.IsOnline(key) or M.db.showOffline) then
+        elseif mod.QuestsOf(key) and (MMT.IsOnline(key) or M.db.showOffline or (MMT.DebugMode and MMT.DebugMode())) then
             list[#list + 1] = key
         end
     end

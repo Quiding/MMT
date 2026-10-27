@@ -201,6 +201,9 @@ ns.RegisterPage("help", "Help", function(page)
         "Logs what MMT detects and does. The log keeps the last 300 lines.")
     L:Check("Also print log lines to chat", function() return MMTDB.debugChat end,
         function(v) MMTDB.debugChat = v end)
+    L:Check("Debug mode (ignore online requirements)", function() return ns.DebugMode() end,
+        function(v) ns.SetDebugMode(v) end,
+        "Shows every team member where MMT normally shows only those online with MMT: the XP window (offline members in grey, with their last known values) and the Quest Tracker. Only for testing: at every login MMT asks whether to switch it off.")
     local R = UI.Column(d, COL2_X, -28, COL_W)
     local half = (COL_W - 8) / 2
     local report = UI.Button(d, half, "Debug report", function() ns.HandleDebugCommand("dump") end)

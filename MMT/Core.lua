@@ -4,7 +4,7 @@
 local ADDON, ns = ...
 _G.MMT = ns
 ns.title = "MMT"
-ns.version = "0.9.27"
+ns.version = "0.9.28"
 ns.prefix = "MMT"
 ns.LOGO = "Interface\\AddOns\\MMT\\Media\\Logo"   -- the MMT mark (Media/Logo.tga)
 ns.ICON = "Interface\\AddOns\\MMT\\Media\\Icon"   -- the mark on a dark tile (Media/Icon.tga)
@@ -447,6 +447,31 @@ end
 function ns.OnRefresh(fn) ns.Listen("REFRESH", fn) end
 function ns.Refresh() ns.Fire("REFRESH") end
 function ns.OnLogin(fn) ns.Listen("LOGIN", fn) end
+
+---------------------------------------------------------------------------
+-- Debug mode (Help page): ignores the online requirement where MMT shows
+-- team members (XP window, Quest Tracker), so every member is listed.
+-- Account-wide; at every login MMT asks whether to switch it off.
+---------------------------------------------------------------------------
+function ns.DebugMode() return MMTDB and MMTDB.debugMode == true or false end
+
+function ns.SetDebugMode(on)
+    MMTDB.debugMode = on and true or nil
+    ns.Fire("STATUS_CHANGED")
+    ns.Refresh()
+end
+
+ns.OnLogin(function()
+    if not ns.DebugMode() then return end
+    C_Timer.After(3, function()
+        if not ns.DebugMode() then return end
+        ns.UI.Confirm("MMT Debug Mode is enabled, overwriting/ignoring certain checks of features. It's not intended to be enabled during normal gameplay.\n\nDisable it now?",
+            "Yes", function()
+                ns.SetDebugMode(false)
+                ns.Print("Debug mode is off.")
+            end, "No")
+    end)
+end)
 
 
 ns.On("ADDON_LOADED", function(name)

@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.27: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.28: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -249,6 +249,10 @@ Saved data from MMT 0.1.x is converted automatically.
   `/mmt sync modules`) sends only the on/off states.
 - **Help**: debug tools with a how-to, and guides for writing modules and using the
   team communication (with copyable example code).
+  "Debug mode (ignore online requirements)" (off, per account): the XP window and the
+  Quest Tracker list every team member, also those offline or never heard from (in grey,
+  with their last known values). Only for testing: while it is on, MMT asks at every
+  login or /reload whether to switch it off.
 
 The page list on the left shows up to 16 pages; scroll it with the mouse wheel. Click
 CORE or MODULES to collapse or expand that section (remembered per account).

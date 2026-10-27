@@ -86,6 +86,7 @@ function ns.BuildDebugReport()
         tostring(MAX_TRADABLE_ITEMS), tostring(GetMaxPlayerLevel and GetMaxPlayerLevel()), tostring(UnitPhaseReason ~= nil),
         tostring(ns.CanCompress and ns.CanCompress())))
     add("ERR_CHAT_PLAYER_NOT_FOUND_S = " .. Repr(ERR_CHAT_PLAYER_NOT_FOUND_S))
+    if ns.DebugMode() then add("DEBUG MODE is on: online requirements are ignored (XP window, Quest Tracker).") end
     local reasons = {}
     for value, label in pairs(ns.PHASE_LABELS) do reasons[#reasons + 1] = value .. "=" .. label end
     table.sort(reasons)
