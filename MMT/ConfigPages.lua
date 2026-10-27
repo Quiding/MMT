@@ -199,20 +199,41 @@ ns.RegisterPage("team", "Team", function(page)
 
     local P = UI.Column(page, COL2_X, col.y, COL_W)
     P:Header("Privacy")
+    -- "Hide names outside MMT too" hooks other addons' frames at load: switching
+    -- it on or off only works fully after a UI reload, so it reloads right away
+    local function AskReload(what, apply)
+        UI.Confirm(what .. "\n\nOther addons only pick this up after a UI reload. Reload now?",
+            "Reload now", function() ns.privacyReloading = true apply() ReloadUI() end, "Cancel")
+    end
     local gm, sm = Opt("privacy", "nameMode")
+    local function SetMode(v)
+        sm(v) ns.Fire("STATUS_CHANGED") if ns.PrivacyChanged then ns.PrivacyChanged() end
+    end
     P:Cycle("Show characters by", {
         { value = "FIRST", text = "First name" },
         { value = "LAST", text = "Last name" },
         { value = "FULL", text = "Full name" },
         { value = "CLASS", text = "Class (Druid 1, Druid 2)" },
         { value = "SLOT", text = "Slot (Slot 1, Slot 2)" },
-    }, gm, function(v) sm(v) ns.Fire("STATUS_CHANGED") if ns.PrivacyChanged then ns.PrivacyChanged() end end)
+    }, gm, function(v)
+        -- with hiding on, "Full name" switches the hiding off (and back on)
+        local p = ns.db.privacy
+        if p.hideOutside and (v == "FULL") ~= (p.nameMode == "FULL") then
+            AskReload(v == "FULL" and "\"Full name\" switches \"Hide names outside MMT too\" off."
+                or "This switches \"Hide names outside MMT too\" on again.", function() SetMode(v) end)
+            return
+        end
+        SetMode(v)
+    end)
     local gd, sd = Opt("privacy", "debugFull")
     P:Check("Keep full names in debug logs", gd, sd,
         "Off: names in the debug log and report are replaced by the names shown above (\"Slot 1\" when that is the full name). For reports you post somewhere.")
     local gh, sh = Opt("privacy", "hideOutside")
-    local hideCheck = P:Check("Hide names outside MMT too", gh, function(v) sh(v) if ns.PrivacyChanged then ns.PrivacyChanged() end end,
-        "Replaces your team's names in chat, unit frames (player, target, focus, party, raid), nameplates, unit tooltips and the frames of other addons (e.g. their raid frames) with the names shown above, where the game allows it. Not with \"Full name\".")
+    local hideCheck = P:Check("Hide names outside MMT too", gh, function(v)
+            AskReload(v and "Hide your team's names outside MMT too." or "Show your team's real names outside MMT again.",
+                function() sh(v) if ns.PrivacyChanged then ns.PrivacyChanged() end end)
+        end,
+        "Replaces your team's names in chat, unit frames (player, target, focus, party, raid), nameplates, unit tooltips and the frames of other addons (e.g. their raid frames) with the names shown above, where the game allows it. Not with \"Full name\". Switching it on or off reloads the UI.")
     P:Note("Everything in MMT uses this. Macros, invites and whispers keep the real names.")
 
     page.OnRefresh = function()

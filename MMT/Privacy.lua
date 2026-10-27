@@ -106,7 +106,20 @@ local function CachedRules(forDebug)
 end
 local Reapply   -- below
 -- the setting, the team or a class changed: new rules, and everything shown again
+-- hiding on/off as at login: a profile switch or a synced profile that
+-- changes it needs a reload for other addons (said once in chat)
+local activeAtLogin, reloadSaid
+ns.OnLogin(function() activeAtLogin, reloadSaid = Active() and true or false, false end)
+local function CheckReload()
+    if activeAtLogin == nil or reloadSaid or ns.privacyReloading then return end
+    if (Active() and true or false) ~= activeAtLogin then
+        reloadSaid = true
+        ns.Print("\"Hide names outside MMT too\" changed: reload the UI (/reload) so other addons follow.")
+    end
+end
+
 function ns.PrivacyChanged()
+    CheckReload()
     cache = {}
     if ns.RefreshNameFrames then ns.RefreshNameFrames() end
     if Reapply then Reapply() end
