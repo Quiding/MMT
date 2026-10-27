@@ -418,7 +418,9 @@ function ns.ParseExport(str)
     if not body then return nil end
     local t = ns.Deserialize(body)
     if type(t) ~= "table" then return nil end
-    if type(t.name) == "string" and type(t.data) == "table" then return t.name, t.data end
+    if type(t.name) == "string" and type(t.data) == "table" then
+        return t.name, t.data, type(t.modules) == "table" and t.modules or nil
+    end
     if t.team or t.xp then return "Imported", t end -- 2.0.0 test build strings
     return nil
 end
@@ -442,7 +444,9 @@ function ns.ExportCoreSettings()
     for k, v in pairs(ns.db) do
         if k ~= "modules" then data[k] = Copy(v) end
     end
-    return "MMT1:" .. ns.Serialize({ name = ns.CurrentProfileName(), data = data, core = true })
+    -- the on/off state of the modules goes along (applied, not stored in the profile)
+    return "MMT1:" .. ns.Serialize({ name = ns.CurrentProfileName(), data = data, core = true,
+        modules = ns.ModuleStates and ns.ModuleStates() or nil })
 end
 
 -- Stores core settings under name and activates that profile. The module

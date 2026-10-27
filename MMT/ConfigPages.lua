@@ -1348,7 +1348,7 @@ ns.RegisterPage("modules", "Modules", function(page)
     -- reload notice at the bottom, only while a reload is needed
     local notice = CreateFrame("Frame", nil, page)
     notice:SetPoint("BOTTOMLEFT", 0, 0)
-    notice:SetSize(PAGE_W, 34)
+    notice:SetSize(PAGE_W - 190, 34)   -- the sync button sits to the right
     UI.Fill(notice, 1, 0.85, 0.2, 0.08)
     UI.Border(notice, 1, 0.85, 0.2, 0.35)
     local reload = UI.Button(notice, 120, "Reload UI", function() ReloadUI() end)
@@ -1360,6 +1360,9 @@ ns.RegisterPage("modules", "Modules", function(page)
     notice.text:SetJustifyH("LEFT")
     notice.text:SetTextColor(1, 0.85, 0.2)
     notice:Hide()
+
+    UI.SyncButton(page, "Sync to team", function() ns.SendModuleStates() end, "Sync module on/off",
+        "Same as /mmt sync modules: sends which modules are on or off to your group and online team members; they switch theirs the same way (after a dialog, unless they accept syncs automatically). Modules switched on there may need a UI reload. Module settings are not included: every module page has its own Sync button. /mmt sync sends this too, with the core settings.")
 
     page.OnRefresh = function()
         local v, author, repo = ns.AddOnInfo("MMT")

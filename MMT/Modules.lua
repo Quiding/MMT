@@ -283,6 +283,40 @@ function ns.ResetModuleStates()
     return changed, reload
 end
 
+-- on/off of every installed module: { [addon folder] = true | false }
+-- (on = running, or switched on and loading after a reload)
+local function IsOn(e)
+    return ((e.module and e.module.enabled) or (not e.loaded and e.enabled)) and true or false
+end
+
+function ns.ModuleStates()
+    local t = {}
+    for _, e in ipairs(ns.InstalledModules()) do t[e.addon] = IsOn(e) end
+    return t
+end
+
+-- switches the installed modules as in states (from a team member).
+-- Returns the number switched, whether a reload is needed, and the modules
+-- that are on there but not installed here.
+function ns.ApplyModuleStates(states)
+    local changed, reload, missing, have = 0, false, {}, {}
+    if type(states) ~= "table" then return changed, reload, missing end
+    for _, e in ipairs(ns.InstalledModules()) do
+        have[e.addon] = true
+        local want = states[e.addon]
+        if type(want) == "boolean" and want ~= IsOn(e) then
+            changed = changed + 1
+            if ns.SetModuleEnabled(e, want) == "reload" then reload = true end
+        end
+    end
+    for addon, on in pairs(states) do
+        if on == true and not have[addon] then missing[#missing + 1] = addon end
+    end
+    table.sort(missing)
+    ns.Refresh()
+    return changed, reload, missing
+end
+
 ---------------------------------------------------------------------------
 -- Settings sync of modules (modules opt in with sync = true in NewModule)
 ---------------------------------------------------------------------------

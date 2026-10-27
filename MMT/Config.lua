@@ -448,6 +448,8 @@ SlashCmdList.MMT = function(msg)
     elseif cmd == "sync" then
         if arg == "" then
             ns.SendProfileToTeam()
+        elseif arg:lower() == "modules" then
+            ns.SendModuleStates()
         else
             local m, ambiguous = ns.FindSyncModule(arg)
             if m then

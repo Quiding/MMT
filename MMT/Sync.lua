@@ -3,6 +3,7 @@
 --   /mmt sync            core settings of the active profile (team, roles,
 --                        XP window incl. position, automations, distance
 --                        window ...). Settings of modules are NOT included.
+--   /mmt sync modules    which modules are on or off (also part of /mmt sync)
 --   /mmt sync <module>   only the settings of that module, e.g.
 --                        /mmt sync questtracker. Modules opt in with
 --                        sync = true; see Modules.lua for the module API.
@@ -21,7 +22,8 @@
 --       RECV (all parts there), ACCEPT, DECLINE, NOMOD (module not loaded),
 --       FAIL:<got>/<parts> (parts missing), BAD (payload could not be read)
 -- Payloads (compressed as "Z1:<base64 of deflate>" when the client can):
---           core "MMT1:<serialized {name, data}>",
+--           core "MMT1:<serialized {name, data, modules = {[addon] = on}}>",
+--           module states "MMTS1:<serialized {[addon] = on}>",
 --           module "MMTM1:<ModuleName>:<serialized settings>".
 
 local _, ns = ...
@@ -89,6 +91,7 @@ local function ModuleTitle(name)
 end
 
 local function KindLabel(kind, profile)
+    if kind == "states" then return "module on/off states" end
     local modName = kind and kind:match("^mod:(.+)$")
     if modName then return ("%s settings"):format(ModuleTitle(modName)) end
     if profile and profile ~= "" then return ("core settings (profile \"%s\")"):format(profile) end
@@ -241,6 +244,12 @@ function ns.SendProfileToTeam()
     return Start("core", KindLabel("core", ns.CurrentProfileName()), ns.ExportCoreSettings())
 end
 
+-- the on/off state of every module (Modules page, /mmt sync modules)
+function ns.SendModuleStates()
+    if not ns.db then return end
+    return Start("states", KindLabel("states"), "MMTS1:" .. ns.Serialize(ns.ModuleStates()))
+end
+
 function ns.SendModuleSettings(m)
     if not (m and m.db) then return end
     local payload = "MMTM1:" .. m.name .. ":" .. ns.Serialize(m:SyncData())
@@ -343,11 +352,57 @@ local function AskOrAccept(text, label, accept, decline)
     ns.UI.Confirm(text, "Accept settings", accept, "Decline", decline)
 end
 
+-- chat summary after module states were applied
+local function ReportStates(who, changed, reload, missing)
+    if changed == 0 then
+        ns.Print("Modules: already as on %s.", Name(who))
+    else
+        ns.Print("Modules: %d switched as on %s.%s", changed, Name(who),
+            reload and " Reload the UI (/reload) to load the ones switched on." or "")
+    end
+    if #missing > 0 then
+        ns.Print("On at %s but not installed here: %s.", Name(who), table.concat(missing, ", "))
+    end
+end
+
+-- "Gunter: on Loot Distribution, Quest Tracker; off Item Bar"
+local function StatesText(states)
+    local on, off = {}, {}
+    for _, e in ipairs(ns.InstalledModules()) do
+        local want = states[e.addon]
+        if want == true then on[#on + 1] = e.title elseif want == false then off[#off + 1] = e.title end
+    end
+    return ("on: %s\noff: %s"):format(#on > 0 and table.concat(on, ", ") or "-", #off > 0 and table.concat(off, ", ") or "-")
+end
+
 local function Complete(t)
     local payload = ns.Unpack(table.concat(t.chunks))
     if not payload then
         ns.Print("%sCould not unpack|r the settings from %s (sent compressed, but this client can't decompress).", BAD, Name(t.who))
         Answer(t, "BAD")
+        return
+    end
+
+    local statesBody = payload:match("^MMTS1:(.*)$")
+    if statesBody then
+        local states = ns.Deserialize(statesBody)
+        if type(states) ~= "table" then
+            ns.Print("%sCould not read|r the module states from %s.", BAD, Name(t.who))
+            Answer(t, "BAD")
+            return
+        end
+        ns.Print("%sReceived|r the module on/off states from %s completely.", OK, Name(t.who))
+        Answer(t, "RECV")
+        AskOrAccept(("%s wants to switch your modules on and off as on their client.\n\n%s"):format(t.who, StatesText(states)),
+            ("Module states from %s"):format(Name(t.who)),
+            function()
+                ReportStates(t.who, ns.ApplyModuleStates(states))
+                Answer(t, "ACCEPT")
+            end,
+            function()
+                ns.Print("Module states from %s declined.", Name(t.who))
+                Answer(t, "DECLINE")
+            end)
         return
     end
     local label = KindLabel(t.kind, t.profile)
@@ -385,7 +440,7 @@ local function Complete(t)
         return
     end
 
-    local name, data = ns.ParseExport(payload)
+    local name, data, states = ns.ParseExport(payload)
     if not name then
         ns.Print("%sCould not read|r the settings from %s.", BAD, Name(t.who))
         Answer(t, "BAD")
@@ -395,11 +450,13 @@ local function Complete(t)
     ns.Print("%sReceived|r the %s from %s completely.", OK, label, Name(t.who))
     Answer(t, "RECV")
     -- own dialog instead of Blizzard's StaticPopup (taint)
-    AskOrAccept(("%s wants to share the MMT core settings (profile \"%s\") with you: team, roles, XP window incl. position, automations.\n\nAccepting overwrites them in a profile with that name and makes it your active profile. Module settings stay as they are."):format(t.who, name),
+    AskOrAccept(("%s wants to share the MMT core settings (profile \"%s\") with you: team, roles, XP window incl. position, automations%s.\n\nAccepting overwrites them in a profile with that name and makes it your active profile. Module settings stay as they are."):format(
+            t.who, name, states and ", and which modules are on or off" or ""),
         ("Core settings from %s"):format(Name(t.who)),
         function()
             if ns.ImportCoreSettings(name, data) then
                 ns.Print("Core settings (profile \"%s\") from %s imported and activated.", name, Name(t.who))
+                if states then ReportStates(t.who, ns.ApplyModuleStates(states)) end
                 Answer(t, "ACCEPT")
             end
         end,
