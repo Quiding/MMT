@@ -66,16 +66,19 @@ local function GroupMembers()
     elseif IsInGroup() then
         for i = 1, (GetNumSubgroupMembers() or 0) do units[#units + 1] = "party" .. i end
     end
+    local guild = {}   -- [normKey] = in my guild
     for _, unit in ipairs(units) do
         if UnitExists(unit) and not UnitIsUnit(unit, "player") then
             local name = ns.NameFromGUID(ns.Safe(UnitGUID, unit), ns.Safe(UnitName, unit))
             if name and name ~= "?" then
                 local key = ns.Resolve(name)
-                list[key and ns.NormKey(key) or ns.NormKey(name)] = key and ns.FullDisplay(key) or name
+                local nk = key and ns.NormKey(key) or ns.NormKey(name)
+                list[nk] = key and ns.FullDisplay(key) or name
+                guild[nk] = UnitIsInMyGuild and ns.Safe(UnitIsInMyGuild, unit) and true or false
             end
         end
     end
-    return list
+    return list, guild
 end
 
 local function NameKey(sender) return ns.NormKey(ns.StripRealm(sender or "")) end
@@ -127,6 +130,7 @@ local function ReportMissing(s)
     end
 end
 
+-- payload: the text, or function(allInGuild) returning it (and a new label)
 local function Start(kind, label, payload)
     if session and not session.finished then
         ns.Print("A sync is still being sent (%d of %d messages). Please wait a moment.", session.sent, session.total)
@@ -137,8 +141,10 @@ local function Start(kind, label, payload)
     local channel = GroupChannel()
     local expected, order = {}, {}
     local whisperName = {}   -- [nk] = name to whisper
+    local guildOf = {}       -- [nk] = in my guild
     if channel then
-        for nk, name in pairs(GroupMembers()) do expected[nk] = name; whisperName[nk] = name end
+        local members, guild = GroupMembers()
+        for nk, name in pairs(members) do expected[nk] = name; whisperName[nk] = name; guildOf[nk] = guild[nk] end
     end
     local whisper = {}
     for key in pairs(ns.db.team) do
@@ -159,6 +165,21 @@ local function Start(kind, label, payload)
     if #order == 0 then
         ns.Print("Nobody to send the %s to: you are not in a group and no team member is online.", label)
         return false
+    end
+
+    -- guild mode and every recipient in the guild: the payload may carry more
+    if type(payload) == "function" then
+        local all = ns.GuildMode()
+        if all then
+            for key in pairs(ns.db.team) do
+                local nk = ns.NormKey(key)
+                if expected[nk] and ns.guildRoster[key] then guildOf[nk] = true end
+            end
+            for _, nk in ipairs(order) do if not guildOf[nk] then all = false end end
+        end
+        local newLabel
+        payload, newLabel = payload(all)
+        label = newLabel or label
     end
 
     local id = tostring(math.random(100000, 999999))
@@ -239,9 +260,17 @@ local function Start(kind, label, payload)
     return true
 end
 
+-- core settings and the on/off state of the modules; with the guild channel
+-- and every recipient in the guild also the settings of the modules
 function ns.SendProfileToTeam()
     if not ns.db then return end
-    return Start("core", KindLabel("core", ns.CurrentProfileName()), ns.ExportCoreSettings())
+    return Start("core", KindLabel("core", ns.CurrentProfileName()), function(allInGuild)
+        if allInGuild then
+            ns.Print("Everybody is in your guild: sending the module settings too.")
+            return ns.ExportCoreSettings(true), ("all settings (profile \"%s\")"):format(ns.CurrentProfileName())
+        end
+        return ns.ExportCoreSettings(false)
+    end)
 end
 
 -- the on/off state of every module (Modules page, /mmt sync modules)
@@ -440,7 +469,7 @@ local function Complete(t)
         return
     end
 
-    local name, data, states = ns.ParseExport(payload)
+    local name, data, states, moduleSettings = ns.ParseExport(payload)
     if not name then
         ns.Print("%sCould not read|r the settings from %s.", BAD, Name(t.who))
         Answer(t, "BAD")
@@ -450,13 +479,22 @@ local function Complete(t)
     ns.Print("%sReceived|r the %s from %s completely.", OK, label, Name(t.who))
     Answer(t, "RECV")
     -- own dialog instead of Blizzard's StaticPopup (taint)
-    AskOrAccept(("%s wants to share the MMT core settings (profile \"%s\") with you: team, roles, XP window incl. position, automations%s.\n\nAccepting overwrites them in a profile with that name and makes it your active profile. Module settings stay as they are."):format(
-            t.who, name, states and ", and which modules are on or off" or ""),
+    AskOrAccept(("%s wants to share the MMT core settings (profile \"%s\") with you: team, roles, XP window incl. position, automations%s.\n\nAccepting overwrites them in a profile with that name and makes it your active profile.%s"):format(
+            t.who, name, moduleSettings and ", which modules are on or off, and the settings of the modules"
+                or (states and ", and which modules are on or off" or ""),
+            moduleSettings and "" or " Module settings stay as they are."),
         ("Core settings from %s"):format(Name(t.who)),
         function()
             if ns.ImportCoreSettings(name, data) then
                 ns.Print("Core settings (profile \"%s\") from %s imported and activated.", name, Name(t.who))
                 if states then ReportStates(t.who, ns.ApplyModuleStates(states)) end
+                if moduleSettings then
+                    local n = 0
+                    for modName, settings in pairs(moduleSettings) do
+                        if ns.StoreModuleSettings(modName, settings) then n = n + 1 end
+                    end
+                    ns.Print("Settings of %d %s from %s applied.", n, n == 1 and "module" or "modules", Name(t.who))
+                end
                 Answer(t, "ACCEPT")
             end
         end,

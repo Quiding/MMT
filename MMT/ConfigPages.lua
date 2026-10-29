@@ -193,12 +193,16 @@ ns.RegisterPage("team", "Team", function(page)
     C:Header("Communication")
     local gg, sg = Opt("comm", "guild")
     C:Check("Use guild channel", gg, function(v)
+        if v and not IsInGuild() then
+            ns.Print("\"Use guild channel\" needs a guild: this character isn't in one.")
+            return
+        end
         sg(v)
         if v and ns.ReadGuildRoster then
             ns.ReadGuildRoster()
             if C_GuildInfo and C_GuildInfo.GuildRoster then C_GuildInfo.GuildRoster() end
         end
-    end, "One message on the guild channel reaches every team member in your guild, grouped or not, and the guild roster shows who is online. Team members outside the guild still get whispers. Every guild member running MMT receives the messages too (and ignores them). Turn it on on every client.")
+    end, "One message on the guild channel reaches every team member in your guild, grouped or not, and the guild roster shows who is online. Team members outside the guild still get whispers. Every guild member running MMT receives the messages too (and ignores them). Turn it on on every client. Needs a guild; switched off at login when this character isn't in one. With it, /mmt sync also sends the settings of the modules when everybody is in your guild.")
     local gf, sf = Opt("comm", "fast")
     C:Check("Faster sending (1200 bytes/s)", gf, sf,
         "Large transfers (settings sync, item and quest data) go out at up to 1200 instead of 800 bytes per second. Faster, but very large amounts at once can get a client disconnected.")
@@ -1378,7 +1382,7 @@ ns.RegisterPage("profiles", "Profiles", function(page)
     col:Add(status, UI.ROW)
 
     local syncButton = UI.SyncButton(page, "Sync to team", function() ns.SendProfileToTeam() end, "Sync core settings",
-        "Same as /mmt sync: sends the core settings of the active profile (team, roles, XP window incl. its position, automations, distance window) to your group and online team members. Each of them gets a dialog to accept them (or accepts on its own, see the option beside this button). Module settings are not included: every module page has its own Sync button.")
+        "Same as /mmt sync: sends the core settings of the active profile (team, roles, XP window incl. its position, automations, distance window) and which modules are on or off to your group and online team members. With \"Use guild channel\" and every recipient in your guild, the settings of the modules go along too; otherwise every module page has its own Sync button. Each recipient gets a dialog to accept them (or accepts on its own, see the option beside this button).")
     local autoAccept = UI.Check(page, 250, "Auto-accept synced settings",
         function() return MMTDB.autoAcceptSync and true or false end,
         function(v) MMTDB.autoAcceptSync = v or nil end,

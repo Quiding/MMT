@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.34: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.35: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -285,8 +285,9 @@ Saved data from MMT 0.1.x is converted automatically.
   transfer starts and when it is complete, then a dialog to accept it. "Auto-accept
   synced settings" (beside the button) applies core and module settings from team
   members without the dialog; it is stored per account and never synced.
-  `/mmt sync` also sends which modules are on or off; the recipients switch theirs the
-  same way (modules switched on that weren't loaded need a UI reload; modules they don't
+  `/mmt sync` also sends which modules are on or off, and with "Use guild channel" and
+  every recipient in your guild also the settings of the modules (sync = true); the
+  recipients switch their modules the same way (modules switched on that weren't loaded need a UI reload; modules they don't
   have installed are named in chat). Modules page > "Sync to team" (or
   `/mmt sync modules`) sends only the on/off states.
 - **Help**: debug tools with a how-to, and guides for writing modules and using the
@@ -342,7 +343,9 @@ Team abandon is QTAB:<questID>.
   prefix "MMTB", so they never delay the normal messages, and outside instances they go
   by whisper to each team member (whispers aren't throttled there).
 - Team > "Use guild channel": one message on the guild channel reaches every team member
-  in your guild, grouped or not; the guild roster tells who is online. Members outside the
+  in your guild, grouped or not; the guild roster tells who is online. It can only be
+  switched on in a guild, and is switched off (with a chat note) at login when the
+  character isn't in one any more. Members outside the
   guild still get whispers. Every client needs the same setting.
   Large transfers use it too when that is faster: a settings sync goes once on the guild
   channel instead of once per recipient by whisper (from 2 recipients in the guild, when

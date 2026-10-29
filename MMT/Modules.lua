@@ -368,6 +368,18 @@ function ns.ImportModuleSettings(name, data, from)
     return true
 end
 
+-- settings of a module that isn't loaded here (switched on, loads after a
+-- reload): kept in the profile, values the sender left out stay as they were
+function ns.StoreModuleSettings(name, data)
+    if type(data) ~= "table" then return false end
+    if ns.modules[name] then return ns.ImportModuleSettings(name, data) end
+    ns.db.modules = ns.db.modules or {}
+    local old = ns.db.modules[name] or {}
+    for k, v in pairs(old) do if data[k] == nil then data[k] = v end end
+    ns.db.modules[name] = data
+    return true
+end
+
 function ns.ModuleActive(name)
     local m = ns.modules[name]
     return m and m.enabled or false

@@ -400,6 +400,23 @@ end
 ns.ReadGuildRoster = ReadRoster
 
 ns.On("GUILD_ROSTER_UPDATE", function() if ns.db and ns.db.comm and ns.db.comm.guild then ReadRoster() end end)
+
+-- guild mode without a guild (left it, or a profile from another character):
+-- checked after login (the guild is known a moment later), switched off with a note
+ns.OnLogin(function()
+    local function Check(final)
+        if not (ns.db and ns.db.comm and ns.db.comm.guild) or IsInGuild() then return end
+        if not final then
+            if C_GuildInfo and C_GuildInfo.GuildRoster then C_GuildInfo.GuildRoster() elseif GuildRoster then GuildRoster() end
+            C_Timer.After(15, function() Check(true) end)
+            return
+        end
+        ns.db.comm.guild = false
+        ns.Print("\"Use guild channel\" is off now: this character isn't in a guild (Team page).")
+        ns.Refresh()
+    end
+    C_Timer.After(15, function() Check(false) end)
+end)
 ns.OnLogin(function()
     C_Timer.NewTicker(60, function()
         if ns.GuildMode() then

@@ -421,7 +421,8 @@ function ns.ParseExport(str)
     local t = ns.Deserialize(body)
     if type(t) ~= "table" then return nil end
     if type(t.name) == "string" and type(t.data) == "table" then
-        return t.name, t.data, type(t.modules) == "table" and t.modules or nil
+        return t.name, t.data, type(t.modules) == "table" and t.modules or nil,
+            type(t.moduleSettings) == "table" and t.moduleSettings or nil
     end
     if t.team or t.xp then return "Imported", t end -- 2.0.0 test build strings
     return nil
@@ -441,14 +442,21 @@ end
 
 -- Core settings only (team sync): the active profile without the settings
 -- of modules. Window positions (XP, distance) are part of it.
-function ns.ExportCoreSettings()
+-- withModules: also the settings of the modules that share theirs (sync = true);
+-- the team sync adds them when every recipient is in the guild (guild channel)
+function ns.ExportCoreSettings(withModules)
     local data = {}
     for k, v in pairs(ns.db) do
         if k ~= "modules" then data[k] = Copy(v) end
     end
+    local moduleSettings
+    if withModules and ns.SyncableModules then
+        moduleSettings = {}
+        for _, m in ipairs(ns.SyncableModules()) do moduleSettings[m.name] = m:SyncData() end
+    end
     -- the on/off state of the modules goes along (applied, not stored in the profile)
     return "MMT1:" .. ns.Serialize({ name = ns.CurrentProfileName(), data = data, core = true,
-        modules = ns.ModuleStates and ns.ModuleStates() or nil })
+        modules = ns.ModuleStates and ns.ModuleStates() or nil, moduleSettings = moduleSettings })
 end
 
 -- Stores core settings under name and activates that profile. The module
