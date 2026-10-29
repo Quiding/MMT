@@ -42,7 +42,7 @@ local function Count(name, guid, source)
     c.killTotal = (c.killTotal or 0) + 1
     sources[source] = sources[source] + 1
     M:Debug("kill %s (%s)", name, source)
-    mod.SendSoon(60)
+    mod.SendSoon()
     if mod.Redraw then mod.Redraw() end
 end
 
@@ -131,7 +131,7 @@ M:On("PLAYER_DEAD", function()
     c.deathTotal = (c.deathTotal or 0) + 1
     sources.deaths = sources.deaths + 1
     M:Debug("killed by %s", name)
-    mod.SendSoon(30)
+    mod.SendSoon()
     if mod.Redraw then mod.Redraw() end
 end)
 

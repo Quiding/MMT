@@ -11,7 +11,8 @@
 -- the account, its top kills and killers); the others keep the latest one
 -- per account, together with the team member that sent it ("account of X").
 --
--- Messages (long texts via MMT.SendLong, compressed when the client can):
+-- Messages (long texts via MMT.SendLong, compressed when the client can;
+-- never in combat, at most every few minutes: see "Sending" below):
 --   STA:<packed summary>   this account's summary
 --   STQ                    please send your summary
 --
@@ -33,6 +34,7 @@ local M = MMT.NewModule({
         money       = "SHORT",  -- SHORT 5g 32s 1c | GOLD 5g | COINS icons
         chartScope  = "TEAM",   -- TEAM | ACCOUNT | ALL | acc:<id>
         killScope   = "TEAM",
+        sendEvery   = 5,        -- minutes: at most one summary per this time
     },
 })
 mod.M = M
@@ -283,19 +285,62 @@ function mod.SendSummary()
     MMT.SendLong("STA:" .. MMT.Pack(MMT.Serialize(summary)))
 end
 
-local pending = false
-function mod.SendSoon(delay)
-    if pending then return end
-    pending = true
-    C_Timer.After(delay or 5, function()
-        pending = false
-        mod.SendSummary()
-    end)
+-- Sending is never real time: a change (gold, a kill, a death) only marks
+-- the summary as changed. It goes out
+--   * never in combat: the next check after combat ends,
+--   * at most once every "sendEvery" minutes (setting, default 5),
+--   * as a large transfer (lowest priority), so it never delays alerts.
+-- An answer to a request (STQ) may come sooner, but at most once a minute.
+local dirty, wanted = false, false   -- changed / someone asked for it
+local lastSent = -math.huge
+local timer
+local ANSWER_GAP = 60
+
+local function InCombat()
+    return (InCombatLockdown and InCombatLockdown()) or MMT.Safe(UnitAffectingCombat, "player") or false
+end
+
+local Check
+local timerAt = 0
+local function Schedule(delay)
+    delay = math.max(1, delay)
+    if timer then
+        if timerAt <= GetTime() + delay then return end   -- an earlier check is already planned
+        timer:Cancel()
+    end
+    timerAt = GetTime() + delay
+    timer = C_Timer.NewTimer(delay, function() timer = nil Check() end)
+end
+
+Check = function()
+    if not (M.enabled and M.db.share) or not (dirty or wanted) then return end
+    if InCombat() then return end   -- PLAYER_REGEN_ENABLED checks again
+    local gap = wanted and ANSWER_GAP or (M.db.sendEvery or 5) * 60
+    local wait = lastSent + gap - GetTime()
+    if wait > 0 then Schedule(wait) return end
+    dirty, wanted = false, false
+    lastSent = GetTime()
+    mod.SendSummary()
+end
+
+-- something changed (answer = a team member asked for it)
+function mod.SendSoon(answer)
+    if answer == true then wanted = true else dirty = true end
+    Schedule(answer == true and 2 or 5)
+end
+
+M:On("PLAYER_REGEN_ENABLED", function() C_Timer.After(3, Check) end)
+
+-- the next summary as soon as allowed (login, sharing switched on)
+function mod.SendNow()
+    wanted = true
+    lastSent = -math.huge
+    Check()
 end
 
 M:Listen("TEAM_MESSAGE", function(key, sender, text)
     if not M.db.share then return end
-    if text == "STQ" then mod.SendSoon(2) return end
+    if text == "STQ" then mod.SendSoon(true) return end
     local body = text:match("^STA:(.*)$")
     if not body then return end
     local plain = MMT.Unpack(body)
@@ -318,7 +363,7 @@ M:Listen("TEAM_MESSAGE", function(key, sender, text)
 end)
 
 -- gold
-M:On("PLAYER_MONEY", function() mod.RecordGold() mod.SendSoon(30) if mod.Redraw then mod.Redraw() end end)
+M:On("PLAYER_MONEY", function() mod.RecordGold() mod.SendSoon() if mod.Redraw then mod.Redraw() end end)
 -- Right after login the money may not be known yet: recorded a moment later.
 -- Not at logout: the client already reports 0 then (every change before is
 -- recorded by PLAYER_MONEY anyway).
@@ -329,7 +374,7 @@ M.OnEnable = function()
     C_Timer.After(3, mod.RecordGold)
     C_Timer.After(8, function()
         if not (M.enabled and M.db.share) then return end
-        mod.SendSummary()
+        mod.SendNow()   -- waits for the end of combat if needed
         MMT.SendToTeam("STQ", true, "NORMAL")
     end)
 end
@@ -347,7 +392,7 @@ M.Report = function(_, add)
     local nChars, nAcc = 0, 0
     for _ in pairs(s.chars) do nChars = nChars + 1 end
     for _ in pairs(s.accounts) do nAcc = nAcc + 1 end
-    add(("-- Statistics 1.0.4  account=%s characters=%d otherAccounts=%d gold=%s kills=%s share=%s"):format(
+    add(("-- Statistics 1.0.5  account=%s characters=%d otherAccounts=%d gold=%s kills=%s share=%s"):format(
         s.accountId, nChars, nAcc, tostring(M.db.trackGold), tostring(M.db.trackKills), tostring(M.db.share)))
     for key, c in pairs(s.chars) do
         local n = 0

@@ -146,7 +146,10 @@ Saved data from MMT 0.1.x is converted automatically.
   - Accounts: every WoW account keeps its own saved variables, so MMT gives each one a
     random id. Clients send a summary of their account to the team (characters with gold
     and kills, daily totals, top kills and killers; compressed when possible) and keep the
-    latest of every other account, named after the team member that sent it.
+    latest of every other account, named after the team member that sent it. Summaries are never
+    sent in real time: a change only marks them as changed; they go out after combat, at
+    most every 5 minutes (Settings tab: 1 to 30), at the lowest priority; answers to a
+    request at most once a minute.
   - Kills: the same table for NPCs killed, the top 10 NPCs killed and the top 3 NPCs that
     killed you, for the same choice of accounts. Kills count where the game lets addons
     see them (NPCs the character fought that died while targeted or with a nameplate, and
