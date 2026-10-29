@@ -606,6 +606,48 @@ local function RightPieces(key, s, arranging)
     return list
 end
 
+-- lining up the pieces: a column per piece (in the pieces' order, notes like "offline" last),
+-- as wide as its widest value; within it left / centred / right (x.pieceAlign)
+local SHIFT = { LEFT = 0, CENTER = 0.5, RIGHT = 1 }
+
+local function ColumnKey(p, n) return p.id or ("_" .. n) end
+
+local function ByKey(frames)
+    local t = {}
+    for n, p in ipairs(frames) do t[ColumnKey(p, n)] = p end
+    return t
+end
+
+-- { key, ... } in order, .width[key], .total (all columns and the gaps between them)
+local function Columns(rowsFrames)
+    local rank = {}
+    for i, e in ipairs(ns.XPPieceOrder()) do rank[e.id] = i end
+    local cols, width = {}, {}
+    for _, frames in ipairs(rowsFrames) do
+        for n, p in ipairs(frames) do
+            local k = ColumnKey(p, n)
+            if not width[k] then cols[#cols + 1] = k; width[k] = 0 end
+            width[k] = math.max(width[k], p:GetWidth())
+        end
+    end
+    table.sort(cols, function(a, b)
+        local ra, rb = rank[a] or (1000 + #a), rank[b] or (1000 + #b)
+        if ra ~= rb then return ra < rb end
+        return a < b
+    end)
+    local total = 0
+    for i, k in ipairs(cols) do total = total + width[k] + (i > 1 and PieceGap() or 0) end
+    cols.width, cols.total = width, total
+    return cols
+end
+
+-- width of one row's pieces side by side
+local function Flow(frames)
+    local w = 0
+    for n, p in ipairs(frames) do w = w + p:GetWidth() + (n > 1 and PieceGap() or 0) end
+    return w
+end
+
 local function Update()
     local x = ns.db.xp
     if not x.enabled or not ns.ready then f:Hide() return end
@@ -615,31 +657,35 @@ local function Update()
     local arranging = ns.xpArrange and true or false
     local h = math.max(x.barHeight, x.size + 4)
     local gap = PieceGap()
+    local lined = x.pieceAlign ~= "OFF"
+    local shift = SHIFT[x.pieceAlign] or 0.5
 
-    -- first pass: the left pieces and the widest set of them (all bars start at the same x)
-    local lefts, leftW, rights, rightW = {}, 0, {}, 0
+    -- first pass: set up the pieces of every row (placed in the second pass)
+    local lefts, rights = {}, {}
     for i, key in ipairs(list) do
         local s = StatusOf(key)
         local row = Row(i)
+        lefts[i], rights[i] = {}, {}
         local pieces = (s.noData and not arranging) and {} or ns.XPPiecesOf("LEFT", key, s, arranging)
-        local w = 0
         for n, piece in ipairs(pieces) do
             local p = PieceFrame(row, n)
             SetPiece(p, piece, "LEFT", h, arranging)
-            w = w + p:GetWidth() + (n > 1 and gap or 0)
+            lefts[i][n] = p
         end
-        lefts[i] = #pieces
-        if w > 0 then leftW = math.max(leftW, w) end
-        -- the pieces on the bar (placed in the second pass), and the widest set of them
-        rights[i] = {}
-        local rw = 0
         for n, piece in ipairs(RightPieces(key, s, arranging)) do
             local p = PieceFrame(row, #pieces + n)
             SetPiece(p, piece, "RIGHT", h, arranging)
             rights[i][n] = p
-            rw = rw + p:GetWidth() + gap
         end
-        rightW = math.max(rightW, rw)
+    end
+    -- lined up: one column per piece, as wide as its widest value; else each row flows on its own
+    local leftCols, rightCols = Columns(lefts), Columns(rights)
+    local leftW, rightW = 0, 0
+    for i = 1, #list do
+        local lw = lined and leftCols.total or Flow(lefts[i])
+        if lw > 0 then leftW = math.max(leftW, lw) end
+        local rw = (lined and x.align == "SPLIT") and rightCols.total or Flow(rights[i])
+        if rw > 0 then rightW = math.max(rightW, rw + gap) end
     end
     local barLeft = leftW > 0 and math.floor(leftW + 10) or 0
     -- wider than set when the pieces and some of the name don't fit (never overlapping)
@@ -680,11 +726,19 @@ local function Update()
         local r, g, b = useClass and cr or A[1], useClass and cg or A[2], useClass and cb or A[3]
 
         -- left pieces (set up in the first pass), left to right
-        local px = 4
-        for n = 1, lefts[i] do
-            local p = row.pieces[n]
-            p:SetPoint("LEFT", row, "LEFT", px, 0)
-            px = px + p:GetWidth() + gap
+        if lined then
+            local px, byKey = 4, ByKey(lefts[i])
+            for _, k in ipairs(leftCols) do
+                local p, cw = byKey[k], leftCols.width[k]
+                if p then p:SetPoint("LEFT", row, "LEFT", px + math.floor((cw - p:GetWidth()) * shift), 0) end
+                px = px + cw + gap
+            end
+        else
+            local px = 4
+            for _, p in ipairs(lefts[i]) do
+                p:SetPoint("LEFT", row, "LEFT", px, 0)
+                px = px + p:GetWidth() + gap
+            end
         end
         row.bar:SetPoint("LEFT", barLeft, 0)
 
@@ -734,7 +788,19 @@ local function Update()
         row.name:SetTextColor(nr, ng, nb)
         row.name:ClearAllPoints()
         local frames = rights[i]
-        if x.align == "SPLIT" then
+        if x.align == "SPLIT" and lined then
+            -- name left, values right in their columns
+            local rx, byKey = -4, ByKey(frames)
+            for c = #rightCols, 1, -1 do
+                local k = rightCols[c]
+                local p, cw = byKey[k], rightCols.width[k]
+                if p then p:SetPoint("RIGHT", row.bar, "RIGHT", rx - math.floor((cw - p:GetWidth()) * (1 - shift)), 0) end
+                rx = rx - cw - gap
+            end
+            row.name:SetJustifyH("LEFT")
+            row.name:SetPoint("LEFT", row.bar, "LEFT", left, 0)
+            row.name:SetPoint("RIGHT", row.bar, "RIGHT", #rightCols > 0 and (rx + gap - 4) or -4, 0)
+        elseif x.align == "SPLIT" then
             -- name left, values right (the name is cut short when it doesn't fit)
             local rx = -4
             for n = #frames, 1, -1 do
@@ -761,7 +827,7 @@ local function Update()
                 cx = cx + p:GetWidth() + gap
             end
         end
-        for n = lefts[i] + #frames + 1, #row.pieces do row.pieces[n]:Hide(); row.pieces[n].id = nil end
+        for n = #lefts[i] + #frames + 1, #row.pieces do row.pieces[n]:Hide(); row.pieces[n].id = nil end
         row:Show()
     end
     for i = #list + 1, #f.rows do f.rows[i]:Hide() end

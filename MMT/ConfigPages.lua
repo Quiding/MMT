@@ -684,6 +684,13 @@ ns.RegisterPage("xp", "XP Window", function(page)
         { value = "CENTER", text = "Center" },
         { value = "RIGHT", text = "Right" },
     }, ga, sa)
+    local gpa, spa = Opt("xp", "pieceAlign")
+    R:Cycle("Line up pieces", {
+        { value = "CENTER", text = "In columns, centred" },
+        { value = "LEFT", text = "In columns, left" },
+        { value = "RIGHT", text = "In columns, right" },
+        { value = "OFF", text = "Off (each row on its own)" },
+    }, gpa, spa)
     local gz, sz = Opt("xp", "size")
     R:Slider("Font size", 8, 24, 1, gz, sz)
     local gw, sw = Opt("xp", "width")

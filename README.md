@@ -74,7 +74,8 @@ Saved data from MMT 0.1.x is converted automatically.
   these is a piece: switch it on or off, put it left of the bar (own column, the bar starts
   at the name) or on the bar, and drag it into place in the XP Window page's list or in the
   window itself ("Arrange" / `/mmt xp arrange`: every piece shows with dots, drag pieces
-  along a row and rows up or down to change the team order). Modules can add pieces
+  along a row and rows up or down to change the team order). "Line up pieces" puts each piece in its own column
+  (centred, left or right in it), so it sits in the same place on every row. Modules can add pieces
   (`MMT.RegisterXPPiece`, CreateModules.md). "Bar shows": experience
   or the reputation of each character's watched faction (standing and %, faction in
   the tooltip). "Layer Hop": when the game
