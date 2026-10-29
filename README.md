@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.29: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.30: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -20,16 +20,19 @@ Saved data from MMT 0.1.x is converted automatically.
 - **Core** (`MMT`, always on): Team, Roles, XP Window, Alerts, FTL, Automations, Trade / Mail / Vendor, Profiles, plus team
   communication, profile sync and debug tools.
 - **Modules** (`MMT_<Name>`, optional): separate addons that build on the core. Loot
-  Distribution and Quest Tracker are on by default, the others off (`## DefaultState:
+  Distribution, Quest Tracker and Statistics are on by default, the others off (`## DefaultState:
   disabled` and `## X-MMT-DefaultState: disabled` in their TOC) until switched on in /mmt > Modules or the AddOns list. They
-  appear in the game's AddOns list and under MODULES in /mmt, where switched-off
-  modules are greyed out. Switching one off in /mmt stops it right away and disables
+  appear in the game's AddOns list and under MODULES in /mmt (header "MODULES (4 of 11)":
+  switched on of installed), switched-on modules first, switched-off ones greyed out below. Switching one off in /mmt stops it right away and disables
   it for the next login; switching one on starts it right away, or after a reload if
   it wasn't loaded. "Manage modules" lists all installed modules with version, author and
   repository link (TOC fields `## Version`, `## Author`, `## X-Repository`; click the link
   to copy it). When a switch needs a UI reload, a "Reload UI" bar appears at the bottom.
-- Modules so far: **Item Compare** (`MMT_ItemCompare`), **Loot Distribution** (`MMT_LootDistribution`),
-  **Quest Tracker** (`MMT_QuestTracker`).
+- Modules so far: **Item Bar** (`MMT_ItemBar`), **Item Compare** (`MMT_ItemCompare`), **Loot
+  Distribution** (`MMT_LootDistribution`), **Quest Tracker** (`MMT_QuestTracker`), **Statistics**
+  (`MMT_Statistics`).
+- Lists that scroll (the page list, module and team lists) show a small arrow at the top or
+  bottom edge while there is more above or below; clicking it scrolls.
 - Settings sync for modules: add `sync = true` to `MMT.NewModule{...}` and the module gets
   a "Sync to team" button in the bottom right of its settings page and `/mmt sync <name>`.
   Only `M.db` is sent (never `M.store`). Optional: `syncExclude = { "key", ... }` for
@@ -127,6 +130,26 @@ Saved data from MMT 0.1.x is converted automatically.
   "MMT - Item Bar"): with key broadcasting one key press uses the item everywhere.
   Small buttons: refresh (sync the bar to the team) and clear (both can be hidden).
   Shift + drag moves the bar, Shift-right-click opens its settings.
+- **Statistics** (module, on by default; `/mmtstats`):
+  - Gold: a table with one row per team member (you first): "This Character", "Other
+    Characters" (every other character on that member's WoW account, in a team or not)
+    and "Combined". The tooltip of a row lists the account's characters. Every character
+    that logs in with MMT records its gold at login, on every change and at logout: one
+    record per day, kept for 60 days, saved per account (not per profile).
+  - A line chart of the combined gold over the last 60 days for "Current team",
+    "Current account", "Account of X" (each account the team sent) or "All accounts";
+    hover a day for its value.
+  - Accounts: every WoW account keeps its own saved variables, so MMT gives each one a
+    random id. Clients send a summary of their account to the team (characters with gold
+    and kills, daily totals, top kills and killers; compressed when possible) and keep the
+    latest of every other account, named after the team member that sent it.
+  - Kills: the same table for NPCs killed, the top 10 NPCs killed and the top 3 NPCs that
+    killed you, for the same choice of accounts. Kills count where the game lets addons
+    see them (combat log kills of the character or its pet, NPCs it fought that died while
+    targeted or with a nameplate, the experience message); a kill seen twice counts once.
+    The killer at death: the NPC that hit last, else one that targeted you.
+  - Settings tab: track gold, track kills and deaths, share with the team, money format
+    (5g 32s 1c, 5g, coin icons), clear this account's statistics, forget other accounts.
 - **Item Compare** (module): set a key, hover an item and press it to see what every team
   member wears in that slot (both slots for rings, trinkets and one-hand weapons),
   with the stat and item level changes if they equipped the hovered item.

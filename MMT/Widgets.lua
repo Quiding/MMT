@@ -338,6 +338,43 @@ end
 -- older name, used all over the settings pages
 UI.Cycle = UI.Dropdown
 
+-- Small arrow ("UP" or "DOWN") at the edge of a scrolling list: shows that
+-- there is more above / below; a click scrolls one step.
+function UI.ScrollArrow(parent, dir, onClick)
+    local b = CreateFrame("Button", nil, parent)
+    b:SetSize(28, 12)
+    b:SetFrameLevel(parent:GetFrameLevel() + 20)
+    -- a chevron from two short lines (no texture file needed)
+    local parts = {}
+    local tip = dir == "UP" and 3 or -3
+    for _, side in ipairs({ -1, 1 }) do
+        local ok, l = pcall(function() return b.CreateLine and b:CreateLine(nil, "OVERLAY") end)
+        if ok and l and l.SetStartPoint then
+            l:SetThickness(2)
+            l:SetColorTexture(1, 1, 1, 1)
+            l:SetStartPoint("CENTER", b, 6 * side, -tip)
+            l:SetEndPoint("CENTER", b, 0, tip)
+            parts[#parts + 1] = l
+        end
+    end
+    if #parts == 0 then   -- no lines on this client: a text arrow
+        local fs = UI.Label(b, dir == "UP" and "^" or "v", "GameFontNormal")
+        fs:SetPoint("CENTER")
+        parts[1] = fs
+    end
+    local function Colour(r, g, bl, a)
+        for _, p in ipairs(parts) do
+            if p.SetVertexColor then p:SetVertexColor(r, g, bl, a) else p:SetTextColor(r, g, bl, a) end
+        end
+    end
+    Colour(A[1], A[2], A[3], 0.9)
+    b:SetScript("OnClick", function() if onClick then onClick() end end)
+    b:SetScript("OnEnter", function() Colour(1, 1, 1, 1) end)
+    b:SetScript("OnLeave", function() Colour(A[1], A[2], A[3], 0.9) end)
+    b:Hide()
+    return b
+end
+
 -- Dropdown with several choices: isOn(value) -> bool, toggle(value). The
 -- button shows the chosen entries (or "None").
 function UI.MultiDropdown(parent, width, text, choices, isOn, toggle)

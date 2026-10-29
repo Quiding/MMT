@@ -214,7 +214,7 @@ end)
   tags are taken by MMT: XP, XP2, BYE, PING, PONG, SYNC, SYNCHI, SYNCACK, EQREQ, EQD,
   EQS, QNQ, QNA, LH, LHGO, LHC, QTREQ, QTS, QTD, QTAB, FOL, CC, TAXI, NOTE, MOUNT,
   DISMOUNT, DEATH, RELEASE, REVIVE, IBS, IBA, IBU, IBC, RMQ, RMA, MPT, FTL, FTLM, SHC,
-  SHQ, and the prefixes `@L:` and `@F:`.
+  SHQ, STA, STQ, and the prefixes `@L:` and `@F:`.
 - **Size:** keep single messages under 250 bytes; use `MMT.SendLong` for more.
 - **Team keys in messages, shown names on screen:** send keys, convert with
   `MMT.ShownName(key)` only when you display them.

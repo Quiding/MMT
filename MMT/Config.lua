@@ -45,6 +45,7 @@ end
 
 local function RefreshNav()
     if not window then return end
+    if window.LayoutNav then window.LayoutNav() end   -- module order and count can change
     for _, tab in ipairs(window.tabs) do tab.Update() end
     for _, wd in ipairs(window.navWidgets) do wd.Refresh() end
 end
@@ -203,7 +204,15 @@ local function Build()
         sign:SetTextColor(A[1], A[2], A[3], 0.8)
         local hl = b:CreateTexture(nil, "HIGHLIGHT")
         hl:SetAllPoints(); hl:SetColorTexture(1, 1, 1, 0.03)
-        b.Update = function() sign:SetText(Collapsed(section) and "+" or "-") end
+        b.Update = function()
+            sign:SetText(Collapsed(section) and "+" or "-")
+            if section == "modules" then
+                -- "MODULES (4 of 11)": switched on of installed
+                local on, total = 0, 0
+                for _, v in pairs(ns.ModuleStates()) do total = total + 1 if v then on = on + 1 end end
+                label:SetText(("%s (%d of %d)"):format(text, on, total))
+            end
+        end
         b:SetScript("OnClick", function()
             MMTDB.navCollapsed = MMTDB.navCollapsed or {}
             MMTDB.navCollapsed[section] = not Collapsed(section) or nil
@@ -212,10 +221,11 @@ local function Build()
         w.tabs[#w.tabs + 1] = b
         Item("head", section, b, NAV_HEAD)
     end
-    local function AddTab(tab, section, target)
+    local function AddTab(tab, section, target, sortOn, sortTitle)
         tab.target = target
         w.tabs[#w.tabs + 1] = tab
         Item("tab", section, tab, NAV_ROW)
+        items[#items].sortOn, items[#items].sortTitle = sortOn, sortTitle
     end
 
     Header("CORE", "core")
@@ -224,10 +234,11 @@ local function Build()
     for _, entry in ipairs(ns.InstalledModules()) do
         local m = entry.module
         local target = (m and pages["mod:" .. m.name]) and ("mod:" .. m.name) or "modules"
-        AddTab(Tab(nav, entry.title, target, function()
+        local function isOn()
             if m then return m.enabled end
             return false
-        end), "modules", target)
+        end
+        AddTab(Tab(nav, entry.title, target, isOn), "modules", target, isOn, entry.title)
     end
     AddTab(Tab(nav, "Manage modules", "modules"), "modules", "modules")
 
@@ -240,6 +251,26 @@ local function Build()
     local thumb = nav:CreateTexture(nil, "OVERLAY")
     thumb:SetColorTexture(A[1], A[2], A[3], 0.6)
     thumb:SetWidth(2)
+    -- arrows at the top / bottom edge while there is more to scroll to
+    local arrowUp = UI.ScrollArrow(nav, "UP", function() nav:GetScript("OnMouseWheel")(nav, 1) end)
+    arrowUp:SetPoint("TOP", nav, "TOP", 0, NAV_TOP + 2)
+    local arrowDown = UI.ScrollArrow(nav, "DOWN", function() nav:GetScript("OnMouseWheel")(nav, -1) end)
+    arrowDown:SetPoint("TOP", nav, "TOP", 0, NAV_TOP - NAV_VIEW - 2)
+
+    -- switched-on modules first, then the others (each by name); "Manage modules" stays last
+    local function SortModules()
+        local first, sorted
+        for i, it in ipairs(items) do
+            if it.sortOn then first = first or i; sorted = sorted or {}; sorted[#sorted + 1] = it end
+        end
+        if not sorted then return end
+        table.sort(sorted, function(a, b)
+            local ao, bo = a.sortOn() and true or false, b.sortOn() and true or false
+            if ao ~= bo then return ao end
+            return a.sortTitle < b.sortTitle
+        end)
+        for k, it in ipairs(sorted) do items[first + k - 1] = it end
+    end
 
     local offset = 0   -- entries scrolled away at the top
     local function Visible()
@@ -270,6 +301,7 @@ local function Build()
         return #list
     end
     LayoutNav = function()
+        SortModules()
         local list = Visible()
         local maxOffset = MaxOffset(list)
         offset = math.max(0, math.min(offset, maxOffset))
@@ -289,6 +321,8 @@ local function Build()
         local scrolls = maxOffset > 0
         track:SetShown(scrolls)
         thumb:SetShown(scrolls)
+        arrowUp:SetShown(offset > 0)
+        arrowDown:SetShown(offset < maxOffset)
         if scrolls then
             local n = #list
             local size = math.max(16, NAV_VIEW * (n - maxOffset) / n)

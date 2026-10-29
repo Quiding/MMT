@@ -56,9 +56,16 @@ local function List(parent, width, rows, rowHeight, makeRow, fillRow)
         row:SetPoint("TOPLEFT", 0, -(i - 1) * rowHeight)
         list.rows[i] = row
     end
+    -- arrows at the top / bottom edge while there is more to scroll to
+    list.up = UI.ScrollArrow(list, "UP", function() list:GetScript("OnMouseWheel")(list, 1) end)
+    list.up:SetPoint("BOTTOM", list, "TOP", 0, -1)
+    list.down = UI.ScrollArrow(list, "DOWN", function() list:GetScript("OnMouseWheel")(list, -1) end)
+    list.down:SetPoint("TOP", list, "BOTTOM", 0, 1)
     function list:Render(data)
         self.data = data
         self.offset = math.max(0, math.min(self.offset, #data - rows))
+        self.up:SetShown(self.offset > 0)
+        self.down:SetShown(self.offset < #data - rows)
         for i, row in ipairs(self.rows) do
             local index = i + self.offset
             if data[index] then
@@ -1239,7 +1246,7 @@ end)
 ---------------------------------------------------------------------------
 ns.RegisterPage("modules", "Modules", function(page)
     local col = UI.Column(page, 0, 0, PAGE_W)
-    col:Header("Installed modules")
+    local header = col:Header("Installed modules")
     col:Note("Modules add features on top of the core. Each one is its own addon (folder MMT_<Name>), so it can also be switched on and off in the game's AddOns list.")
 
     local status
@@ -1390,7 +1397,16 @@ ns.RegisterPage("modules", "Modules", function(page)
         core.text:SetText(("Core: MMT %s%s"):format(v or ns.version, author and ("  by " .. author) or ""))
         core.link:Set(repo, "MMT repository")
 
+        -- switched-on modules first, then the others (each by name)
         local entries = ns.InstalledModules()
+        local function On(e) return ((e.module and e.module.enabled) or (not e.loaded and e.enabled)) and true or false end
+        table.sort(entries, function(a, b)
+            if On(a) ~= On(b) then return On(a) end
+            return a.title < b.title
+        end)
+        local on = 0
+        for _, e in ipairs(entries) do if On(e) then on = on + 1 end end
+        if header and header.SetText then header:SetText(("Installed modules (%d of %d)"):format(on, #entries)) end
         list:Render(entries)
         more:SetText(#entries > ROWS and ("%d modules, scroll for more"):format(#entries) or "")
         none:SetShown(#entries == 0)
