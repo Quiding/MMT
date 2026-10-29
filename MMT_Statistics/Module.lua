@@ -1,7 +1,7 @@
 -- MMT module: Statistics.
 --
 -- Gold: every character on this WoW account that logs in with MMT records
--- its gold (at login, on every change and at logout) in the module's
+-- its gold (after login and on every change; not at logout: 0 there) in the module's
 -- account-wide store, so it doesn't depend on the profile. One record per
 -- day and character, kept for 60 days.
 --
@@ -319,13 +319,14 @@ end)
 
 -- gold
 M:On("PLAYER_MONEY", function() mod.RecordGold() mod.SendSoon(30) if mod.Redraw then mod.Redraw() end end)
--- right after login the money may not be known yet: record again a moment later
-M:On("PLAYER_ENTERING_WORLD", function() mod.RecordGold() C_Timer.After(3, mod.RecordGold) end)
-M:On("PLAYER_LOGOUT", function() mod.RecordGold() end)
+-- Right after login the money may not be known yet: recorded a moment later.
+-- Not at logout: the client already reports 0 then (every change before is
+-- recorded by PLAYER_MONEY anyway).
+M:On("PLAYER_ENTERING_WORLD", function() C_Timer.After(3, mod.RecordGold) end)
 
 M.OnEnable = function()
     Store()
-    mod.RecordGold()
+    C_Timer.After(3, mod.RecordGold)
     C_Timer.After(8, function()
         if not (M.enabled and M.db.share) then return end
         mod.SendSummary()
@@ -346,7 +347,7 @@ M.Report = function(_, add)
     local nChars, nAcc = 0, 0
     for _ in pairs(s.chars) do nChars = nChars + 1 end
     for _ in pairs(s.accounts) do nAcc = nAcc + 1 end
-    add(("-- Statistics 1.0.3  account=%s characters=%d otherAccounts=%d gold=%s kills=%s share=%s"):format(
+    add(("-- Statistics 1.0.4  account=%s characters=%d otherAccounts=%d gold=%s kills=%s share=%s"):format(
         s.accountId, nChars, nAcc, tostring(M.db.trackGold), tostring(M.db.trackKills), tostring(M.db.share)))
     for key, c in pairs(s.chars) do
         local n = 0

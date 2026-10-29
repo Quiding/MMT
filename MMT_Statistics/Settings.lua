@@ -216,7 +216,7 @@ M.Page = function(_, page)
     local SL = UI.Column(s, 0, 0, COL_W)
     SL:Header("Tracking")
     SL:Check("Track gold", function() return M.db.trackGold end, function(v) M.db.trackGold = v; mod.RecordGold() end,
-        "Records every character's gold at login, on every change and at logout: one record per day, kept for 60 days. Saved per account, not per profile.")
+        "Records every character's gold after login and on every change: one record per day, kept for 60 days. Saved per account, not per profile.")
     SL:Check("Track kills and deaths", function() return M.db.trackKills end, function(v) M.db.trackKills = v end)
     SL:Check("Share with the team", function() return M.db.share end, function(v) M.db.share = v; if v then mod.SendSoon(1) end end,
         "Sends a summary of this account (characters with gold and kills, daily totals, top kills) to the team and keeps theirs. Needed for the other accounts in the tables and the chart.")

@@ -138,7 +138,7 @@ Saved data from MMT 0.1.x is converted automatically.
   - Gold: a table with one row per team member (you first): "This Character", "Other
     Characters" (every other character on that member's WoW account, in a team or not)
     and "Combined". The tooltip of a row lists the account's characters. Every character
-    that logs in with MMT records its gold at login, on every change and at logout: one
+    that logs in with MMT records its gold after login and on every change: one
     record per day, kept for 60 days, saved per account (not per profile).
   - A line chart of the combined gold over the last 60 days for "Current team",
     "Current account", "Account of X" (each account the team sent) or "All accounts";
