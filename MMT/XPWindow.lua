@@ -19,7 +19,7 @@ f.bg = f:CreateTexture(nil, "BACKGROUND")
 f.bg:SetAllPoints()
 f.rows = {}
 
--- moving: Shift + drag (unless locked)
+-- moving: Shift + drag, or the move tab (unless locked)
 local dragging, dragEnd = false, 0
 f:SetScript("OnDragStart", function(self)
     if ns.db.xp.locked or not IsShiftKeyDown() then return end
@@ -36,6 +36,56 @@ end)
 -- the window's own border / background: right-click = settings
 f:SetScript("OnMouseUp", function(_, button)
     if button == "RightButton" and GetTime() - dragEnd > 0.2 then ns.ToggleConfig("xp") end
+end)
+
+-- move tab above the top-left corner: while unlocked, it shows when the mouse is over the
+-- window (always while arranging); dragging it moves the window, no Shift needed
+local handle = CreateFrame("Frame", nil, f)
+handle:SetSize(40, 12)
+handle:SetPoint("BOTTOMLEFT", f, "TOPLEFT", 0, 0)
+handle.bg = handle:CreateTexture(nil, "BACKGROUND")
+handle.bg:SetAllPoints()
+handle.bg:SetColorTexture(0, 0, 0, 0.6)
+handle.line = handle:CreateTexture(nil, "BORDER")
+handle.line:SetPoint("TOPLEFT"); handle.line:SetPoint("TOPRIGHT")
+handle.line:SetHeight(1)
+handle.line:SetColorTexture(A[1], A[2], A[3], 0.8)
+for c = 0, 4 do
+    for r = 0, 1 do
+        local d = handle:CreateTexture(nil, "ARTWORK")
+        d:SetSize(2, 2)
+        d:SetPoint("CENTER", (c - 2) * 5, r == 0 and 2 or -2)
+        d:SetColorTexture(1, 1, 1, 0.8)
+    end
+end
+handle:EnableMouse(true)
+handle:RegisterForDrag("LeftButton")
+handle:SetScript("OnDragStart", function()
+    if ns.db.xp.locked then return end
+    dragging = true
+    f:StartMoving()
+end)
+handle:SetScript("OnDragStop", function() f:GetScript("OnDragStop")(f) end)
+handle:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    GameTooltip:SetText("XP window")
+    GameTooltip:AddLine("Drag to move it. Lock its position on the XP Window page.", 1, 1, 1, true)
+    GameTooltip:Show()
+end)
+handle:SetScript("OnLeave", function() GameTooltip:Hide() end)
+handle:Hide()
+f.handle = handle
+
+local function HandleWanted()
+    if ns.db.xp.locked then return false end
+    return dragging or ns.xpArrange or f:IsMouseOver(14, 0, 0, 0) or handle:IsMouseOver()
+end
+local handleCheck = 0
+f:SetScript("OnUpdate", function(_, elapsed)
+    handleCheck = handleCheck + elapsed
+    if handleCheck < 0.15 then return end
+    handleCheck = 0
+    handle:SetShown(HandleWanted() and true or false)
 end)
 
 ---------------------------------------------------------------------------
@@ -254,7 +304,7 @@ local function RowTooltip(row)
     tip:AddLine(ns.IsSelf(key) and "Ctrl-click: character   Ctrl-right-click: talents"
         or "Ctrl-click: inspect   Ctrl-right-click: talents", 0.5, 0.5, 0.5)
     tip:AddLine("Middle-click: invite the whole team", 0.5, 0.5, 0.5)
-    tip:AddLine((ns.db.xp.locked and "" or "Shift-drag: move   ") .. "Shift-right-click: settings", 0.5, 0.5, 0.5)
+    tip:AddLine((ns.db.xp.locked and "" or "Shift-drag or the tab above: move   ") .. "Shift-right-click: settings", 0.5, 0.5, 0.5)
     tip:Show()
 end
 
