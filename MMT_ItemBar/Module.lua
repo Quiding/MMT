@@ -13,7 +13,7 @@
 --     or equips it if that needs no key press (containers, equipment); items
 --     with a spell (potions, food, quest items) can't be used from a message,
 --     their slot lights up there instead,
---   * key bindings per slot (Esc > Options > Keybindings > AddOns): with key
+--   * key bindings per slot (Esc > Options > Keybindings > MMT (Manage My Team)): with key
 --     broadcasting, one key press uses the item on every client.
 --
 -- Messages:
@@ -227,7 +227,7 @@ M.OnSyncReceived = function() if mod.Update then mod.Update() end end
 M.Report = function(_, add)
     local ids = {}
     for slot = 1, mod.MAX_SLOTS do ids[#ids + 1] = tostring(mod.Items()[slot] or "-") end
-    add(("-- Item Bar 1.0.3  slots=%d layout=%s scale=%s items=[%s]"):format(M.db.slots, M.db.layout,
+    add(("-- Item Bar 1.0.4  slots=%d layout=%s scale=%s items=[%s]"):format(M.db.slots, M.db.layout,
         tostring(M.db.scale), table.concat(ids, ",")))
     for key, t in pairs(mod.counts) do
         local parts = {}

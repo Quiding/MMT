@@ -1,0 +1,5 @@
+<Bindings>
+    <Binding name="MMT_STATISTICS" header="MMT_STATISTICS" category="BINDING_CATEGORY_MMT">
+        MMT_ToggleStatistics()
+    </Binding>
+</Bindings>

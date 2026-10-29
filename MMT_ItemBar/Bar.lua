@@ -172,7 +172,7 @@ local function Button(slot)
     _G["BINDING_NAME_CLICK MMTItemBarButton" .. slot .. ":LeftButton"] = "Item Bar slot " .. slot
     return b
 end
-BINDING_HEADER_MMT_ITEMBAR = "MMT - Item Bar"
+BINDING_HEADER_MMT_ITEMBAR = "Item Bar"
 for slot = 1, mod.MAX_SLOTS do Button(slot) end
 
 -- small buttons: refresh (sync) and clear

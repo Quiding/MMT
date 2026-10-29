@@ -4,7 +4,7 @@
 local ADDON, ns = ...
 _G.MMT = ns
 ns.title = "MMT"
-ns.version = "0.9.30"
+ns.version = "0.9.31"
 ns.prefix = "MMT"
 ns.LOGO = "Interface\\AddOns\\MMT\\Media\\Logo"   -- the MMT mark (Media/Logo.tga)
 ns.ICON = "Interface\\AddOns\\MMT\\Media\\Icon"   -- the mark on a dark tile (Media/Icon.tga)
@@ -447,6 +447,19 @@ end
 function ns.OnRefresh(fn) ns.Listen("REFRESH", fn) end
 function ns.Refresh() ns.Fire("REFRESH") end
 function ns.OnLogin(fn) ns.Listen("LOGIN", fn) end
+
+---------------------------------------------------------------------------
+-- Key bindings: one group "MMT (Manage My Team)" in the game's key binding
+-- menu. Core and modules put category="BINDING_CATEGORY_MMT" on their
+-- bindings (Bindings.xml); each addon has its own header in it.
+---------------------------------------------------------------------------
+BINDING_CATEGORY_MMT = "MMT (Manage My Team)"
+ns.BINDING_CATEGORY = "BINDING_CATEGORY_MMT"
+BINDING_HEADER_MMT = "Core"
+BINDING_NAME_MMT_TOGGLE_CONFIG = "Open / close the MMT settings"
+BINDING_NAME_MMT_TOGGLE_XP = "Show / hide the XP window"
+function MMT_ToggleConfig() if ns.ready and ns.ToggleConfig then ns.ToggleConfig() end end
+function MMT_ToggleXPWindow() if ns.ready and ns.ToggleXPWindow then ns.ToggleXPWindow() end end
 
 ---------------------------------------------------------------------------
 -- Debug mode (Help page): ignores the online requirement where MMT shows

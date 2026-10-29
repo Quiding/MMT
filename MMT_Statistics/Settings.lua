@@ -263,6 +263,9 @@ M.Page = function(_, page)
     Show("gold")
 end
 
--- /mmtstats opens the page
+-- /mmtstats and a key (key binding menu > MMT (Manage My Team) > Statistics) open the page
 SLASH_MMTSTATS1 = "/mmtstats"
 SlashCmdList.MMTSTATS = function() MMT.ToggleConfig("mod:Statistics") end
+BINDING_HEADER_MMT_STATISTICS = "Statistics"
+BINDING_NAME_MMT_STATISTICS = "Open / close Statistics"
+function MMT_ToggleStatistics() if M.enabled then MMT.ToggleConfig("mod:Statistics") end end

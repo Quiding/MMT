@@ -101,6 +101,16 @@ end
 -- MMT.RealName(key), MMT.RealFirst(key), MMT.RealLast(key).
 -- Mouseover: MMT.HoverMember(frame, function() return key end).
 
+-- Key bindings: a Bindings.xml in the module folder (not in the TOC) with
+-- category="BINDING_CATEGORY_MMT" puts your keys into the key binding
+-- group "MMT (Manage My Team)". Use your own header (header="MMT_EXAMPLE"
+-- on the first binding; "MMT" is the core's) and set the texts in Lua:
+--   <Binding name="MMT_EXAMPLE_HELLO" header="MMT_EXAMPLE"
+--            category="BINDING_CATEGORY_MMT">MMT_ExampleHello()</Binding>
+BINDING_HEADER_MMT_EXAMPLE = "Example"
+BINDING_NAME_MMT_EXAMPLE_HELLO = "Say hello"
+function MMT_ExampleHello() if M.enabled then MMT.Print("Hello!") end end
+
 -- Useful core functions: MMT.Print, M:Debug, MMT.SortedMembers(),
 -- MMT.IsOnline(key), MMT.IsSelf(key), MMT.PlayerFull(),
 -- MMT.UI (widgets), MMT.Listen("PROFILE_CHANGED", fn)

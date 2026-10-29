@@ -211,7 +211,6 @@ end
 function MMT_FTL_SetLeader()
     if ns.ready and ns.db and ns.db.ftl.enabled then ns.ClaimFTLLeader() end
 end
-BINDING_HEADER_MMT = BINDING_HEADER_MMT or "MMT - Manage My Team"
 BINDING_NAME_MMT_FTL_LEADER = "Make this character the leader (FTL)"
 
 ns.Listen("TEAM_MESSAGE", function(key, sender, text)

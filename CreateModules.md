@@ -60,6 +60,49 @@ M.OnEnable = function(self) end   -- switched on (also at login)
 M.OnDisable = function(self) end  -- switched off: hide frames, stop timers
 ```
 
+## Key bindings
+
+MMT has its own group in the game's key binding menu (Esc > Options > Keybindings >
+"MMT (Manage My Team)"). Every addon in it has its own header: "Core", "Item Compare",
+"Item Bar", "Statistics", ... Put your module's keys there too:
+
+1. Add a `Bindings.xml` to the module folder. Don't list it in the TOC: the game loads it
+   on its own.
+2. Give every binding `category="BINDING_CATEGORY_MMT"` (the core sets its title).
+3. Give the first binding a header of your own, `MMT_<NAME>`. A header name may exist only
+   once in the game, so never use `header="MMT"` (that one belongs to the core).
+4. Set the texts in Lua: `BINDING_HEADER_MMT_<NAME>` for the header and
+   `BINDING_NAME_<binding name>` for each key.
+
+`MMT_Example/Bindings.xml`:
+
+```xml
+<Bindings>
+    <Binding name="MMT_EXAMPLE_HELLO" header="MMT_EXAMPLE" category="BINDING_CATEGORY_MMT">
+        MMT_ExampleHello()
+    </Binding>
+    <!-- a key that clicks a secure button (needed to use items or cast spells) -->
+    <Binding name="CLICK MMTExampleButton:LeftButton" category="BINDING_CATEGORY_MMT"/>
+</Bindings>
+```
+
+In `Module.lua`:
+
+```lua
+BINDING_HEADER_MMT_EXAMPLE = "Example"
+BINDING_NAME_MMT_EXAMPLE_HELLO = "Say hello to the team"
+_G["BINDING_NAME_CLICK MMTExampleButton:LeftButton"] = "Example button"
+
+function MMT_ExampleHello()   -- global: the binding calls it
+    if M.enabled then MMT.SendToTeam("EXHELLO", true) end
+end
+```
+
+With `runOnUp="true"` the function also runs when the key is released and gets
+`keystate` ("down" or "up"), e.g. for "hold to show" keys: see `MMT_ItemCompare`.
+
+A new or changed `Bindings.xml` is only read at a full game restart.
+
 ## Module API
 
 | Field or function | What it is |

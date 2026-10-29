@@ -1,7 +1,15 @@
 <Bindings>
-    <!-- Key bindings of the core. Modules bring their own Bindings.xml with their OWN header
+    <!-- All MMT keys sit in their own group of the key binding menu:
+         category="BINDING_CATEGORY_MMT" (title "MMT (Manage My Team)", set in Core.lua).
+         Modules use the same category in their own Bindings.xml with their OWN header
          (e.g. header="MMT_ITEMCOMPARE"): a header name may exist only once in the game. -->
-    <Binding name="MMT_FTL_LEADER" header="MMT" category="ADDONS">
+    <Binding name="MMT_TOGGLE_CONFIG" header="MMT" category="BINDING_CATEGORY_MMT">
+        MMT_ToggleConfig()
+    </Binding>
+    <Binding name="MMT_TOGGLE_XP" category="BINDING_CATEGORY_MMT">
+        MMT_ToggleXPWindow()
+    </Binding>
+    <Binding name="MMT_FTL_LEADER" category="BINDING_CATEGORY_MMT">
         MMT_FTL_SetLeader()
     </Binding>
 </Bindings>

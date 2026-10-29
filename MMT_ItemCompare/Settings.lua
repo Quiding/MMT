@@ -68,7 +68,7 @@ M.Page = function(_, page)
         status.Show_(ok and (msg or ("Item Compare is now on " .. GetBindingText(combo) .. ".")) or msg, not ok)
         StopCapture()
     end)
-    UI.Tooltip(keyButton, "Item Compare key", "Click, then press the key you want (Alt, Ctrl and Shift combinations work). Right-click removes it. Also in Esc > Options > Keybindings > AddOns.")
+    UI.Tooltip(keyButton, "Item Compare key", "Click, then press the key you want (Alt, Ctrl and Shift combinations work). Right-click removes it. Also in Esc > Options > Keybindings > MMT (Manage My Team).")
     L:Add(keyButton, UI.ROW + 2)
 
     local gm, sm = Opt("mode")

@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.30: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.31: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -39,6 +39,10 @@ Saved data from MMT 0.1.x is converted automatically.
   settings that stay on each client, `M.OnSyncReceived(m, from)` after settings arrived,
   `M:SyncToTeam()` and `M:SyncButton(frame)` for windows of your own. Example on /mmt > Help.
 - A new module folder needs a full game restart (not just /reload) before the game lists it.
+- Key bindings: Esc > Options > Keybindings > "MMT (Manage My Team)" holds every MMT key,
+  one header per addon: Core (open the settings, show / hide the XP window, make this
+  character the FTL leader), Item Compare, Item Bar (one key per slot), Statistics (open
+  it). Modules add theirs with `category="BINDING_CATEGORY_MMT"` (CreateModules.md).
 - Writing your own module: see [CreateModules.md](CreateModules.md) (team management
   API, team communication, two complete examples).
 
@@ -126,8 +130,8 @@ Saved data from MMT 0.1.x is converted automatically.
   here; right-click uses it here and on the team: items without a spell (bags, clams,
   equipment) are used on the others too, items with a spell (potions, food, quest items)
   light up there, because WoW lets an addon use those only on a click or key press on
-  that client. Every slot has a key binding (Esc > Options > Keybindings > AddOns >
-  "MMT - Item Bar"): with key broadcasting one key press uses the item everywhere.
+  that client. Every slot has a key binding (Esc > Options > Keybindings > MMT (Manage My Team) >
+  Item Bar): with key broadcasting one key press uses the item everywhere.
   Small buttons: refresh (sync the bar to the team) and clear (both can be hidden).
   Shift + drag moves the bar, Shift-right-click opens its settings.
 - **Statistics** (module, on by default; `/mmtstats`):
@@ -304,7 +308,7 @@ Each client stores the team's equipped items (account-wide, so offline members a
 shown with the age of their data). Only item strings are sent, never tooltips:
 the core heartbeat carries a hash of your gear, a member with an outdated copy asks
 once for a snapshot, and gear changes send only the changed slots.
-The key can also be set in Esc > Options > Keybindings > AddOns > MMT.
+The key can also be set in Esc > Options > Keybindings > MMT (Manage My Team) > Item Compare.
 
 ## Quest Tracker data
 Every client keeps the team's quest logs (quest ID, level, zone, title, objective
