@@ -209,7 +209,7 @@ M.Page = function(_, page)
     R:Header("Top 3 killed by NPC")
     local killers = RankList(k, COL_W, 3)
     R:Add(killers, 3 * 18 + 8)
-    R:Note("Kills count where the game lets MMT see them: kills of this character or its pet, NPCs it fought that died, and the experience message. Deaths count the NPC that hit last or targeted you.")
+    R:Note("Kills count where the game lets MMT see them: NPCs this character fought that died (targeted or with a nameplate) and the experience message. Deaths count the NPC that targeted you.")
 
     -- Settings -----------------------------------------------------------------
     local s = panels.settings

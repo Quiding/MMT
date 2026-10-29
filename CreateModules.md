@@ -264,6 +264,9 @@ end)
 - **Combat:** in combat many unit values are secret in this client and can't be
   compared. Wrap risky calls in `MMT.Safe(fn, ...)`, and don't change secure frames
   (action buttons, macros) in combat.
+- **Combat log:** `COMBAT_LOG_EVENT_UNFILTERED` is reserved for the Blizzard UI on this
+  client; registering it gets MMT blocked ("only available to the Blizzard UI").
+  `M:On` skips it.
 
 ## Example 1: Team ready check
 

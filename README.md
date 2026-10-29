@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.31: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.32: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -149,9 +149,10 @@ Saved data from MMT 0.1.x is converted automatically.
     latest of every other account, named after the team member that sent it.
   - Kills: the same table for NPCs killed, the top 10 NPCs killed and the top 3 NPCs that
     killed you, for the same choice of accounts. Kills count where the game lets addons
-    see them (combat log kills of the character or its pet, NPCs it fought that died while
-    targeted or with a nameplate, the experience message); a kill seen twice counts once.
-    The killer at death: the NPC that hit last, else one that targeted you.
+    see them (NPCs the character fought that died while targeted or with a nameplate, and
+    the experience message; the combat log is reserved for the Blizzard UI on WoW:
+    Forever); a kill seen twice counts once. The killer at death: the hostile target that
+    targeted you, else an NPC nameplate that did.
   - Settings tab: track gold, track kills and deaths, share with the team, money format
     (5g 32s 1c, 5g, coin icons), clear this account's statistics, forget other accounts.
 - **Item Compare** (module): set a key, hover an item and press it to see what every team

@@ -1,24 +1,23 @@
 -- MMT Statistics: NPCs killed and NPCs that killed this character.
 --
 -- WoW: Forever hides some combat information from addons (secret values),
--- so kills are picked up from several sources; whatever the client allows
--- counts, and a kill seen by two sources counts once:
---   1. the combat log: PARTY_KILL by this character or its pet,
---   2. NPCs this character was in combat with (threat) that die while they
+-- and the combat log is reserved for the Blizzard UI (registering
+-- COMBAT_LOG_EVENT_UNFILTERED gets the addon blocked). So kills come from:
+--   1. NPCs this character was in combat with (threat) that die while they
 --      are its target or have a nameplate, and that it (or its group) tapped,
---   3. the experience message "X dies, you gain N experience.".
--- The killer at death: the NPC that hit last (combat log), else the hostile
--- target that targets this character, else an NPC nameplate that does.
+--   2. the experience message "X dies, you gain N experience.".
+-- A kill seen by both counts once.
+-- The killer at death: the hostile target that targets this character, else
+-- an NPC nameplate that does.
 
 local _, mod = ...
 local MMT = MMT
 local M = mod.M
 
 local Safe, IsSecret = MMT.Safe, MMT.IsSecret
-local sources = { cleu = 0, threat = 0, xp = 0, deaths = 0 }   -- debug report
+local sources = { threat = 0, xp = 0, deaths = 0 }   -- debug report
 local recent = {}       -- [name] = { t, guid }: the same kill from another source
 local engaged = {}      -- [guid] = name: NPCs in combat with this character
-local lastHit           -- { name, t }: the NPC that hit this character last
 
 local function Plain(v) if v == nil or IsSecret(v) then return nil end return v end
 
@@ -48,28 +47,7 @@ local function Count(name, guid, source)
 end
 
 ---------------------------------------------------------------------------
--- 1. Combat log
----------------------------------------------------------------------------
-local DAMAGE = { SWING_DAMAGE = true, RANGE_DAMAGE = true, SPELL_DAMAGE = true, SPELL_PERIODIC_DAMAGE = true }
-M:On("COMBAT_LOG_EVENT_UNFILTERED", function()
-    if not CombatLogGetCurrentEventInfo then return end
-    local ok, _, sub, _, srcGUID, srcName, _, _, dstGUID, dstName = pcall(CombatLogGetCurrentEventInfo)
-    if not ok then return end
-    sub = Plain(sub)
-    if not sub then return end
-    local me = Safe(UnitGUID, "player")
-    if sub == "PARTY_KILL" then
-        local src = Plain(srcGUID)
-        if src and (src == me or src == Safe(UnitGUID, "pet")) and IsNPCGuid(dstGUID) then
-            Count(dstName, dstGUID, "cleu")
-        end
-    elseif DAMAGE[sub] and Plain(dstGUID) == me and IsNPCGuid(srcGUID) and Plain(srcName) then
-        lastHit = { name = Plain(srcName), t = GetTime() }
-    end
-end)
-
----------------------------------------------------------------------------
--- 2. Threat: NPCs in combat with this character that die
+-- 1. Threat: NPCs in combat with this character that die
 ---------------------------------------------------------------------------
 local function Watch(unit)
     if not M.db.trackKills or not Safe(UnitExists, unit) or Safe(UnitIsPlayer, unit) then return end
@@ -106,7 +84,7 @@ M:On("PLAYER_REGEN_ENABLED", function()
 end)
 
 ---------------------------------------------------------------------------
--- 3. Experience message
+-- 2. Experience message
 ---------------------------------------------------------------------------
 local xpPattern
 local function XPPattern()
@@ -136,7 +114,6 @@ local function TargetsMe(unit)
 end
 
 local function Killer()
-    if lastHit and GetTime() - lastHit.t < 10 then return lastHit.name end
     if TargetsMe("target") then return Safe(UnitName, "target") end
     for i = 1, 40 do
         local unit = "nameplate" .. i
@@ -153,7 +130,6 @@ M:On("PLAYER_DEAD", function()
     c.deaths[name] = (c.deaths[name] or 0) + 1
     c.deathTotal = (c.deathTotal or 0) + 1
     sources.deaths = sources.deaths + 1
-    lastHit = nil
     M:Debug("killed by %s", name)
     mod.SendSoon(30)
     if mod.Redraw then mod.Redraw() end
@@ -177,6 +153,6 @@ function mod.TopList(scope, field, n)
 end
 
 function mod.KillReport(add)
-    add(("  kill sources: combat log %d, threat %d, xp message %d; deaths %d; xp pattern %s"):format(
-        sources.cleu, sources.threat, sources.xp, sources.deaths, tostring(XPPattern())))
+    add(("  kill sources: threat %d, xp message %d; deaths %d; xp pattern %s"):format(
+        sources.threat, sources.xp, sources.deaths, tostring(XPPattern())))
 end
