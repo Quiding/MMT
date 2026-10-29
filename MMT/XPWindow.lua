@@ -275,6 +275,8 @@ marker.tex:SetColorTexture(1, 0.82, 0, 1)
 marker:Hide()
 
 local function PieceGap() return math.max(4, math.floor(ns.db.xp.size * 0.5)) end
+local NAME_ROOM = 60   -- the name always gets at least this much of the bar
+local rowWidth = 325   -- the rows' width at the last redraw: the set width, or more when the pieces need it
 
 local function Cursor()
     local scale = f:GetEffectiveScale()
@@ -360,7 +362,7 @@ local function ShowMarker()
         local beforeKey, row, last = RowTarget()
         if RowNoMove(d, beforeKey) or not (row or last) then marker:Hide() return end
         local half = Gap() / 2
-        marker:SetSize(x.width, 2)
+        marker:SetSize(rowWidth, 2)
         if row then marker:SetPoint("CENTER", row, "TOP", 0, half)
         else marker:SetPoint("CENTER", last, "BOTTOM", 0, -half) end
     end
@@ -615,7 +617,7 @@ local function Update()
     local gap = PieceGap()
 
     -- first pass: the left pieces and the widest set of them (all bars start at the same x)
-    local lefts, leftW = {}, 0
+    local lefts, leftW, rights, rightW = {}, 0, {}, 0
     for i, key in ipairs(list) do
         local s = StatusOf(key)
         local row = Row(i)
@@ -628,9 +630,21 @@ local function Update()
         end
         lefts[i] = #pieces
         if w > 0 then leftW = math.max(leftW, w) end
+        -- the pieces on the bar (placed in the second pass), and the widest set of them
+        rights[i] = {}
+        local rw = 0
+        for n, piece in ipairs(RightPieces(key, s, arranging)) do
+            local p = PieceFrame(row, #pieces + n)
+            SetPiece(p, piece, "RIGHT", h, arranging)
+            rights[i][n] = p
+            rw = rw + p:GetWidth() + gap
+        end
+        rightW = math.max(rightW, rw)
     end
     local barLeft = leftW > 0 and math.floor(leftW + 10) or 0
-    local barWidth = math.max(20, x.width - barLeft)
+    -- wider than set when the pieces and some of the name don't fit (never overlapping)
+    rowWidth = math.max(x.width, math.ceil(barLeft + 4 + NAME_ROOM + rightW + 4))
+    local barWidth = math.max(20, rowWidth - barLeft)
     local rep = x.barMode == "REP"
 
     for i, key in ipairs(list) do
@@ -642,7 +656,7 @@ local function Update()
         row.grip:SetShown(arranging)
         row:ClearAllPoints()
         row:SetPoint("TOPLEFT", PAD + (arranging and 10 or 0), -(PAD + (i - 1) * (h + Gap())))
-        row:SetSize(x.width, h)
+        row:SetSize(rowWidth, h)
         local broken = x.followCheck and ns.FollowBroken and ns.FollowBroken(key)
         local ccText = ns.db.cc.enabled and ns.CCShort and ns.CCShort(key)
         local pulsing = broken and ns.FollowJustBroke(key) and not ccText
@@ -719,13 +733,7 @@ local function Update()
         row.name:SetText(name .. suffix)
         row.name:SetTextColor(nr, ng, nb)
         row.name:ClearAllPoints()
-        local rights = RightPieces(key, s, arranging)
-        local frames = {}
-        for n, piece in ipairs(rights) do
-            local p = PieceFrame(row, lefts[i] + n)
-            SetPiece(p, piece, "RIGHT", h, arranging)
-            frames[n] = p
-        end
+        local frames = rights[i]
         if x.align == "SPLIT" then
             -- name left, values right (the name is cut short when it doesn't fit)
             local rx = -4
@@ -753,14 +761,14 @@ local function Update()
                 cx = cx + p:GetWidth() + gap
             end
         end
-        for n = lefts[i] + #rights + 1, #row.pieces do row.pieces[n]:Hide(); row.pieces[n].id = nil end
+        for n = lefts[i] + #frames + 1, #row.pieces do row.pieces[n]:Hide(); row.pieces[n].id = nil end
         row:Show()
     end
     for i = #list + 1, #f.rows do f.rows[i]:Hide() end
 
     f:SetScale(x.scale)
     f:SetAlpha(x.alpha)
-    f:SetSize(x.width + PAD * 2 + (arranging and 10 or 0), #list * (h + Gap()) - Gap() + PAD * 2)
+    f:SetSize(rowWidth + PAD * 2 + (arranging and 10 or 0), #list * (h + Gap()) - Gap() + PAD * 2)
     f.bg:SetColorTexture(0, 0, 0, x.bgAlpha)
     f:Show()
 end
