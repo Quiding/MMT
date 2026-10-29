@@ -691,6 +691,11 @@ ns.RegisterPage("xp", "XP Window", function(page)
         { value = "RIGHT", text = "In columns, right" },
         { value = "OFF", text = "Off (each row on its own)" },
     }, gpa, spa)
+    local gcs, scs = Opt("ftl", "crownSide")
+    R:Cycle("Leader crown", {
+        { value = "LEFT", text = "Left of the name" },
+        { value = "RIGHT", text = "Right of the name" },
+    }, gcs, scs)
     local gz, sz = Opt("xp", "size")
     R:Slider("Font size", 8, 24, 1, gz, sz)
     local gw, sw = Opt("xp", "width")

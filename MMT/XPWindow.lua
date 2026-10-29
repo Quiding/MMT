@@ -812,7 +812,8 @@ local function Update()
 
         local name = ns.Display(key)
         if ns.db.ftl.enabled and ns.db.ftl.crown and ns.IsFTLLeader(key) then
-            name = "|TInterface\\GroupFrame\\UI-Group-LeaderIcon:0:0:0:-1|t" .. name
+            local crown = "|TInterface\\GroupFrame\\UI-Group-LeaderIcon:0:0:0:-1|t"
+            if ns.db.ftl.crownSide == "RIGHT" then name = name .. " " .. crown else name = crown .. name end
         end
 
         -- Layer Hop tag

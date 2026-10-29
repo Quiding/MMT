@@ -59,6 +59,7 @@ ns.defaults = {
         nameFormat = "FULL",    -- FULL "First Last" | FIRST "First" | UNIT party/raid unit ("party2")
         skipSelf   = true,      -- leave {FTL} lines out on the leader's own client
         crown      = true,      -- crown in front of the leader in the XP window
+        crownSide  = "LEFT",    -- LEFT of the name | RIGHT of it
         announce   = true,      -- chat line when the leader changes
         macros = {
             { name = "FTL Follow", body = "/follow {FTL}" },
