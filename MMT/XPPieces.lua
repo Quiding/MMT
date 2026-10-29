@@ -23,6 +23,9 @@ function ns.RegisterXPPiece(def)
     if ns.ready and ns.UpdateXPWindow then ns.UpdateXPWindow() end
 end
 
+-- colour of each side (settings list, pieces while arranging): left column blue, bar gold
+ns.XP_SIDE_COLOUR = { LEFT = { 0.31, 0.70, 1.00 }, RIGHT = { 1.00, 0.82, 0.00 } }
+
 ---------------------------------------------------------------------------
 -- Text helpers (also used by XPWindow.lua)
 ---------------------------------------------------------------------------

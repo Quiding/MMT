@@ -461,6 +461,8 @@ local function SetPiece(p, piece, side, h, arranging)
     p:SetSize(math.ceil(p.text:GetStringWidth() or 0) + pad + (arranging and 3 or 0), h)
     p.id, p.side = piece.id, side
     local draggable = arranging and piece.id ~= nil
+    local c = ns.XP_SIDE_COLOUR[side]
+    p.bg:SetColorTexture(c[1] * 0.3, c[2] * 0.3, c[3] * 0.3, 0.8)   -- the side's colour, dark
     p.bg:SetShown(draggable)
     p.grip:SetShown(draggable)
     p:EnableMouse(draggable)
