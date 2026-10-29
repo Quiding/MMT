@@ -71,8 +71,13 @@ Saved data from MMT 0.1.x is converted automatically.
   Opening a trade with a team member puts the matching items in (switch on the Trade /
   Mail / Vendor page). You accept yourself.
 - **XP Window**: XP %, rested XP %, gold, free bag slots, durability (lowest item or
-  average), plus font, layout, size, scale and opacity. Gold, bags and durability sit in
-  their own column left of the name; the bar starts at the name. "Bar shows": experience
+  average), level, reputation and layer, plus font, layout, size, scale and opacity. Each of
+  these is a piece: switch it on or off, put it left of the bar (own column, the bar starts
+  at the name) or on the bar, and drag it into place in the XP Window page's list or in the
+  window itself ("Arrange" / `/mmt xp arrange`: every piece shows with dots, drag pieces
+  along a row and rows up or down to change the team order). "Line up pieces" puts each piece in its own column
+  (centred, left or right in it), so it sits in the same place on every row. Modules can add pieces
+  (`MMT.RegisterXPPiece`, CreateModules.md). "Bar shows": experience
   or the reputation of each character's watched faction (standing and %, faction in
   the tooltip). "Layer Hop": when the game
   offers a layer/phase switch, a pulsing red "Layer Hop" appears left of the name.
@@ -323,7 +328,7 @@ progress). The heartbeat carries a hash (qt=), an outdated copy is requested onc
 Team abandon is QTAB:<questID>.
 
 ## Commands
-- `/mmt` settings, `/mmt xp` toggle XP window, `/mmt trade` refill open trade,
+- `/mmt` settings, `/mmt xp` toggle XP window, `/mmt xp arrange` drag its pieces and rows, `/mmt trade` refill open trade,
   `/mmt sync` send the core settings to the team, `/mmt sync <module>` only that module's settings, `/mmt sync modules` only which modules are on or off, `/mmt modules` installed
   modules, `/mmt scale <percent>` settings window size, `/mmt leader [name]` FTL leader (this character or the named one), `/jamba-team iammaster all` same as `/mmt leader` (only when Jamba isn't loaded, for old Jamba macros), `/mmt help` help page, `/mmt reset` reset profile.
 

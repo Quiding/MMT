@@ -26,6 +26,7 @@ Mail.lua
 Taxi.lua
 Privacy.lua
 FTL.lua
+XPPieces.lua
 XPWindow.lua
 Trade.lua
 Quests.lua

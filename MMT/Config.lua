@@ -476,7 +476,7 @@ SlashCmdList.MMT = function(msg)
     if cmd == "" or cmd == "config" then
         ns.ToggleConfig()
     elseif cmd == "xp" then
-        ns.ToggleXPWindow()
+        if arg:lower() == "arrange" then ns.ToggleXPArrange() else ns.ToggleXPWindow() end
     elseif cmd == "trade" then
         ns.FillTrade(true)
     elseif cmd == "sync" then
@@ -527,7 +527,7 @@ SlashCmdList.MMT = function(msg)
         if ns.AskResetModules then ns.AskResetModules(("Profile \"%s\" reset."):format(ns.CurrentProfileName())) end
     else
         ns.Print("/mmt - open settings")
-        ns.Print("/mmt xp - show/hide the XP window")
+        ns.Print("/mmt xp - show/hide the XP window, /mmt xp arrange - drag its pieces and rows into place")
         ns.Print("/mmt trade - (re)fill the open trade window for the partner's roles")
         ns.Print("/mmt sync - send the core settings of the active profile to your team (no module settings)")
         local names = {}
