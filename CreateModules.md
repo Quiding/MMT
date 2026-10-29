@@ -178,6 +178,31 @@ Equip) that members are assigned to.
 | `MMT.IsNoticeLeaderHere()` | `true` on the client that should show notes: the FTL leader, else the group leader |
 | `MMT.AlertAllowed(kind, key)` | `false` if the same alert for the same member came less than 5 seconds ago |
 
+### XP window pieces
+
+A row of the XP window shows pieces besides the name and the bar (gold, bags,
+level, XP %, ...). Players switch them on or off, put them left of the bar or on
+it, and drag them into their order (XP Window page, or `/mmt xp arrange`). A
+module can add its own piece:
+
+```lua
+MMT.RegisterXPPiece{
+    id = "example",              -- unique, kept in the player's order
+    title = "Example",           -- name in the settings list
+    side = "RIGHT",              -- "LEFT" of the bar or "RIGHT" on it (default RIGHT)
+    on = false,                  -- shown until the player switches it (default off)
+    sample = "42",               -- shown while arranging when text() has nothing
+    tip = "One line for the settings list.",
+    text = function(key, status) -- key: team key, status: MMT.status[key]
+        if not M.enabled then return nil end
+        return tostring(status.level)   -- nil or "" = nothing to show
+    end,
+}
+```
+
+`text` runs on every redraw of the window: keep it cheap. `MMT.UpdateXPWindow()`
+redraws it when your value changed.
+
 ### Core callbacks (`M:Listen`)
 
 | Callback | Arguments | When |

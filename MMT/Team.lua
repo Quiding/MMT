@@ -75,6 +75,20 @@ function ns.MoveMember(key, delta)
     end
 end
 
+-- moves a member above another one (nil: to the end), e.g. a row dragged in the XP window
+function ns.MoveMemberBefore(key, beforeKey)
+    local list = ns.SortedMembers()
+    local from
+    for i, k in ipairs(list) do if k == key then from = i end end
+    if not from or key == beforeKey then return end
+    table.remove(list, from)
+    local at = #list + 1
+    for i, k in ipairs(list) do if k == beforeKey then at = i end end
+    table.insert(list, at, key)
+    for n, kk in ipairs(list) do ns.db.team[kk].order = n end
+    ns.Fire("TEAM_CHANGED")
+end
+
 function ns.ClearTeam()
     wipe(ns.db.team)
     ns.Fire("TEAM_CHANGED")
