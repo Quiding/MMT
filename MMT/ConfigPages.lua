@@ -209,8 +209,8 @@ ns.RegisterPage("team", "Team", function(page)
     -- "Hide names outside MMT too" hooks other addons' frames at load: switching
     -- it on or off only works fully after a UI reload, so it reloads right away
     local function AskReload(what, apply)
-        UI.Confirm(what .. "\n\nOther addons only pick this up after a UI reload. Reload now?",
-            "Reload now", function() ns.privacyReloading = true apply() ReloadUI() end, "Cancel")
+        UI.AskReload(what .. "\n\nOther addons only pick this up after a UI reload. Reload now?",
+            function() ns.privacyReloading = true apply() end)
     end
     local gm, sm = Opt("privacy", "nameMode")
     local function SetMode(v)
@@ -1379,7 +1379,9 @@ ns.RegisterPage("modules", "Modules", function(page)
     notice:SetSize(PAGE_W - 190, 34)   -- the sync button sits to the right
     UI.Fill(notice, 1, 0.85, 0.2, 0.08)
     UI.Border(notice, 1, 0.85, 0.2, 0.35)
-    local reload = UI.Button(notice, 120, "Reload UI", function() ReloadUI() end)
+    local reload = UI.Button(notice, 120, "Reload UI", function()
+        UI.AskReload("Reload the UI now, so the module changes take effect?")
+    end)
     reload:SetPoint("RIGHT", -7, 0)
     reload.label:SetTextColor(1, 0.85, 0.2)
     notice.text = UI.Label(notice, "")

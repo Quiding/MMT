@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.32: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.33: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -61,7 +61,8 @@ Saved data from MMT 0.1.x is converted automatically.
   Changing the setting updates what is already shown, chat lines included.
   Switching "Hide names outside MMT too" on or off (or switching to or from "Full name"
   while it is on) asks to reload the UI right away, because other addons only pick it up
-  after a reload; Cancel leaves it as it was. A profile switch or sync that changes it
+  after a reload; Cancel leaves it as it was. (The game no longer lets addons reload the UI
+  themselves; MMT's "Reload now" buttons are secure macro buttons running /reload.) A profile switch or sync that changes it
   says in chat that a reload is needed.
 - **Roles**: create roles, tick their members, add items (drop one on the slot, or
   click the field and shift-click an item anywhere; IDs and exact names work too),

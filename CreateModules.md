@@ -267,6 +267,10 @@ end)
 - **Combat log:** `COMBAT_LOG_EVENT_UNFILTERED` is reserved for the Blizzard UI on this
   client; registering it gets MMT blocked ("only available to the Blizzard UI").
   `M:On` skips it.
+- **Reloading the UI:** addons may not call `ReloadUI()` / `C_UI.Reload()` (the game
+  blocks them, even on a click). Use `MMT.UI.AskReload(text, before, onCancel)`: a dialog
+  whose "Reload now" button is a secure macro button running `/reload`; `before()` runs
+  on the click, right before the reload (e.g. to save a setting).
 
 ## Example 1: Team ready check
 

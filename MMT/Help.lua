@@ -111,6 +111,9 @@ BINDING_HEADER_MMT_EXAMPLE = "Example"
 BINDING_NAME_MMT_EXAMPLE_HELLO = "Say hello"
 function MMT_ExampleHello() if M.enabled then MMT.Print("Hello!") end end
 
+-- Reload: ReloadUI() is blocked for addons; MMT.UI.AskReload(text, before)
+-- shows a dialog whose secure button runs /reload.
+
 -- Useful core functions: MMT.Print, M:Debug, MMT.SortedMembers(),
 -- MMT.IsOnline(key), MMT.IsSelf(key), MMT.PlayerFull(),
 -- MMT.UI (widgets), MMT.Listen("PROFILE_CHANGED", fn)

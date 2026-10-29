@@ -640,6 +640,76 @@ end
 -- onCancel runs when the dialog closes without Accept (Cancel, Escape, or
 -- replaced by the next dialog).
 local confirm
+-- Reload dialog. Addons may no longer reload the UI themselves (the game
+-- blocks ReloadUI / C_UI.Reload), but a macro may: "Reload now" is a secure
+-- button that runs the macro "/reload". Its own window (the secure button
+-- makes it protected), only opened out of combat.
+--   before(): runs on the click, right before the reload (e.g. save a setting)
+--   onCancel(): "Cancel" or Esc
+local reloadFrame
+function UI.AskReload(text, before, onCancel)
+    if InCombatLockdown() then
+        ns.Print("The UI can't be reloaded in combat. Try again after the fight (or type /reload).")
+        if onCancel then pcall(onCancel) end
+        return
+    end
+    if not reloadFrame then
+        local f = CreateFrame("Frame", "MMTReloadFrame", UIParent)
+        f:SetSize(380, 130)
+        f:SetPoint("TOP", 0, -160)
+        f:SetFrameStrata("FULLSCREEN_DIALOG")
+        f:EnableMouse(true)
+        UI.Fill(f, 0.05, 0.05, 0.06, 0.96)
+        UI.Border(f, 0.31, 0.70, 1.00, 0.6)
+        f.text = UI.Label(f, "")
+        f.text:SetPoint("TOPLEFT", 16, -16)
+        f.text:SetPoint("TOPRIGHT", -16, -16)
+        f.text:SetJustifyH("LEFT")
+        local b = CreateFrame("Button", "MMTReloadButton", f, "SecureActionButtonTemplate")
+        b:SetSize(150, UI.ROW - 2)
+        UI.Fill(b, 0.12, 0.12, 0.12, 1)
+        UI.Border(b, 0.25, 0.25, 0.25, 1)
+        Highlight(b)
+        b.label = UI.Label(b, "Reload now")
+        b.label:SetPoint("CENTER")
+        -- the secure template acts on the press or the release ("cast on key down")
+        b:RegisterForClicks("AnyUp", "AnyDown")
+        b:SetAttribute("type", "macro")
+        b:SetAttribute("macrotext", "/reload")
+        b:SetScript("PreClick", function()
+            local fn = f.before
+            f.before, f.onCancel = nil, nil
+            if fn then pcall(fn) end
+        end)
+        b:SetPoint("BOTTOMLEFT", 16, 14)
+        f.accept = b
+        f.cancel = UI.Button(f, 150, "Cancel", function()
+            if InCombatLockdown() then return end
+            f:Hide()
+        end)
+        f.cancel:SetPoint("BOTTOMRIGHT", -16, 14)
+        f:SetScript("OnHide", function()
+            local fn = f.onCancel
+            f.before, f.onCancel = nil, nil
+            if fn then pcall(fn) end
+        end)
+        f:SetScript("OnKeyDown", function(self, key)
+            if key == "ESCAPE" and not InCombatLockdown() then
+                self:SetPropagateKeyboardInput(false)
+                self:Hide()
+            else
+                self:SetPropagateKeyboardInput(true)
+            end
+        end)
+        f:Hide()
+        reloadFrame = f
+    end
+    local f = reloadFrame
+    if f:IsShown() and f.onCancel then pcall(f.onCancel) end
+    f.text:SetText(text .. "\n\n|cff999999(or type /reload)|r")
+    f.before, f.onCancel = before, onCancel
+    f:Show()
+end
 function UI.Confirm(text, acceptText, onAccept, cancelText, onCancel)
     if not confirm then
         local f = CreateFrame("Frame", "MMTConfirmFrame", UIParent)
