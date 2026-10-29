@@ -41,7 +41,18 @@ function mod.CreateChart(parent, width, height)
     c.empty:SetPoint("CENTER")
     c.empty:SetTextColor(0.5, 0.5, 0.5)
 
-    c.lines = {}
+    c.lines, c.dots = {}, {}
+    -- a dot on every day with data (a single day has no line to draw)
+    local function Dot(i)
+        local d = c.dots[i]
+        if not d then
+            d = c:CreateTexture(nil, "ARTWORK")
+            d:SetSize(4, 4)
+            d:SetColorTexture(A[1], A[2], A[3], 1)
+            c.dots[i] = d
+        end
+        return d
+    end
     local function Line(i)
         local l = c.lines[i]
         if not l then
@@ -85,6 +96,7 @@ function mod.CreateChart(parent, width, height)
             if v then lo = math.min(lo or v, v); hi = math.max(hi or v, v) end
         end
         for _, l in ipairs(self.lines) do l:Hide() end
+        for _, d in ipairs(self.dots) do d:Hide() end
         self.empty:SetShown(lo == nil)
         if not lo then
             for _, l in ipairs(self.yLabels) do l:SetText("") end
@@ -93,7 +105,7 @@ function mod.CreateChart(parent, width, height)
         end
         -- a little room above and below; a flat line sits in the middle
         local pad = (hi - lo) * 0.05
-        if pad == 0 then pad = math.max(10000, hi * 0.05) end
+        if pad == 0 then pad = hi > 0 and math.max(1, math.floor(hi * 0.1)) or 10000 end
         self.min, self.max = math.max(0, lo - pad), hi + pad
         for i, l in ipairs(self.yLabels) do
             l:SetText(format(self.min + (self.max - self.min) * (i - 1) / 2))
@@ -108,6 +120,10 @@ function mod.CreateChart(parent, width, height)
             if p[2] then
                 local x, y = XY(i, p[2])
                 k = k + 1
+                local dot = Dot(k)
+                dot:ClearAllPoints()
+                dot:SetPoint("CENTER", self, "BOTTOMLEFT", x, y)
+                dot:Show()
                 local l = Line(k)
                 if l.SetStartPoint and prev then
                     l:SetStartPoint("BOTTOMLEFT", self, prev[1], prev[2])

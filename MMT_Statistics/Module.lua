@@ -319,7 +319,8 @@ end)
 
 -- gold
 M:On("PLAYER_MONEY", function() mod.RecordGold() mod.SendSoon(30) if mod.Redraw then mod.Redraw() end end)
-M:On("PLAYER_ENTERING_WORLD", function() mod.RecordGold() end)
+-- right after login the money may not be known yet: record again a moment later
+M:On("PLAYER_ENTERING_WORLD", function() mod.RecordGold() C_Timer.After(3, mod.RecordGold) end)
 M:On("PLAYER_LOGOUT", function() mod.RecordGold() end)
 
 M.OnEnable = function()
@@ -345,7 +346,7 @@ M.Report = function(_, add)
     local nChars, nAcc = 0, 0
     for _ in pairs(s.chars) do nChars = nChars + 1 end
     for _ in pairs(s.accounts) do nAcc = nAcc + 1 end
-    add(("-- Statistics 1.0.2  account=%s characters=%d otherAccounts=%d gold=%s kills=%s share=%s"):format(
+    add(("-- Statistics 1.0.3  account=%s characters=%d otherAccounts=%d gold=%s kills=%s share=%s"):format(
         s.accountId, nChars, nAcc, tostring(M.db.trackGold), tostring(M.db.trackKills), tostring(M.db.share)))
     for key, c in pairs(s.chars) do
         local n = 0
