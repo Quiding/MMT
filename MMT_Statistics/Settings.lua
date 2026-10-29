@@ -262,6 +262,13 @@ M.Page = function(_, page)
     end
     page:SetScript("OnShow", function() mod.Redraw() end)
     page.OnRefresh = function() mod.Redraw() end
+
+    -- "Request update" left of the "Sync to team" button (bottom right)
+    local request = UI.Button(page, 150, "Request update", function() mod.RequestUpdate() end)
+    request:SetHeight(26)
+    request:SetPoint("BOTTOMRIGHT", page, "BOTTOMRIGHT", -186, 2)
+    request:SetFrameLevel(page:GetFrameLevel() + 10)
+    UI.Tooltip(request, "Request update", "Asks every team member for their gold and kill statistics now (each answers out of combat, within about 20 seconds) and sends this account's too. Needs \"Share with the team\".")
     Show("gold")
 end
 

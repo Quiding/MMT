@@ -290,11 +290,11 @@ end
 --   * never in combat: the next check after combat ends,
 --   * at most once every "sendEvery" minutes (setting, default 5),
 --   * as a large transfer (lowest priority), so it never delays alerts.
--- An answer to a request (STQ) may come sooner, but at most once a minute.
+-- An answer to a request (STQ) may come sooner, but at most every 20 s.
 local dirty, wanted = false, false   -- changed / someone asked for it
 local lastSent = -math.huge
 local timer
-local ANSWER_GAP = 60
+local ANSWER_GAP = 20
 
 local function InCombat()
     return (InCombatLockdown and InCombatLockdown()) or MMT.Safe(UnitAffectingCombat, "player") or false
@@ -337,6 +337,30 @@ function mod.SendNow()
     lastSent = -math.huge
     Check()
 end
+
+-- "Request update" button: every team member sends its summary (out of
+-- combat, within 20 s), and this account's goes out too
+local lastRequest = 0
+function mod.RequestUpdate()
+    if not (M.enabled and M.db.share) then
+        MMT.Print("Statistics: sharing with the team is switched off (Settings tab).")
+        return
+    end
+    if GetTime() - lastRequest < 10 then return end
+    lastRequest = GetTime()
+    MMT.SendToTeam("STQ", true, "NORMAL")
+    mod.SendNow()
+    MMT.Print("Statistics: asked the team for their gold and kill statistics.")
+end
+
+-- joining a group: exchange summaries 20 s later
+M:On("GROUP_JOINED", function()
+    C_Timer.After(20, function()
+        if not (M.enabled and M.db.share) or not IsInGroup() then return end
+        MMT.SendToTeam("STQ", true, "NORMAL")
+        mod.SendNow()
+    end)
+end)
 
 M:Listen("TEAM_MESSAGE", function(key, sender, text)
     if not M.db.share then return end
@@ -392,7 +416,7 @@ M.Report = function(_, add)
     local nChars, nAcc = 0, 0
     for _ in pairs(s.chars) do nChars = nChars + 1 end
     for _ in pairs(s.accounts) do nAcc = nAcc + 1 end
-    add(("-- Statistics 1.0.5  account=%s characters=%d otherAccounts=%d gold=%s kills=%s share=%s"):format(
+    add(("-- Statistics 1.0.6  account=%s characters=%d otherAccounts=%d gold=%s kills=%s share=%s"):format(
         s.accountId, nChars, nAcc, tostring(M.db.trackGold), tostring(M.db.trackKills), tostring(M.db.share)))
     for key, c in pairs(s.chars) do
         local n = 0
