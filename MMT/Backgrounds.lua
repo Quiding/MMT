@@ -23,8 +23,8 @@ ns.BACKGROUNDS = {
 
 -- Artwork: the classic talent tree paintings, used by path (nothing is shipped with
 -- MMT), each in four pieces <name>-TopLeft/-TopRight/-BottomLeft/-BottomRight
--- (320 x 384 together). Shown faintly in the middle of the page area, edges faded
--- out (MMTDB.configArtAlpha, MMTDB.configArtTint = in the accent colour).
+-- (320 x 384 together). Shown faintly over the whole window, cropped to its shape
+-- (MMTDB.configArtAlpha, MMTDB.configArtTint = in the accent colour).
 -- A painting this client doesn't have is left out of the dropdown (ns.ArtworkMissing).
 local TF = "Interface\\TalentFrame\\"
 local TREES = {
@@ -50,7 +50,6 @@ for _, c in ipairs(TREES) do
     end
 end
 local ART_FILL = { 0.05, 0.05, 0.06, 0.96 }
-local NAV_W, PAGE_TOP = 150, 44   -- Config.lua: nav list width, top of the pages
 
 local function ImageOf(b)
     if b.value == "ART_CLASS" then
@@ -242,39 +241,39 @@ BUILD.GLASS = function(tex, w, h)
     edge:SetColorTexture(1, 1, 1, 0.14)
 end
 
--- one talent painting: its four pieces put together, scaled up in the middle of the
--- page area, its edges faded into the window's fill
+-- one talent painting: its four pieces put together over the whole window
 local PIECES = { { "TopLeft", 0, 0, 256, 256 }, { "TopRight", 256, 0, 64, 256 },
                  { "BottomLeft", 0, 256, 256, 128 }, { "BottomRight", 256, 256, 64, 128 } }
 local function Artwork(path)
     return function(tex, w, h)
-        local artH = (h - PAGE_TOP) * 0.9
-        local s = artH / 384
-        local artW = 320 * s
-        local x = NAV_W + (w - NAV_W - artW) / 2
-        local y = PAGE_TOP + (h - PAGE_TOP - artH) / 2
+        -- scaled to cover the window (inside its 1 px border), centred, keeping its shape
+        local W, H = w - 2, h - 2
+        local s = math.max(W / 320, H / 384)
+        local ox, oy = (W - 320 * s) / 2, (H - 384 * s) / 2   -- painting's top left, may be < 0
         local pieces = {}
         for _, p in ipairs(PIECES) do
-            local t = tex(1)
-            t:SetTexture(path .. "-" .. p[1])
-            t:SetSize(p[4] * s, p[5] * s)
-            t:SetPoint("TOPLEFT", x + p[2] * s, -(y + p[3] * s))
-            pieces[#pieces + 1] = t
+            -- each piece cut to the part inside the window (textures aren't clipped)
+            local px, py, pw, ph = ox + p[2] * s, oy + p[3] * s, p[4] * s, p[5] * s
+            local x0, x1 = math.max(px, 0), math.min(px + pw, W)
+            local y0, y1 = math.max(py, 0), math.min(py + ph, H)
+            if x1 > x0 and y1 > y0 then
+                local t = tex(1)
+                t:SetTexture(path .. "-" .. p[1])
+                t:SetSize(x1 - x0, y1 - y0)
+                t:SetPoint("TOPLEFT", 1 + x0, -(1 + y0))
+                t:SetTexCoord((x0 - px) / pw, (x1 - px) / pw, (y0 - py) / ph, (y1 - py) / ph)
+                pieces[#pieces + 1] = t
+            end
         end
-        -- bands of the fill's colour over the painting's edges, solid at the edge
-        local f = ART_FILL
-        local function fade(px, py, bw, bh, orient, solidFirst)
-            local t = tex(2)
-            t:SetPoint("TOPLEFT", px, -py)
-            t:SetSize(bw, bh)
-            local a1, a2 = solidFirst and 1 or 0, solidFirst and 0 or 1
-            Gradient(t, orient, f[1], f[2], f[3], a1, f[1], f[2], f[3], a2)
-        end
-        local fh, fw = artH * 0.3, artW * 0.3
-        fade(x, y, artW, fh, "VERTICAL", false)                    -- top edge
-        fade(x, y + artH - fh, artW, fh, "VERTICAL", true)         -- bottom edge
-        fade(x, y, fw, artH, "HORIZONTAL", true)                   -- left edge
-        fade(x + artW - fw, y, fw, artH, "HORIZONTAL", false)      -- right edge
+        -- a little darker at the top and bottom
+        local top = tex(2)
+        top:SetPoint("TOPLEFT"); top:SetPoint("TOPRIGHT")
+        top:SetHeight(h * 0.18)
+        Gradient(top, "VERTICAL", 0, 0, 0, 0, 0, 0, 0, 0.35)
+        local bottom = tex(2)
+        bottom:SetPoint("BOTTOMLEFT"); bottom:SetPoint("BOTTOMRIGHT")
+        bottom:SetHeight(h * 0.18)
+        Gradient(bottom, "VERTICAL", 0, 0, 0, 0.35, 0, 0, 0, 0)
         return function()
             local tint = MMTDB and MMTDB.configArtTint
             for _, t in ipairs(pieces) do
