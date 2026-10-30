@@ -2,34 +2,92 @@
 --   chart = mod.CreateChart(parent, width, height)
 --   chart:SetData({ {label, value|nil}, ... }, format)   value nil = no data
 -- Lines are drawn with Frame:CreateLine; hovering shows the day's value.
+-- The y axis has round steps in whole gold ("9.5k g", "10k g"); the left
+-- margin follows the widest label, so no label crosses the chart's border.
 
 local _, mod = ...
 local MMT = MMT
 local UI = MMT.UI
 local A = UI.ACCENT
 
-local PAD_L, PAD_R, PAD_T, PAD_B = 70, 10, 10, 18
+local PAD_L, PAD_R, PAD_T, PAD_B = 40, 10, 10, 18   -- PAD_L = the least left margin
+local GOLD = 10000
+
+-- the smallest 1 / 2 / 2.5 / 5 x 10^n gold step of at least `raw` copper,
+-- never below 1 gold and always whole gold
+local function NiceStep(raw)
+    local g = math.max(1, raw / GOLD)
+    local p = 10 ^ math.floor(math.log10(g))
+    for _, m in ipairs({ 1, 2, 2.5, 5, 10 }) do
+        local s = m * p
+        if s >= g - 1e-9 and s == math.floor(s) then return s * GOLD end
+    end
+    return 10 * p * GOLD
+end
+
+-- "1234567.5" -> "1,234,567.5"
+local function Group(text)
+    local int, rest = text:match("^(%d+)(.*)$")
+    if not int then return text end
+    local sep = LARGE_NUMBER_SEPARATOR
+    if type(sep) ~= "string" or sep == "" then sep = "," end
+    int = int:reverse():gsub("(%d%d%d)", "%1" .. sep):reverse()
+    if int:sub(1, #sep) == sep then int = int:sub(#sep + 1) end
+    return int .. rest
+end
+
+-- axis for values lo..hi (copper): bottom, top, step (copper) and the label
+-- function. One unit for every label: g below 10,000 gold, then k, then M.
+function mod.ChartAxis(lo, hi)
+    local least = math.max(GOLD, hi * 0.05)   -- a flat line still gets a scale
+    if hi - lo < least then
+        local mid = (lo + hi) / 2
+        lo, hi = math.max(0, mid - least / 2), math.max(mid + least / 2, least)
+    else   -- a little room above and below
+        local pad = (hi - lo) * 0.02
+        lo, hi = math.max(0, lo - pad), hi + pad
+    end
+    local step = NiceStep((hi - lo) / 4)
+    local bottom, top = math.floor(lo / step) * step, math.ceil(hi / step) * step
+    if top <= bottom then top = bottom + step end
+    local unit, suffix = 1, "g"
+    if top >= 1e6 * GOLD then unit, suffix = 1e6, "M g"
+    elseif top >= 1e4 * GOLD then unit, suffix = 1e3, "k g" end
+    local s, decimals = step / GOLD / unit, 0
+    while decimals < 3 and math.abs(s * 10 ^ decimals - math.floor(s * 10 ^ decimals + 0.5)) > 1e-6 do
+        decimals = decimals + 1
+    end
+    local fmt = "%." .. decimals .. "f"
+    local function label(v)
+        if v < 1 then return "0g" end
+        local text = fmt:format(v / GOLD / unit)
+        if decimals > 0 then text = text:gsub("0+$", ""):gsub("%.$", "") end   -- "10.0" -> "10"
+        return Group(text) .. suffix
+    end
+    return bottom, top, step, label
+end
 
 function mod.CreateChart(parent, width, height)
     local c = CreateFrame("Frame", nil, parent)
     c:SetSize(width, height)
     UI.Fill(c, 1, 1, 1, 0.025)
     UI.Border(c, 1, 1, 1, 0.08)
+    c.padL = PAD_L
     c.plotW, c.plotH = width - PAD_L - PAD_R, height - PAD_T - PAD_B
 
-    -- grid lines and axis labels: top, middle, bottom
+    -- grid lines and axis labels: one per step, made when needed
     c.grid, c.yLabels = {}, {}
-    for i = 1, 3 do
-        local g = c:CreateTexture(nil, "BORDER")
-        g:SetColorTexture(1, 1, 1, 0.06)
-        g:SetHeight(1)
-        g:SetPoint("LEFT", c, "BOTTOMLEFT", PAD_L, PAD_B + c.plotH * (i - 1) / 2)
-        g:SetWidth(c.plotW)
-        c.grid[i] = g
-        local l = UI.Label(c, "")
-        l:SetPoint("RIGHT", c, "BOTTOMLEFT", PAD_L - 6, PAD_B + c.plotH * (i - 1) / 2)
-        l:SetTextColor(0.6, 0.6, 0.6)
-        c.yLabels[i] = l
+    local function Grid(i)
+        if not c.grid[i] then
+            local g = c:CreateTexture(nil, "BORDER")
+            g:SetColorTexture(1, 1, 1, 0.06)
+            g:SetHeight(1)
+            c.grid[i] = g
+            local l = UI.Label(c, "")
+            l:SetTextColor(0.6, 0.6, 0.6)
+            c.yLabels[i] = l
+        end
+        return c.grid[i], c.yLabels[i]
     end
     c.xFirst = UI.Label(c, "")
     c.xFirst:SetPoint("BOTTOMLEFT", PAD_L, 3)
@@ -83,7 +141,7 @@ function mod.CreateChart(parent, width, height)
 
     local function XY(i, v)
         local n = #c.points
-        local x = PAD_L + (n > 1 and (i - 1) / (n - 1) or 0.5) * c.plotW
+        local x = c.padL + (n > 1 and (i - 1) / (n - 1) or 0.5) * c.plotW
         local y = PAD_B + (c.max > c.min and (v - c.min) / (c.max - c.min) or 0.5) * c.plotH
         return x, y
     end
@@ -99,17 +157,34 @@ function mod.CreateChart(parent, width, height)
         for _, d in ipairs(self.dots) do d:Hide() end
         self.empty:SetShown(lo == nil)
         if not lo then
-            for _, l in ipairs(self.yLabels) do l:SetText("") end
+            for i, g in ipairs(self.grid) do g:Hide(); self.yLabels[i]:Hide() end
             self.xFirst:SetText(""); self.xLast:SetText("")
             return
         end
-        -- a little room above and below; a flat line sits in the middle
-        local pad = (hi - lo) * 0.05
-        if pad == 0 then pad = hi > 0 and math.max(1, math.floor(hi * 0.1)) or 10000 end
-        self.min, self.max = math.max(0, lo - pad), hi + pad
-        for i, l in ipairs(self.yLabels) do
-            l:SetText(format(self.min + (self.max - self.min) * (i - 1) / 2))
+        -- round steps; the left margin is as wide as the widest label needs
+        local step, label
+        self.min, self.max, step, label = mod.ChartAxis(lo, hi)
+        local n = math.floor((self.max - self.min) / step + 0.5)
+        local widest = 0
+        for i = 0, n do
+            local _, l = Grid(i + 1)
+            l:SetText(label(self.min + step * i))
+            widest = math.max(widest, l:GetStringWidth() or 0)
         end
+        self.padL = math.max(PAD_L, math.ceil(widest) + 12)
+        self.plotW = width - self.padL - PAD_R
+        for i, g in ipairs(self.grid) do
+            local l = self.yLabels[i]
+            g:SetShown(i <= n + 1); l:SetShown(i <= n + 1)
+            local y = PAD_B + self.plotH * (i - 1) / n
+            g:ClearAllPoints()
+            g:SetPoint("LEFT", self, "BOTTOMLEFT", self.padL, y)
+            g:SetWidth(self.plotW)
+            l:ClearAllPoints()
+            l:SetPoint("RIGHT", self, "BOTTOMLEFT", self.padL - 6, y)
+        end
+        self.xFirst:ClearAllPoints()
+        self.xFirst:SetPoint("BOTTOMLEFT", self.padL, 3)
         local first
         for i, p in ipairs(points) do if p[2] then first = first or i end end
         self.xFirst:SetText(points[first][1]:sub(6))
@@ -149,7 +224,7 @@ function mod.CreateChart(parent, width, height)
         local scale = self:GetEffectiveScale()
         local mx = GetCursorPosition() / scale - self:GetLeft()
         local n = #self.points
-        local i = math.floor((mx - PAD_L) / math.max(1, self.plotW) * (n - 1) + 1.5)
+        local i = math.floor((mx - self.padL) / math.max(1, self.plotW) * (n - 1) + 1.5)
         i = math.max(1, math.min(n, i))
         if i == self.hover and self.marker:IsShown() then return end
         self.hover = i
