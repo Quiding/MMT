@@ -1309,7 +1309,11 @@ ns.RegisterPage("appearance", "Appearance", function(page)
         for _, b in ipairs(ns.BACKGROUNDS) do
             if b.image and ns.ArtworkMissing(b.image) then gone[#gone + 1] = b.text end
         end
-        missing:SetText(#gone > 0 and ("Artwork this client doesn't have: " .. table.concat(gone, ", ") .. ".") or "")
+        if not ns.ArtworkCheckWorks() then
+            missing:SetText("This client can't tell which artwork it has, so all of it is listed: one that stays dark isn't there.")
+        else
+            missing:SetText(#gone > 0 and ("Artwork this client doesn't have: " .. table.concat(gone, ", ") .. ".") or "")
+        end
     end
 end)
 

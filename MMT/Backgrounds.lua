@@ -21,40 +21,82 @@ ns.BACKGROUNDS = {
     { value = "GLASS",    text = "Glass",       desc = "Lighter and see-through, with a sheen across the top like frosted glass." },
 }
 
--- Artwork: the class paintings of the game's talent window, atlases
--- "talents-background-<class>" (large art, no text), used by name: no art files in
--- MMT. Shown faintly over the whole window, cropped to its shape, never stretched
--- (MMTDB.configArtAlpha, MMTDB.configArtTint = in the accent colour). An atlas this
--- client doesn't have is left out of the dropdown (ns.ArtworkMissing).
-local CLASSES = { "Druid", "Hunter", "Mage", "Paladin", "Priest", "Rogue", "Shaman", "Warlock", "Warrior" }
-local function ClassAtlas(class) return "talents-background-" .. class:lower() end
+-- Artwork: the spec paintings of the game's talent window (1612 x 774, no text), by
+-- file path: no art files in MMT. Each file is 2048 x 2048 and holds two paintings:
+-- TalentsClassBackground<Class>1 = the first spec (top) and the second (below it),
+-- <Class>2 = the third (top). Not through the atlases (talents-background-<class>-<spec>):
+-- this client may have the files without them. Shown faintly over the whole window,
+-- cropped to its shape, never stretched (MMTDB.configArtAlpha, MMTDB.configArtTint =
+-- in the accent colour). A file this client doesn't have is left out (ns.ArtworkMissing).
+local TF = "Interface\\TalentFrame\\TalentsClassBackground"
+local ART_W, ART_H, FILE = 1612, 774, 2048
+local SPECS = {
+    { "Druid",   "Balance", "Feral", "Restoration" },
+    { "Hunter",  "Beast Mastery", "Marksmanship", "Survival" },
+    { "Mage",    "Arcane", "Fire", "Frost" },
+    { "Paladin", "Holy", "Protection", "Retribution" },
+    { "Priest",  "Discipline", "Holy", "Shadow" },
+    { "Rogue",   "Assassination", "Combat", "Subtlety" },
+    { "Shaman",  "Elemental", "Enhancement", "Restoration" },
+    { "Warlock", "Affliction", "Demonology", "Destruction" },
+    { "Warrior", "Arms", "Fury", "Protection" },
+}
+-- spec i -> file number and the painting's top row in it; the druid's file 2 holds
+-- Guardian (top) and Restoration (below)
+local PLACE = { { 1, 1 }, { 1, 777 }, { 2, 1 } }
+local CLASS_FIRST = {}   -- class token -> the entry of its first spec
 ns.BACKGROUNDS[#ns.BACKGROUNDS + 1] = { value = "ART_CLASS", text = "My class", art = true,
-    desc = "The painting of this character's class: each character of the team shows its own." }
-for _, c in ipairs(CLASSES) do
-    ns.BACKGROUNDS[#ns.BACKGROUNDS + 1] = { value = "ART_" .. c:upper(), text = c, art = true,
-        image = ClassAtlas(c), desc = ("The %s painting from the talent window."):format(c:lower()) }
+    desc = "The painting of this character's class (first spec): each character of the team shows its own." }
+for _, c in ipairs(SPECS) do
+    for i = 1, 3 do
+        local file, top = PLACE[i][1], PLACE[i][2]
+        if c[1] == "Druid" and i == 3 then top = 777 end
+        local e = { value = "ART_" .. c[1]:upper() .. i, text = c[1] .. ": " .. c[i + 1], art = true,
+            image = TF .. c[1] .. file, top = top,
+            desc = ("The %s %s painting from the talent window."):format(c[i + 1], c[1]:lower()) }
+        ns.BACKGROUNDS[#ns.BACKGROUNDS + 1] = e
+        if i == 1 then CLASS_FIRST[c[1]:upper()] = e end
+    end
 end
 local ART_FILL = { 0.05, 0.05, 0.06, 0.96 }
 
-local function ImageOf(b)
+-- the entry whose painting a background shows ("My class" -> this character's class)
+local function ArtOf(b)
     if b.value == "ART_CLASS" then
         local _, class = UnitClass("player")
-        return ClassAtlas(class or "WARRIOR")
+        return CLASS_FIRST[class or ""] or CLASS_FIRST.WARRIOR
     end
-    return b.image
+    return b
 end
 
 function ns.ArtAlpha()
     return (MMTDB and tonumber(MMTDB.configArtAlpha)) or 0.25
 end
 
-local function AtlasInfo(atlas)
-    local info = C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(atlas)
-    if info and (info.file or info.filename) and (info.width or 0) > 0 and (info.height or 0) > 0 then return info end
+-- Does this client have a file? A texture set to a path the client doesn't know gets
+-- no file ID. Checked against a file it has (the old talent paintings; EllesmereUI
+-- uses them on Forever) and one nobody has; if those don't come out right, the check
+-- can't tell here and everything is offered.
+local KNOWN_HERE = "Interface\\TalentFrame\\MageFire-TopLeft"
+local NOT_HERE = "Interface\\TalentFrame\\MMT-NoSuchFile"
+local probe, checkWorks
+local missing = {}
+local function Exists(path)
+    probe = probe or UIParent:CreateTexture(nil, "BACKGROUND")
+    probe:Hide()
+    local ok = probe:SetTexture(path)
+    local id = probe.GetTextureFileID and probe:GetTextureFileID()
+    probe:SetTexture(nil)
+    return ok ~= false and id ~= nil and id ~= 0
 end
-
-function ns.ArtworkMissing(atlas)
-    return AtlasInfo(atlas) == nil
+function ns.ArtworkCheckWorks()
+    if checkWorks == nil then checkWorks = Exists(KNOWN_HERE) and not Exists(NOT_HERE) end
+    return checkWorks
+end
+function ns.ArtworkMissing(path)
+    if not ns.ArtworkCheckWorks() then return false end
+    if missing[path] == nil then missing[path] = not Exists(path) end
+    return missing[path]
 end
 
 -- dropdown entries: the looks, then the artwork this client has
@@ -63,7 +105,7 @@ function ns.BackgroundChoices()
     for _, b in ipairs(ns.BACKGROUNDS) do
         if not b.art then
             l[#l + 1] = b
-        elseif not ns.ArtworkMissing(ImageOf(b)) then
+        elseif not ns.ArtworkMissing(ArtOf(b).image) then
             if not header then l[#l + 1] = { header = true, text = "Artwork" } header = true end
             l[#l + 1] = b
         end
@@ -84,7 +126,7 @@ local FILL = {
 function ns.ConfigBackground()
     local v = MMTDB and MMTDB.configBackground
     for _, b in ipairs(ns.BACKGROUNDS) do
-        if b.value == v and not (b.art and ns.ArtworkMissing(ImageOf(b))) then return v end
+        if b.value == v and not (b.art and ns.ArtworkMissing(ArtOf(b).image)) then return v end
     end
     return "NONE"
 end
@@ -213,20 +255,17 @@ BUILD.GLASS = function(tex, w, h)
     edge:SetColorTexture(1, 1, 1, 0.14)
 end
 
--- one atlas over the whole window: scaled to cover it, centred, the rest cut off
-local function Artwork(atlas)
+-- one painting over the whole window: scaled to cover it, centred, the rest cut off
+local function Artwork(e)
     return function(tex, w, h)
-        local info = AtlasInfo(atlas)
-        if not info then return end
         local W, H = w - 2, h - 2   -- inside the 1 px border
-        local s = math.max(W / info.width, H / info.height)
-        local fx, fy = W / (info.width * s), H / (info.height * s)   -- part shown, 0..1
-        local l, r = info.leftTexCoord or 0, info.rightTexCoord or 1
-        local t, b = info.topTexCoord or 0, info.bottomTexCoord or 1
-        local cx, cy = (r - l) * (1 - fx) / 2, (b - t) * (1 - fy) / 2
+        local scale = math.max(W / ART_W, H / ART_H)
+        local cw, ch = W / scale, H / scale   -- the part shown, in the file's pixels
+        local x0 = 1 + (ART_W - cw) / 2
+        local y0 = e.top + (ART_H - ch) / 2
         local art = tex(1)
-        art:SetTexture(info.file or info.filename)
-        art:SetTexCoord(l + cx, r - cx, t + cy, b - cy)
+        art:SetTexture(e.image)
+        art:SetTexCoord(x0 / FILE, (x0 + cw) / FILE, y0 / FILE, (y0 + ch) / FILE)
         art:SetPoint("TOPLEFT", 1, -1); art:SetPoint("BOTTOMRIGHT", -1, 1)
         -- a little darker at the top and bottom
         local top = tex(2)
@@ -258,7 +297,7 @@ function ns.ApplyBackground(frame, key)
     end
     local image
     for _, b in ipairs(ns.BACKGROUNDS) do
-        if b.value == key and b.art then image = ImageOf(b) end
+        if b.value == key and b.art then image = ArtOf(b) end
     end
     if image and not BUILD[key] then BUILD[key] = Artwork(image) end
     local c = image and ART_FILL or FILL[key] or BASE
