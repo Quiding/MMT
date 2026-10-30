@@ -1,6 +1,6 @@
 -- MMT: backgrounds for the settings window (/mmt > Appearance).
--- Built from colour textures and gradients, or the game's own talent paintings
--- (by path: no art files in MMT), drawn on the
+-- Built from colour textures and gradients, or the game's own class paintings
+-- (atlases: no art files in MMT), drawn on the
 -- window's BACKGROUND layer between its fill and its border, so the nav list,
 -- pages and text stay on top. The choice is per account (MMTDB.configBackground),
 -- like the window scale: the same screen for every character and profile.
@@ -21,40 +21,25 @@ ns.BACKGROUNDS = {
     { value = "GLASS",    text = "Glass",       desc = "Lighter and see-through, with a sheen across the top like frosted glass." },
 }
 
--- Artwork: the classic talent tree paintings, used by path (nothing is shipped with
--- MMT), each in four pieces <name>-TopLeft/-TopRight/-BottomLeft/-BottomRight
--- (320 x 384 together). Shown faintly over the whole window, cropped to its shape
--- (MMTDB.configArtAlpha, MMTDB.configArtTint = in the accent colour).
--- A painting this client doesn't have is left out of the dropdown (ns.ArtworkMissing).
-local TF = "Interface\\TalentFrame\\"
-local TREES = {
-    { "Druid",   { "DruidBalance", "Balance" }, { "DruidFeralCombat", "Feral Combat" }, { "DruidRestoration", "Restoration" } },
-    { "Hunter",  { "HunterBeastMastery", "Beast Mastery" }, { "HunterMarksmanship", "Marksmanship" }, { "HunterSurvival", "Survival" } },
-    { "Mage",    { "MageArcane", "Arcane" }, { "MageFire", "Fire" }, { "MageFrost", "Frost" } },
-    { "Paladin", { "PaladinHoly", "Holy" }, { "PaladinProtection", "Protection" }, { "PaladinCombat", "Retribution" } },
-    { "Priest",  { "PriestDiscipline", "Discipline" }, { "PriestHoly", "Holy" }, { "PriestShadow", "Shadow" } },
-    { "Rogue",   { "RogueAssassination", "Assassination" }, { "RogueCombat", "Combat" }, { "RogueSubtlety", "Subtlety" } },
-    { "Shaman",  { "ShamanElementalCombat", "Elemental" }, { "ShamanEnhancement", "Enhancement" }, { "ShamanRestoration", "Restoration" } },
-    { "Warlock", { "WarlockCurses", "Affliction" }, { "WarlockSummoning", "Demonology" }, { "WarlockDestruction", "Destruction" } },
-    { "Warrior", { "WarriorArms", "Arms" }, { "WarriorFury", "Fury" }, { "WarriorProtection", "Protection" } },
-}
-local CLASS_ART = {}   -- class token -> its first tree's painting
+-- Artwork: the class paintings of the game's talent window, atlases
+-- "talents-background-<class>" (large art, no text), used by name: no art files in
+-- MMT. Shown faintly over the whole window, cropped to its shape, never stretched
+-- (MMTDB.configArtAlpha, MMTDB.configArtTint = in the accent colour). An atlas this
+-- client doesn't have is left out of the dropdown (ns.ArtworkMissing).
+local CLASSES = { "Druid", "Hunter", "Mage", "Paladin", "Priest", "Rogue", "Shaman", "Warlock", "Warrior" }
+local function ClassAtlas(class) return "talents-background-" .. class:lower() end
 ns.BACKGROUNDS[#ns.BACKGROUNDS + 1] = { value = "ART_CLASS", text = "My class", art = true,
-    desc = "The talent painting of this character's class: each character of the team shows its own." }
-for _, c in ipairs(TREES) do
-    CLASS_ART[c[1]:upper()] = TF .. c[2][1]
-    for i = 2, 4 do
-        local t = c[i]
-        ns.BACKGROUNDS[#ns.BACKGROUNDS + 1] = { value = "ART_" .. t[1]:upper(), text = c[1] .. ": " .. t[2],
-            image = TF .. t[1], art = true, desc = ("The %s %s talent painting."):format(t[2], c[1]:lower()) }
-    end
+    desc = "The painting of this character's class: each character of the team shows its own." }
+for _, c in ipairs(CLASSES) do
+    ns.BACKGROUNDS[#ns.BACKGROUNDS + 1] = { value = "ART_" .. c:upper(), text = c, art = true,
+        image = ClassAtlas(c), desc = ("The %s painting from the talent window."):format(c:lower()) }
 end
 local ART_FILL = { 0.05, 0.05, 0.06, 0.96 }
 
 local function ImageOf(b)
     if b.value == "ART_CLASS" then
         local _, class = UnitClass("player")
-        return CLASS_ART[class or ""] or CLASS_ART.WARRIOR
+        return ClassAtlas(class or "WARRIOR")
     end
     return b.image
 end
@@ -63,26 +48,13 @@ function ns.ArtAlpha()
     return (MMTDB and tonumber(MMTDB.configArtAlpha)) or 0.25
 end
 
--- file -> true when this client doesn't have it (checked once per session)
-local missing
-function ns.ArtworkMissing(path)
-    if not missing then
-        missing = {}
-        local probe = UIParent:CreateTexture(nil, "BACKGROUND")
-        probe:Hide()
-        local found = 0
-        for _, b in ipairs(ns.BACKGROUNDS) do
-            if b.image then
-                local ok = probe:SetTexture(b.image .. "-TopLeft")
-                local id = probe.GetTextureFileID and probe:GetTextureFileID()
-                if ok == false or (probe.GetTextureFileID and not id) then missing[b.image] = true
-                else found = found + 1 end
-            end
-        end
-        if found == 0 then missing = {} end   -- the check itself doesn't work here: offer them all
-        probe:SetTexture(nil)
-    end
-    return missing[path] or false
+local function AtlasInfo(atlas)
+    local info = C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(atlas)
+    if info and (info.file or info.filename) and (info.width or 0) > 0 and (info.height or 0) > 0 then return info end
+end
+
+function ns.ArtworkMissing(atlas)
+    return AtlasInfo(atlas) == nil
 end
 
 -- dropdown entries: the looks, then the artwork this client has
@@ -241,30 +213,21 @@ BUILD.GLASS = function(tex, w, h)
     edge:SetColorTexture(1, 1, 1, 0.14)
 end
 
--- one talent painting: its four pieces put together over the whole window
-local PIECES = { { "TopLeft", 0, 0, 256, 256 }, { "TopRight", 256, 0, 64, 256 },
-                 { "BottomLeft", 0, 256, 256, 128 }, { "BottomRight", 256, 256, 64, 128 } }
-local function Artwork(path)
+-- one atlas over the whole window: scaled to cover it, centred, the rest cut off
+local function Artwork(atlas)
     return function(tex, w, h)
-        -- scaled to cover the window (inside its 1 px border), centred, keeping its shape
-        local W, H = w - 2, h - 2
-        local s = math.max(W / 320, H / 384)
-        local ox, oy = (W - 320 * s) / 2, (H - 384 * s) / 2   -- painting's top left, may be < 0
-        local pieces = {}
-        for _, p in ipairs(PIECES) do
-            -- each piece cut to the part inside the window (textures aren't clipped)
-            local px, py, pw, ph = ox + p[2] * s, oy + p[3] * s, p[4] * s, p[5] * s
-            local x0, x1 = math.max(px, 0), math.min(px + pw, W)
-            local y0, y1 = math.max(py, 0), math.min(py + ph, H)
-            if x1 > x0 and y1 > y0 then
-                local t = tex(1)
-                t:SetTexture(path .. "-" .. p[1])
-                t:SetSize(x1 - x0, y1 - y0)
-                t:SetPoint("TOPLEFT", 1 + x0, -(1 + y0))
-                t:SetTexCoord((x0 - px) / pw, (x1 - px) / pw, (y0 - py) / ph, (y1 - py) / ph)
-                pieces[#pieces + 1] = t
-            end
-        end
+        local info = AtlasInfo(atlas)
+        if not info then return end
+        local W, H = w - 2, h - 2   -- inside the 1 px border
+        local s = math.max(W / info.width, H / info.height)
+        local fx, fy = W / (info.width * s), H / (info.height * s)   -- part shown, 0..1
+        local l, r = info.leftTexCoord or 0, info.rightTexCoord or 1
+        local t, b = info.topTexCoord or 0, info.bottomTexCoord or 1
+        local cx, cy = (r - l) * (1 - fx) / 2, (b - t) * (1 - fy) / 2
+        local art = tex(1)
+        art:SetTexture(info.file or info.filename)
+        art:SetTexCoord(l + cx, r - cx, t + cy, b - cy)
+        art:SetPoint("TOPLEFT", 1, -1); art:SetPoint("BOTTOMRIGHT", -1, 1)
         -- a little darker at the top and bottom
         local top = tex(2)
         top:SetPoint("TOPLEFT"); top:SetPoint("TOPRIGHT")
@@ -276,11 +239,9 @@ local function Artwork(path)
         Gradient(bottom, "VERTICAL", 0, 0, 0, 0.35, 0, 0, 0, 0)
         return function()
             local tint = MMTDB and MMTDB.configArtTint
-            for _, t in ipairs(pieces) do
-                t:SetDesaturated(tint and true or false)
-                if tint then t:SetVertexColor(A[1], A[2], A[3]) else t:SetVertexColor(1, 1, 1) end
-                t:SetAlpha(ns.ArtAlpha())
-            end
+            art:SetDesaturated(tint and true or false)
+            if tint then art:SetVertexColor(A[1], A[2], A[3]) else art:SetVertexColor(1, 1, 1) end
+            art:SetAlpha(ns.ArtAlpha())
         end
     end
 end
