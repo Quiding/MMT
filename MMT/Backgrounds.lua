@@ -1,5 +1,5 @@
 -- MMT: backgrounds for the settings window (/mmt > Appearance).
--- Built from colour textures and gradients, or the game's own loading screens
+-- Built from colour textures and gradients, or the game's own talent paintings
 -- (by path: no art files in MMT), drawn on the
 -- window's BACKGROUND layer between its fill and its border, so the nav list,
 -- pages and text stay on top. The choice is per account (MMTDB.configBackground),
@@ -21,34 +21,47 @@ ns.BACKGROUNDS = {
     { value = "GLASS",    text = "Glass",       desc = "Lighter and see-through, with a sheen across the top like frosted glass." },
 }
 
--- Artwork: the game's own loading screens, used by path (nothing is shipped with
--- MMT). Dimmed by a dark layer (MMTDB.configArtBrightness) so text stays readable.
--- A file this client doesn't have is left out of the dropdown (ns.ArtworkMissing).
-local LS = "Interface\\Glues\\LoadingScreens\\LoadScreen"
-local ARTWORK = {
-    { "KALIMDOR",  "Kalimdor",          "Kalimdor" },
-    { "EK",        "Eastern Kingdoms",  "EasternKingdom" },
-    { "MC",        "Molten Core",       "MoltenCore" },
-    { "BWL",       "Blackwing Lair",    "BlackwingLair" },
-    { "AQ",        "Ahn'Qiraj",         "AhnQiraj40man" },
-    { "NAXX",      "Naxxramas",         "Naxxramas" },
-    { "BRS",       "Blackrock Spire",   "BlackrockSpire" },
-    { "SM",        "Scarlet Monastery", "Monastery" },
-    { "DM",        "Dire Maul",         "DireMaul" },
-    { "DEADMINES", "Deadmines",         "Deadmines" },
-    { "GNOMER",    "Gnomeregan",        "Gnomeregan" },
-    { "MARA",      "Maraudon",          "Maraudon" },
-    { "TRAM",      "Deeprun Tram",      "DeeprunTram" },
+-- Artwork: the classic talent tree paintings, used by path (nothing is shipped with
+-- MMT), each in four pieces <name>-TopLeft/-TopRight/-BottomLeft/-BottomRight
+-- (320 x 384 together). Shown faintly in the middle of the page area, edges faded
+-- out (MMTDB.configArtAlpha, MMTDB.configArtTint = in the accent colour).
+-- A painting this client doesn't have is left out of the dropdown (ns.ArtworkMissing).
+local TF = "Interface\\TalentFrame\\"
+local TREES = {
+    { "Druid",   { "DruidBalance", "Balance" }, { "DruidFeralCombat", "Feral Combat" }, { "DruidRestoration", "Restoration" } },
+    { "Hunter",  { "HunterBeastMastery", "Beast Mastery" }, { "HunterMarksmanship", "Marksmanship" }, { "HunterSurvival", "Survival" } },
+    { "Mage",    { "MageArcane", "Arcane" }, { "MageFire", "Fire" }, { "MageFrost", "Frost" } },
+    { "Paladin", { "PaladinHoly", "Holy" }, { "PaladinProtection", "Protection" }, { "PaladinCombat", "Retribution" } },
+    { "Priest",  { "PriestDiscipline", "Discipline" }, { "PriestHoly", "Holy" }, { "PriestShadow", "Shadow" } },
+    { "Rogue",   { "RogueAssassination", "Assassination" }, { "RogueCombat", "Combat" }, { "RogueSubtlety", "Subtlety" } },
+    { "Shaman",  { "ShamanElementalCombat", "Elemental" }, { "ShamanEnhancement", "Enhancement" }, { "ShamanRestoration", "Restoration" } },
+    { "Warlock", { "WarlockCurses", "Affliction" }, { "WarlockSummoning", "Demonology" }, { "WarlockDestruction", "Destruction" } },
+    { "Warrior", { "WarriorArms", "Arms" }, { "WarriorFury", "Fury" }, { "WarriorProtection", "Protection" } },
 }
-for _, a in ipairs(ARTWORK) do
-    ns.BACKGROUNDS[#ns.BACKGROUNDS + 1] = { value = "ART_" .. a[1], text = a[2], image = LS .. a[3],
-        desc = ("The %s loading screen, dimmed. Brightness below."):format(a[2]) }
+local CLASS_ART = {}   -- class token -> its first tree's painting
+ns.BACKGROUNDS[#ns.BACKGROUNDS + 1] = { value = "ART_CLASS", text = "My class", art = true,
+    desc = "The talent painting of this character's class: each character of the team shows its own." }
+for _, c in ipairs(TREES) do
+    CLASS_ART[c[1]:upper()] = TF .. c[2][1]
+    for i = 2, 4 do
+        local t = c[i]
+        ns.BACKGROUNDS[#ns.BACKGROUNDS + 1] = { value = "ART_" .. t[1]:upper(), text = c[1] .. ": " .. t[2],
+            image = TF .. t[1], art = true, desc = ("The %s %s talent painting."):format(t[2], c[1]:lower()) }
+    end
 end
-local IMAGE_ASPECT = 4 / 3   -- the classic loading screens; cropped to fill the window
-local ART_FILL = { 0, 0, 0, 1 }
+local ART_FILL = { 0.05, 0.05, 0.06, 0.96 }
+local NAV_W, PAGE_TOP = 150, 44   -- Config.lua: nav list width, top of the pages
 
-function ns.ArtBrightness()
-    return (MMTDB and tonumber(MMTDB.configArtBrightness)) or 0.35
+local function ImageOf(b)
+    if b.value == "ART_CLASS" then
+        local _, class = UnitClass("player")
+        return CLASS_ART[class or ""] or CLASS_ART.WARRIOR
+    end
+    return b.image
+end
+
+function ns.ArtAlpha()
+    return (MMTDB and tonumber(MMTDB.configArtAlpha)) or 0.25
 end
 
 -- file -> true when this client doesn't have it (checked once per session)
@@ -61,7 +74,7 @@ function ns.ArtworkMissing(path)
         local found = 0
         for _, b in ipairs(ns.BACKGROUNDS) do
             if b.image then
-                local ok = probe:SetTexture(b.image)
+                local ok = probe:SetTexture(b.image .. "-TopLeft")
                 local id = probe.GetTextureFileID and probe:GetTextureFileID()
                 if ok == false or (probe.GetTextureFileID and not id) then missing[b.image] = true
                 else found = found + 1 end
@@ -77,9 +90,9 @@ end
 function ns.BackgroundChoices()
     local l, header = {}, false
     for _, b in ipairs(ns.BACKGROUNDS) do
-        if not b.image then
+        if not b.art then
             l[#l + 1] = b
-        elseif not ns.ArtworkMissing(b.image) then
+        elseif not ns.ArtworkMissing(ImageOf(b)) then
             if not header then l[#l + 1] = { header = true, text = "Artwork" } header = true end
             l[#l + 1] = b
         end
@@ -100,7 +113,7 @@ local FILL = {
 function ns.ConfigBackground()
     local v = MMTDB and MMTDB.configBackground
     for _, b in ipairs(ns.BACKGROUNDS) do
-        if b.value == v and not (b.image and ns.ArtworkMissing(b.image)) then return v end
+        if b.value == v and not (b.art and ns.ArtworkMissing(ImageOf(b))) then return v end
     end
     return "NONE"
 end
@@ -229,32 +242,46 @@ BUILD.GLASS = function(tex, w, h)
     edge:SetColorTexture(1, 1, 1, 0.14)
 end
 
--- one loading screen: cropped to the window's shape, a dark layer over it, darker edges
+-- one talent painting: its four pieces put together, scaled up in the middle of the
+-- page area, its edges faded into the window's fill
+local PIECES = { { "TopLeft", 0, 0, 256, 256 }, { "TopRight", 256, 0, 64, 256 },
+                 { "BottomLeft", 0, 256, 256, 128 }, { "BottomRight", 256, 256, 64, 128 } }
 local function Artwork(path)
     return function(tex, w, h)
-        local art = tex(1)
-        art:SetPoint("TOPLEFT", 1, -1); art:SetPoint("BOTTOMRIGHT", -1, 1)
-        art:SetTexture(path)
-        local frameAspect = w / h
-        if frameAspect > IMAGE_ASPECT then
-            local cut = (1 - IMAGE_ASPECT / frameAspect) / 2
-            art:SetTexCoord(0, 1, cut, 1 - cut)
-        else
-            local cut = (1 - frameAspect / IMAGE_ASPECT) / 2
-            art:SetTexCoord(cut, 1 - cut, 0, 1)
+        local artH = (h - PAGE_TOP) * 0.9
+        local s = artH / 384
+        local artW = 320 * s
+        local x = NAV_W + (w - NAV_W - artW) / 2
+        local y = PAGE_TOP + (h - PAGE_TOP - artH) / 2
+        local pieces = {}
+        for _, p in ipairs(PIECES) do
+            local t = tex(1)
+            t:SetTexture(path .. "-" .. p[1])
+            t:SetSize(p[4] * s, p[5] * s)
+            t:SetPoint("TOPLEFT", x + p[2] * s, -(y + p[3] * s))
+            pieces[#pieces + 1] = t
         end
-        local dim = tex(2)
-        dim:SetAllPoints()
-        local top = tex(3)
-        top:SetPoint("TOPLEFT"); top:SetPoint("TOPRIGHT")
-        top:SetHeight(h * 0.2)
-        Gradient(top, "VERTICAL", 0, 0, 0, 0, 0, 0, 0, 0.5)
-        local bottom = tex(3)
-        bottom:SetPoint("BOTTOMLEFT"); bottom:SetPoint("BOTTOMRIGHT")
-        bottom:SetHeight(h * 0.25)
-        Gradient(bottom, "VERTICAL", 0, 0, 0, 0.6, 0, 0, 0, 0)
+        -- bands of the fill's colour over the painting's edges, solid at the edge
+        local f = ART_FILL
+        local function fade(px, py, bw, bh, orient, solidFirst)
+            local t = tex(2)
+            t:SetPoint("TOPLEFT", px, -py)
+            t:SetSize(bw, bh)
+            local a1, a2 = solidFirst and 1 or 0, solidFirst and 0 or 1
+            Gradient(t, orient, f[1], f[2], f[3], a1, f[1], f[2], f[3], a2)
+        end
+        local fh, fw = artH * 0.3, artW * 0.3
+        fade(x, y, artW, fh, "VERTICAL", false)                    -- top edge
+        fade(x, y + artH - fh, artW, fh, "VERTICAL", true)         -- bottom edge
+        fade(x, y, fw, artH, "HORIZONTAL", true)                   -- left edge
+        fade(x + artW - fw, y, fw, artH, "HORIZONTAL", false)      -- right edge
         return function()
-            dim:SetColorTexture(0.03, 0.03, 0.04, 1 - ns.ArtBrightness())
+            local tint = MMTDB and MMTDB.configArtTint
+            for _, t in ipairs(pieces) do
+                t:SetDesaturated(tint and true or false)
+                if tint then t:SetVertexColor(A[1], A[2], A[3]) else t:SetVertexColor(1, 1, 1) end
+                t:SetAlpha(ns.ArtAlpha())
+            end
         end
     end
 end
@@ -271,7 +298,7 @@ function ns.ApplyBackground(frame, key)
     end
     local image
     for _, b in ipairs(ns.BACKGROUNDS) do
-        if b.value == key then image = b.image end
+        if b.value == key and b.art then image = ImageOf(b) end
     end
     if image and not BUILD[key] then BUILD[key] = Artwork(image) end
     local c = image and ART_FILL or FILL[key] or BASE
@@ -297,7 +324,12 @@ function ns.SetConfigBackground(key)
     if ns.configWindow then ns.ApplyBackground(ns.configWindow) end
 end
 
-function ns.SetArtBrightness(v)
-    MMTDB.configArtBrightness = v
+function ns.SetArtAlpha(v)
+    MMTDB.configArtAlpha = v
+    if ns.configWindow then ns.ApplyBackground(ns.configWindow) end
+end
+
+function ns.SetArtTint(on)
+    MMTDB.configArtTint = on or nil
     if ns.configWindow then ns.ApplyBackground(ns.configWindow) end
 end

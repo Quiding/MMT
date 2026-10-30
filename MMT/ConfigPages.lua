@@ -1288,9 +1288,12 @@ ns.RegisterPage("appearance", "Appearance", function(page)
     col:Space(4)
     local desc = col:Note("")
     col:Space(4)
-    local brightness = col:Slider("Artwork brightness", 10, 80, 5,
-        function() return math.floor(ns.ArtBrightness() * 100 + 0.5) end,
-        function(v) ns.SetArtBrightness(v / 100) end, "%d%%")
+    local opacity = col:Slider("Artwork opacity", 10, 60, 5,
+        function() return math.floor(ns.ArtAlpha() * 100 + 0.5) end,
+        function(v) ns.SetArtAlpha(v / 100) end, "%d%%")
+    local tint = col:Check("Artwork in the accent colour",
+        function() return MMTDB.configArtTint and true or false end, ns.SetArtTint,
+        "Shows the painting in shades of MMT's accent colour instead of its own colours.")
     col:Space(6)
     col:Note("Window size: + and - at the bottom left of this window, or /mmt scale <percent>.")
     local missing = col:Note("")
@@ -1298,9 +1301,10 @@ ns.RegisterPage("appearance", "Appearance", function(page)
     page.OnRefresh = function()
         local key, isArt = ns.ConfigBackground(), false
         for _, b in ipairs(ns.BACKGROUNDS) do
-            if b.value == key then desc:SetText(b.desc) isArt = b.image and true or false end
+            if b.value == key then desc:SetText(b.desc) isArt = b.art and true or false end
         end
-        brightness:SetAlpha(isArt and 1 or 0.4)
+        opacity:SetAlpha(isArt and 1 or 0.4)
+        tint:SetAlpha(isArt and 1 or 0.4)
         local gone = {}
         for _, b in ipairs(ns.BACKGROUNDS) do
             if b.image and ns.ArtworkMissing(b.image) then gone[#gone + 1] = b.text end
