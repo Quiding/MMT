@@ -1,5 +1,6 @@
 -- MMT: backgrounds for the settings window (/mmt > Appearance).
--- Built only from colour textures and gradients (no art files), drawn on the
+-- Built from colour textures and gradients, or the game's own loading screens
+-- (by path: no art files in MMT), drawn on the
 -- window's BACKGROUND layer between its fill and its border, so the nav list,
 -- pages and text stay on top. The choice is per account (MMTDB.configBackground),
 -- like the window scale: the same screen for every character and profile.
@@ -20,6 +21,72 @@ ns.BACKGROUNDS = {
     { value = "GLASS",    text = "Glass",       desc = "Lighter and see-through, with a sheen across the top like frosted glass." },
 }
 
+-- Artwork: the game's own loading screens, used by path (nothing is shipped with
+-- MMT). Dimmed by a dark layer (MMTDB.configArtBrightness) so text stays readable.
+-- A file this client doesn't have is left out of the dropdown (ns.ArtworkMissing).
+local LS = "Interface\\Glues\\LoadingScreens\\LoadScreen"
+local ARTWORK = {
+    { "KALIMDOR",  "Kalimdor",          "Kalimdor" },
+    { "EK",        "Eastern Kingdoms",  "EasternKingdom" },
+    { "MC",        "Molten Core",       "MoltenCore" },
+    { "BWL",       "Blackwing Lair",    "BlackwingLair" },
+    { "AQ",        "Ahn'Qiraj",         "AhnQiraj40man" },
+    { "NAXX",      "Naxxramas",         "Naxxramas" },
+    { "BRS",       "Blackrock Spire",   "BlackrockSpire" },
+    { "SM",        "Scarlet Monastery", "Monastery" },
+    { "DM",        "Dire Maul",         "DireMaul" },
+    { "DEADMINES", "Deadmines",         "Deadmines" },
+    { "GNOMER",    "Gnomeregan",        "Gnomeregan" },
+    { "MARA",      "Maraudon",          "Maraudon" },
+    { "TRAM",      "Deeprun Tram",      "DeeprunTram" },
+}
+for _, a in ipairs(ARTWORK) do
+    ns.BACKGROUNDS[#ns.BACKGROUNDS + 1] = { value = "ART_" .. a[1], text = a[2], image = LS .. a[3],
+        desc = ("The %s loading screen, dimmed. Brightness below."):format(a[2]) }
+end
+local IMAGE_ASPECT = 4 / 3   -- the classic loading screens; cropped to fill the window
+local ART_FILL = { 0, 0, 0, 1 }
+
+function ns.ArtBrightness()
+    return (MMTDB and tonumber(MMTDB.configArtBrightness)) or 0.35
+end
+
+-- file -> true when this client doesn't have it (checked once per session)
+local missing
+function ns.ArtworkMissing(path)
+    if not missing then
+        missing = {}
+        local probe = UIParent:CreateTexture(nil, "BACKGROUND")
+        probe:Hide()
+        local found = 0
+        for _, b in ipairs(ns.BACKGROUNDS) do
+            if b.image then
+                local ok = probe:SetTexture(b.image)
+                local id = probe.GetTextureFileID and probe:GetTextureFileID()
+                if ok == false or (probe.GetTextureFileID and not id) then missing[b.image] = true
+                else found = found + 1 end
+            end
+        end
+        if found == 0 then missing = {} end   -- the check itself doesn't work here: offer them all
+        probe:SetTexture(nil)
+    end
+    return missing[path] or false
+end
+
+-- dropdown entries: the looks, then the artwork this client has
+function ns.BackgroundChoices()
+    local l, header = {}, false
+    for _, b in ipairs(ns.BACKGROUNDS) do
+        if not b.image then
+            l[#l + 1] = b
+        elseif not ns.ArtworkMissing(b.image) then
+            if not header then l[#l + 1] = { header = true, text = "Artwork" } header = true end
+            l[#l + 1] = b
+        end
+    end
+    return l
+end
+
 local BASE = { 0.05, 0.05, 0.06, 0.94 }   -- the window's own fill (Config.lua)
 -- fill colour per background; nil = BASE
 local FILL = {
@@ -33,7 +100,7 @@ local FILL = {
 function ns.ConfigBackground()
     local v = MMTDB and MMTDB.configBackground
     for _, b in ipairs(ns.BACKGROUNDS) do
-        if b.value == v then return v end
+        if b.value == v and not (b.image and ns.ArtworkMissing(b.image)) then return v end
     end
     return "NONE"
 end
@@ -162,6 +229,36 @@ BUILD.GLASS = function(tex, w, h)
     edge:SetColorTexture(1, 1, 1, 0.14)
 end
 
+-- one loading screen: cropped to the window's shape, a dark layer over it, darker edges
+local function Artwork(path)
+    return function(tex, w, h)
+        local art = tex(1)
+        art:SetPoint("TOPLEFT", 1, -1); art:SetPoint("BOTTOMRIGHT", -1, 1)
+        art:SetTexture(path)
+        local frameAspect = w / h
+        if frameAspect > IMAGE_ASPECT then
+            local cut = (1 - IMAGE_ASPECT / frameAspect) / 2
+            art:SetTexCoord(0, 1, cut, 1 - cut)
+        else
+            local cut = (1 - frameAspect / IMAGE_ASPECT) / 2
+            art:SetTexCoord(cut, 1 - cut, 0, 1)
+        end
+        local dim = tex(2)
+        dim:SetAllPoints()
+        local top = tex(3)
+        top:SetPoint("TOPLEFT"); top:SetPoint("TOPRIGHT")
+        top:SetHeight(h * 0.2)
+        Gradient(top, "VERTICAL", 0, 0, 0, 0, 0, 0, 0, 0.5)
+        local bottom = tex(3)
+        bottom:SetPoint("BOTTOMLEFT"); bottom:SetPoint("BOTTOMRIGHT")
+        bottom:SetHeight(h * 0.25)
+        Gradient(bottom, "VERTICAL", 0, 0, 0, 0.6, 0, 0, 0, 0)
+        return function()
+            dim:SetColorTexture(0.03, 0.03, 0.04, 1 - ns.ArtBrightness())
+        end
+    end
+end
+
 -- frame: the settings window; frame.baseFill = its fill texture (UI.Fill)
 function ns.ApplyBackground(frame, key)
     if not frame then return end
@@ -172,7 +269,12 @@ function ns.ApplyBackground(frame, key)
             for _, t in ipairs(set.textures) do t:Hide() end
         end
     end
-    local c = FILL[key] or BASE
+    local image
+    for _, b in ipairs(ns.BACKGROUNDS) do
+        if b.value == key then image = b.image end
+    end
+    if image and not BUILD[key] then BUILD[key] = Artwork(image) end
+    local c = image and ART_FILL or FILL[key] or BASE
     if frame.baseFill then frame.baseFill:SetColorTexture(c[1], c[2], c[3], c[4]) end
     if not BUILD[key] then return end
     local set = frame.bgSets[key]
@@ -192,5 +294,10 @@ end
 
 function ns.SetConfigBackground(key)
     MMTDB.configBackground = (key ~= "NONE") and key or nil
+    if ns.configWindow then ns.ApplyBackground(ns.configWindow) end
+end
+
+function ns.SetArtBrightness(v)
+    MMTDB.configArtBrightness = v
     if ns.configWindow then ns.ApplyBackground(ns.configWindow) end
 end

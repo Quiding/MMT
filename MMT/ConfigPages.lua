@@ -1284,17 +1284,28 @@ ns.RegisterPage("appearance", "Appearance", function(page)
     local col = UI.Column(page, 0, 0, COL_W)
     col:Header("Settings window")
     col:Note("How this window looks. The choice belongs to this account (all its characters and profiles) and is never synced.")
-    col:Cycle("Background", ns.BACKGROUNDS, ns.ConfigBackground, ns.SetConfigBackground)
+    col:Cycle("Background", ns.BackgroundChoices, ns.ConfigBackground, ns.SetConfigBackground)
     col:Space(4)
     local desc = col:Note("")
-    col:Space(10)
+    col:Space(4)
+    local brightness = col:Slider("Artwork brightness", 10, 80, 5,
+        function() return math.floor(ns.ArtBrightness() * 100 + 0.5) end,
+        function(v) ns.SetArtBrightness(v / 100) end, "%d%%")
+    col:Space(6)
     col:Note("Window size: + and - at the bottom left of this window, or /mmt scale <percent>.")
+    local missing = col:Note("")
 
     page.OnRefresh = function()
-        local key = ns.ConfigBackground()
+        local key, isArt = ns.ConfigBackground(), false
         for _, b in ipairs(ns.BACKGROUNDS) do
-            if b.value == key then desc:SetText(b.desc) end
+            if b.value == key then desc:SetText(b.desc) isArt = b.image and true or false end
         end
+        brightness:SetAlpha(isArt and 1 or 0.4)
+        local gone = {}
+        for _, b in ipairs(ns.BACKGROUNDS) do
+            if b.image and ns.ArtworkMissing(b.image) then gone[#gone + 1] = b.text end
+        end
+        missing:SetText(#gone > 0 and ("Artwork this client doesn't have: " .. table.concat(gone, ", ") .. ".") or "")
     end
 end)
 
