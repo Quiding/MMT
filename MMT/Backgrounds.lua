@@ -70,7 +70,12 @@ local function ArtOf(b)
 end
 
 function ns.ArtAlpha()
-    return (MMTDB and tonumber(MMTDB.configArtAlpha)) or 0.25
+    return (MMTDB and tonumber(MMTDB.configArtAlpha)) or 0.3
+end
+
+-- in the accent colour unless switched off (saved as false; nil = the default, on)
+function ns.ArtTint()
+    return not (MMTDB and MMTDB.configArtTint == false)
 end
 
 -- Does this client have a file? A texture set to a path the client doesn't know gets
@@ -277,7 +282,7 @@ local function Artwork(e)
         bottom:SetHeight(h * 0.18)
         Gradient(bottom, "VERTICAL", 0, 0, 0, 0.35, 0, 0, 0, 0)
         return function()
-            local tint = MMTDB and MMTDB.configArtTint
+            local tint = ns.ArtTint()
             art:SetDesaturated(tint and true or false)
             if tint then art:SetVertexColor(A[1], A[2], A[3]) else art:SetVertexColor(1, 1, 1) end
             art:SetAlpha(ns.ArtAlpha())
@@ -329,6 +334,6 @@ function ns.SetArtAlpha(v)
 end
 
 function ns.SetArtTint(on)
-    MMTDB.configArtTint = on or nil
+    if on then MMTDB.configArtTint = nil else MMTDB.configArtTint = false end
     if ns.configWindow then ns.ApplyBackground(ns.configWindow) end
 end

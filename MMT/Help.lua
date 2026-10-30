@@ -265,7 +265,7 @@ ns.RegisterPage("help", "Help", function(page)
         function() return math.floor(ns.ArtAlpha() * 100 + 0.5) end,
         function(v) ns.SetArtAlpha(v / 100) end, "%d%%")
     local tint = col:Check("Artwork in the accent colour",
-        function() return MMTDB.configArtTint and true or false end, ns.SetArtTint,
+        ns.ArtTint, ns.SetArtTint,
         "Shows the painting in shades of MMT's accent colour instead of its own colours.")
     col:Space(6)
     col:Note("Window size: + and - at the bottom left of this window, or /mmt scale <percent>.")
