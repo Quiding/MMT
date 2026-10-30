@@ -1277,6 +1277,27 @@ ns.RegisterPage("trade", "Trade / Mail / Vendor", function(page)
     end
 end)
 
+---------------------------------------------------------------------------
+-- Appearance (per account, like the window scale; never synced)
+---------------------------------------------------------------------------
+ns.RegisterPage("appearance", "Appearance", function(page)
+    local col = UI.Column(page, 0, 0, COL_W)
+    col:Header("Settings window")
+    col:Note("How this window looks. The choice belongs to this account (all its characters and profiles) and is never synced.")
+    col:Cycle("Background", ns.BACKGROUNDS, ns.ConfigBackground, ns.SetConfigBackground)
+    col:Space(4)
+    local desc = col:Note("")
+    col:Space(10)
+    col:Note("Window size: + and - at the bottom left of this window, or /mmt scale <percent>.")
+
+    page.OnRefresh = function()
+        local key = ns.ConfigBackground()
+        for _, b in ipairs(ns.BACKGROUNDS) do
+            if b.value == key then desc:SetText(b.desc) end
+        end
+    end
+end)
+
 ns.RegisterPage("profiles", "Profiles", function(page)
     local col = UI.Column(page, 0, 0, PAGE_W)
     local copySource

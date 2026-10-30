@@ -35,6 +35,7 @@ Invites.lua
 Camera.lua
 Distance.lua
 Debug.lua
+Backgrounds.lua
 Config.lua
 ConfigPages.lua
 Help.lua
