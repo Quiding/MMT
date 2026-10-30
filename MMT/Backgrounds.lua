@@ -61,29 +61,54 @@ for _, c in ipairs(SPECS) do
 end
 local ART_FILL = { 0.05, 0.05, 0.06, 0.96 }
 
--- Points per talent tree (3 numbers), or nil. Classic talent tabs where the client
--- has them; on Forever the talents are one trait tree, whose three classic trees
--- are the three bands of node columns (left to right = tab order).
+-- Points per talent tree (3 numbers), or nil. Forever: its one trait tree has a
+-- group per classic tree (C_Traits.GetGroupDisplayInfoByTreeID, by orderIndex) with
+-- the points spent in it (GetGroupCurrencyInfo, as LibSpecialization reads it); its
+-- old talent tabs read 0 everywhere, so they only count when they show points.
+-- Last resort: the three bands of the trait tree's node columns.
 local function Readable(v) return v ~= nil and not ns.IsSecret(v) end
-local function TreePoints()
-    local n = GetNumTalentTabs and ns.Safe(GetNumTalentTabs)
-    if type(n) == "number" and n >= 3 then
-        local t = {}
-        for tab = 1, 3 do
-            local ok, a, _, c, _, e = pcall(GetTalentTabInfo, tab)
-            local spent = ok and (type(a) == "string" and c or e)
-            if not Readable(spent) or type(spent) ~= "number" then t = nil break end
-            t[tab] = spent
-        end
-        if t then return t end
-    end
-    if not (C_ClassTalents and C_ClassTalents.GetActiveConfigID and C_Traits and C_Traits.GetConfigInfo
-        and C_Traits.GetTreeNodes and C_Traits.GetNodeInfo) then return nil end
+local function Sum(t) return t and ((t[1] or 0) + (t[2] or 0) + (t[3] or 0)) or 0 end
+local function TraitConfig()
+    if not (C_ClassTalents and C_ClassTalents.GetActiveConfigID and C_Traits and C_Traits.GetConfigInfo) then return end
     local config = ns.Safe(C_ClassTalents.GetActiveConfigID)
-    if type(config) ~= "number" then return nil end
+    if type(config) ~= "number" then return end
     local info = ns.Safe(C_Traits.GetConfigInfo, config)
     local tree = type(info) == "table" and type(info.treeIDs) == "table" and info.treeIDs[1]
-    if type(tree) ~= "number" then return nil end
+    if type(tree) == "number" then return config, tree end
+end
+local function GroupPoints(config, tree)
+    if not (C_Traits.GetGroupDisplayInfoByTreeID and C_Traits.GetGroupCurrencyInfo) then return nil end
+    local groups = ns.Safe(C_Traits.GetGroupDisplayInfoByTreeID, tree)
+    if type(groups) ~= "table" or #groups < 3 then return nil end
+    table.sort(groups, function(x, y) return (x.orderIndex or 0) < (y.orderIndex or 0) end)
+    local t = {}
+    for i = 1, 3 do
+        local c = ns.Safe(C_Traits.GetGroupCurrencyInfo, config, { groups[i].groupID })
+        local spent = type(c) == "table" and type(c[1]) == "table" and type(c[1].currencyInfos) == "table"
+            and type(c[1].currencyInfos[1]) == "table" and c[1].currencyInfos[1].spent
+        t[i] = (Readable(spent) and type(spent) == "number") and spent or 0
+    end
+    return t
+end
+local function TabPoints()
+    local n = GetNumTalentTabs and ns.Safe(GetNumTalentTabs)
+    if type(n) ~= "number" or n < 3 then return nil end
+    local t = {}
+    for tab = 1, 3 do
+        local ok, a, _, c, _, e = pcall(GetTalentTabInfo, tab)
+        local spent = ok and (type(a) == "string" and c or e)
+        if not Readable(spent) or type(spent) ~= "number" then return nil end
+        t[tab] = spent
+    end
+    return t
+end
+local function TreePoints()
+    local config, tree = TraitConfig()
+    local t = config and GroupPoints(config, tree)
+    if Sum(t) > 0 then return t end
+    t = TabPoints()
+    if Sum(t) > 0 then return t end
+    if not (config and C_Traits.GetTreeNodes and C_Traits.GetNodeInfo) then return nil end
     local nodes = ns.Safe(C_Traits.GetTreeNodes, tree)
     if type(nodes) ~= "table" then return nil end
     local cols, xs = {}, {}
