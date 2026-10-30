@@ -44,9 +44,9 @@ local SPECS = {
 -- spec i -> file number and the painting's top row in it; the druid's file 2 holds
 -- Guardian (top) and Restoration (below)
 local PLACE = { { 1, 1 }, { 1, 777 }, { 2, 1 } }
-local CLASS_FIRST = {}   -- class token -> the entry of its first spec
+local CLASS_SPECS = {}   -- class token -> its three entries, in talent tree order
 ns.BACKGROUNDS[#ns.BACKGROUNDS + 1] = { value = "ART_CLASS", text = "My class", art = true,
-    desc = "The painting of this character's class (first spec): each character of the team shows its own." }
+    desc = "The painting of this character's class and spec (the talent tree with the most points): each character of the team shows its own." }
 for _, c in ipairs(SPECS) do
     for i = 1, 3 do
         local file, top = PLACE[i][1], PLACE[i][2]
@@ -55,18 +55,90 @@ for _, c in ipairs(SPECS) do
             image = TF .. c[1] .. file, top = top,
             desc = ("The %s %s painting from the talent window."):format(c[i + 1], c[1]:lower()) }
         ns.BACKGROUNDS[#ns.BACKGROUNDS + 1] = e
-        if i == 1 then CLASS_FIRST[c[1]:upper()] = e end
+        CLASS_SPECS[c[1]:upper()] = CLASS_SPECS[c[1]:upper()] or {}
+        CLASS_SPECS[c[1]:upper()][i] = e
     end
 end
 local ART_FILL = { 0.05, 0.05, 0.06, 0.96 }
 
--- the entry whose painting a background shows ("My class" -> this character's class)
+-- Points per talent tree (3 numbers), or nil. Classic talent tabs where the client
+-- has them; on Forever the talents are one trait tree, whose three classic trees
+-- are the three bands of node columns (left to right = tab order).
+local function Readable(v) return v ~= nil and not ns.IsSecret(v) end
+local function TreePoints()
+    local n = GetNumTalentTabs and ns.Safe(GetNumTalentTabs)
+    if type(n) == "number" and n >= 3 then
+        local t = {}
+        for tab = 1, 3 do
+            local ok, a, _, c, _, e = pcall(GetTalentTabInfo, tab)
+            local spent = ok and (type(a) == "string" and c or e)
+            if not Readable(spent) or type(spent) ~= "number" then t = nil break end
+            t[tab] = spent
+        end
+        if t then return t end
+    end
+    if not (C_ClassTalents and C_ClassTalents.GetActiveConfigID and C_Traits and C_Traits.GetConfigInfo
+        and C_Traits.GetTreeNodes and C_Traits.GetNodeInfo) then return nil end
+    local config = ns.Safe(C_ClassTalents.GetActiveConfigID)
+    if type(config) ~= "number" then return nil end
+    local info = ns.Safe(C_Traits.GetConfigInfo, config)
+    local tree = type(info) == "table" and type(info.treeIDs) == "table" and info.treeIDs[1]
+    if type(tree) ~= "number" then return nil end
+    local nodes = ns.Safe(C_Traits.GetTreeNodes, tree)
+    if type(nodes) ~= "table" then return nil end
+    local cols, xs = {}, {}
+    for _, id in ipairs(nodes) do
+        local node = ns.Safe(C_Traits.GetNodeInfo, config, id)
+        local x = type(node) == "table" and node.posX
+        if type(x) == "number" then
+            if not cols[x] then cols[x] = 0; xs[#xs + 1] = x end
+            cols[x] = cols[x] + (tonumber(node.ranksPurchased) or 0)
+        end
+    end
+    if #xs < 3 then return nil end
+    table.sort(xs)
+    local step
+    for i = 2, #xs do
+        local gap = xs[i] - xs[i - 1]
+        if gap > 0 and (not step or gap < step) then step = gap end
+    end
+    if not step then return nil end
+    local t = { cols[xs[1]] }
+    for i = 2, #xs do
+        if xs[i] - xs[i - 1] > step * 2 then t[#t + 1] = 0 end
+        t[#t] = t[#t] + cols[xs[i]]
+    end
+    return #t == 3 and t or nil
+end
+
+-- this character's tree with the most points (1-3), or nil (no points spent / unknown)
+local function OwnTree()
+    local points, best, most = TreePoints(), nil, 0
+    for i = 1, 3 do
+        if points and points[i] > most then best, most = i, points[i] end
+    end
+    return best
+end
+
+-- the entry whose painting a background shows; for "My class" also whether the spec
+-- came from the talents (else its first spec)
 local function ArtOf(b)
     if b.value == "ART_CLASS" then
         local _, class = UnitClass("player")
-        return CLASS_FIRST[class or ""] or CLASS_FIRST.WARRIOR
+        local specs = CLASS_SPECS[class or ""] or CLASS_SPECS.WARRIOR
+        local tree = OwnTree()
+        return specs[tree or 1], tree ~= nil
     end
     return b
+end
+
+-- "Priest: Shadow" and why, for the Help > Appearance page
+function ns.ClassArt()
+    local e, byTalents
+    for _, b in ipairs(ns.BACKGROUNDS) do
+        if b.value == "ART_CLASS" then e, byTalents = ArtOf(b) end
+    end
+    return e.text, byTalents
 end
 
 function ns.ArtAlpha()
@@ -112,7 +184,8 @@ function ns.BackgroundChoices()
             l[#l + 1] = b
         elseif not ns.ArtworkMissing(ArtOf(b).image) then
             if not header then l[#l + 1] = { header = true, text = "Artwork" } header = true end
-            l[#l + 1] = b
+            -- "My class (Priest: Shadow)": which painting it is right now
+            l[#l + 1] = (b.value == "ART_CLASS") and { value = b.value, art = true, desc = b.desc, text = ("My class (%s)"):format(ArtOf(b).text) } or b
         end
     end
     return l
@@ -295,14 +368,15 @@ function ns.ApplyBackground(frame, key)
     if not frame then return end
     key = key or ns.ConfigBackground()
     frame.bgSets = frame.bgSets or {}
+    local image
+    for _, b in ipairs(ns.BACKGROUNDS) do
+        if b.value == key and b.art then image = ArtOf(b) end
+    end
+    if image then key = image.value end   -- "My class" uses the set of the painting it shows
     for k, set in pairs(frame.bgSets) do
         if k ~= key then
             for _, t in ipairs(set.textures) do t:Hide() end
         end
-    end
-    local image
-    for _, b in ipairs(ns.BACKGROUNDS) do
-        if b.value == key and b.art then image = ArtOf(b) end
     end
     if image and not BUILD[key] then BUILD[key] = Artwork(image) end
     local c = image and ART_FILL or FILL[key] or BASE

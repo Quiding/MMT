@@ -401,6 +401,7 @@ local function Build()
 
     w:SetScript("OnShow", function()
         ns.configOpen = true
+        ns.ApplyBackground(w)   -- "My class" follows the talents
         Select(current or "team")
         if ns.UpdateDistanceVisibility then ns.UpdateDistanceVisibility() end
     end)

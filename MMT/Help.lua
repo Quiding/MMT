@@ -276,6 +276,11 @@ ns.RegisterPage("help", "Help", function(page)
         for _, b in ipairs(ns.BACKGROUNDS) do
             if b.value == key then desc:SetText(b.desc) isArt = b.art and true or false end
         end
+        if key == "ART_CLASS" then
+            local text, byTalents = ns.ClassArt()
+            desc:SetText(("Now: %s, %s.")
+                :format(text, byTalents and "from the talent points" or "the first spec (no talent points yet)"))
+        end
         opacity:SetAlpha(isArt and 1 or 0.4)
         tint:SetAlpha(isArt and 1 or 0.4)
         local gone = {}
