@@ -1,4 +1,4 @@
--- MMT: backgrounds for the settings window (/mmt > Appearance).
+-- MMT: backgrounds for the settings window (/mmt > Help > Appearance).
 -- Built from colour textures and gradients, or the game's own class paintings
 -- (atlases: no art files in MMT), drawn on the
 -- window's BACKGROUND layer between its fill and its border, so the nav list,
