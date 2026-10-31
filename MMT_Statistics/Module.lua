@@ -266,7 +266,14 @@ function mod.Money(copper)
     if not copper then return "-" end
     copper = math.floor(copper)
     local style = M.db.money
-    if style == "COINS" and GetCoinTextureString then return GetCoinTextureString(copper) end
+    if style == "COINS" then
+        -- this client has C_CurrencyInfo's; the old global may be missing
+        local coins = (C_CurrencyInfo and C_CurrencyInfo.GetCoinTextureString) or GetCoinTextureString
+        if coins then
+            local ok, text = pcall(coins, copper)
+            if ok and type(text) == "string" then return text end
+        end
+    end
     local g, s, c = math.floor(copper / 10000), math.floor(copper / 100) % 100, copper % 100
     if style == "GOLD" then return ("%dg"):format(g) end
     return ("%dg %ds %dc"):format(g, s, c)
