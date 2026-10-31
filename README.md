@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.35: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.36: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -148,7 +148,7 @@ Saved data from MMT 0.1.x is converted automatically.
     record per day, kept for 60 days, saved per account (not per profile).
   - A line chart of the combined gold over the last 60 days for "Current team",
     "Current account", "Account of X" (each account the team sent) or "All accounts";
-    hover a day for its value.
+    hover a day for its value. The axis goes in round whole-gold steps ("10k g", "1.2M g").
   - Accounts: every WoW account keeps its own saved variables, so MMT gives each one a
     random id. Clients send a summary of their account to the team (characters with gold
     and kills, daily totals, top kills and killers; compressed when possible) and keep the
@@ -214,6 +214,9 @@ Saved data from MMT 0.1.x is converted automatically.
     quests aren't changed by this.
   Background colour and opacity, width, maximum height (scrolls beyond), indent,
   alignment, outline, and font, size and colour for each of the four levels.
+  "Hide other addons' quest trackers" (on by default): Questie's tracker window and
+  EllesmereUI Quest Tracker are hidden while the module is on (their own settings stay
+  untouched) and come back when the option or the module is switched off.
   Quest automation lives here too: accept from NPCs and from the group, turn in, skip
   grey quests, announce "ready for turn-in", share new quests automatically, announce
   quests that can't be shared, mark the reward choices (a coin on the one that sells
@@ -290,8 +293,12 @@ Saved data from MMT 0.1.x is converted automatically.
   recipients switch their modules the same way (modules switched on that weren't loaded need a UI reload; modules they don't
   have installed are named in chat). Modules page > "Sync to team" (or
   `/mmt sync modules`) sends only the on/off states.
-- **Help**: debug tools with a how-to, and guides for writing modules and using the
-  team communication (with copyable example code).
+- **Help**: debug tools with a how-to, guides for writing modules and using the team
+  communication (with copyable example code), and **Appearance**: a background for the
+  settings window (plain looks such as Dark, Dusk, Vignette, Accent or Class glow, Grid,
+  Glass, or the game's talent tree paintings: one per class and spec, or "My class", which
+  follows the talent tree with the most points), its opacity (default 30 %) and whether
+  the painting is drawn in MMT's accent colour. Per account, never synced; default None.
   "Debug mode (ignore online requirements)" (off, per account): the XP window and the
   Quest Tracker list every team member, also those offline or never heard from (in grey,
   with their last known values). Only for testing: while it is on, MMT asks at every
