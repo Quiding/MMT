@@ -42,9 +42,11 @@ local function Table(parent, headers)
                 l:SetWidth(COLS[2] - 16)
                 l:SetJustifyH("LEFT")
                 l:SetWordWrap(false)
-            else
+            else   -- never wider than the column: a huge amount can't run into the next one
                 l:SetPoint("RIGHT", row, "LEFT", COL_RIGHT[c], 0)
+                l:SetWidth(COL_RIGHT[c] - (COL_RIGHT[c - 1] or COLS[2]) - 8)
                 l:SetJustifyH("RIGHT")
+                l:SetWordWrap(false)
             end
             row.cells[c] = l
         end
