@@ -157,8 +157,10 @@ local function Build()
     UI.CloseOnEscape(w)
     w.tabs = {}
 
-    UI.Fill(w, 0.05, 0.05, 0.06, 0.94)
+    w.baseFill = UI.Fill(w, 0.05, 0.05, 0.06, 0.94)
     UI.Border(w, 0.22, 0.22, 0.24, 1)
+    ns.configWindow = w
+    ns.ApplyBackground(w)   -- Backgrounds.lua (/mmt > Appearance)
 
     local nav = CreateFrame("Frame", nil, w)
     nav:SetPoint("TOPLEFT", 1, -1)
@@ -399,6 +401,7 @@ local function Build()
 
     w:SetScript("OnShow", function()
         ns.configOpen = true
+        ns.ApplyBackground(w)   -- "My class" follows the talents
         Select(current or "team")
         if ns.UpdateDistanceVisibility then ns.UpdateDistanceVisibility() end
     end)

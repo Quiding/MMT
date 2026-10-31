@@ -1,5 +1,5 @@
--- MMT: Help page (CORE section): debug tools with a how-to, and short
--- guides for writing modules and using the team communication.
+-- MMT: Help page (CORE section): debug tools with a how-to, short guides for
+-- writing modules and using the team communication, and the look of this window.
 
 local _, ns = ...
 local UI = ns.UI
@@ -195,7 +195,8 @@ ns.RegisterPage("help", "Help", function(page)
         end
     end
 
-    local tabs = { { "debug", "Debugging" }, { "modules", "Writing modules" }, { "comm", "Team communication" } }
+    local tabs = { { "debug", "Debugging" }, { "modules", "Writing modules" }, { "comm", "Team communication" },
+                   { "look", "Appearance" } }
     for i, t in ipairs(tabs) do
         local b = UI.Button(page, 166, t[2], function() Show(t[1]) end)
         b:SetPoint("TOPLEFT", (i - 1) * 176, 0)
@@ -250,6 +251,48 @@ ns.RegisterPage("help", "Help", function(page)
     cc:Header("Talking to the other clients")
     cc:Note(COMM_TEXT)
     cc:Add(CodeBox(c, PAGE_W, 400, COMM_CODE), 408)
+
+    -- Appearance (per account, like the window scale; never synced) -------------
+    local lk = panels.look
+    local col = UI.Column(lk, 0, 0, COL_W)
+    col:Header("Settings window")
+    col:Note("How this window looks. The choice belongs to this account (all its characters and profiles) and is never synced.")
+    col:Cycle("Background", ns.BackgroundChoices, ns.ConfigBackground, ns.SetConfigBackground)
+    col:Space(4)
+    local desc = col:Note("")
+    col:Space(4)
+    local opacity = col:Slider("Artwork opacity", 10, 60, 5,
+        function() return math.floor(ns.ArtAlpha() * 100 + 0.5) end,
+        function(v) ns.SetArtAlpha(v / 100) end, "%d%%")
+    local tint = col:Check("Artwork in the accent colour",
+        ns.ArtTint, ns.SetArtTint,
+        "Shows the painting in shades of MMT's accent colour instead of its own colours.")
+    col:Space(6)
+    col:Note("Window size: + and - at the bottom left of this window, or /mmt scale <percent>.")
+    local missing = col:Note("")
+
+    page.OnRefresh = function()
+        local key, isArt = ns.ConfigBackground(), false
+        for _, b in ipairs(ns.BACKGROUNDS) do
+            if b.value == key then desc:SetText(b.desc) isArt = b.art and true or false end
+        end
+        if key == "ART_CLASS" then
+            local text, byTalents = ns.ClassArt()
+            desc:SetText(("Now: %s, %s.")
+                :format(text, byTalents and "from the talent points" or "the first spec (no talent points yet)"))
+        end
+        opacity:SetAlpha(isArt and 1 or 0.4)
+        tint:SetAlpha(isArt and 1 or 0.4)
+        local gone = {}
+        for _, b in ipairs(ns.BACKGROUNDS) do
+            if b.image and ns.ArtworkMissing(b.image) then gone[#gone + 1] = b.text end
+        end
+        if not ns.ArtworkCheckWorks() then
+            missing:SetText("This client can't tell which artwork it has, so all of it is listed: one that stays dark isn't there.")
+        else
+            missing:SetText(#gone > 0 and ("Artwork this client doesn't have: " .. table.concat(gone, ", ") .. ".") or "")
+        end
+    end
 
     Show("debug")
 end)
