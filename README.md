@@ -133,10 +133,9 @@ Saved data from MMT 0.1.x is converted automatically.
   a slot and it appears there on every character, also on those that don't have it;
   Ctrl-click removes it everywhere. The tooltip shows every character's count ("Name -
   bag: X / bank: Y", privacy names; optionally the guild bank). Left-click uses the item
-  here; right-click uses it here and on the team: items without a spell (bags, clams,
-  equipment) are used on the others too, items with a spell (potions, food, quest items)
-  light up there, because WoW lets an addon use those only on a click or key press on
-  that client. Every slot has a key binding (Esc > Options > Keybindings > MMT (Manage My Team) >
+  here; right-click uses it here and lights the slot up on the other characters for a few
+  seconds, because WoW lets an addon use an item only on a click or key press on that
+  client (an item used from a team message is blocked). Every slot has a key binding (Esc > Options > Keybindings > MMT (Manage My Team) >
   Item Bar): with key broadcasting one key press uses the item everywhere.
   Small buttons: refresh (sync the bar to the team) and clear (both can be hidden).
   Shift + drag moves the bar, Shift-right-click opens its settings.

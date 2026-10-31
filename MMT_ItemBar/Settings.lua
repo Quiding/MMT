@@ -37,8 +37,8 @@ M.Page = function(_, page)
 
     local R = UI.Column(page, COL2_X, 0, COL_W)
     R:Header("Mouse")
-    R:Note("Drop an item on a slot: it is added on every character.\nLeft-click: use the item on this character.\nRight-click: use it here and on the team.\nCtrl-click: remove it from every character.\nShift + drag: move the bar.\nShift-right-click: these settings.\nTooltip: every character's count in bags and bank.")
+    R:Note("Drop an item on a slot: it is added on every character.\nLeft-click: use the item on this character.\nRight-click: use it here and light the slot up on the team.\nCtrl-click: remove it from every character.\nShift + drag: move the bar.\nShift-right-click: these settings.\nTooltip: every character's count in bags and bank.")
     R:Header("Using items on the team")
-    R:Note("WoW lets an addon use an item only where you click or press a key. On the other characters, right-click opens or equips items that need no key press (bags, clams, equipment). Items with a spell (potions, food, quest items) light up there instead.")
+    R:Note("WoW lets an addon use an item only where you click or press a key, so on the other characters right-click lights the slot up for a few seconds: click it or press its key there.")
     R:Note("For those: Esc > Options > Keybindings > \"MMT (Manage My Team)\" > Item Bar has a key per slot. With key broadcasting, one key press uses the item on every character.")
 end

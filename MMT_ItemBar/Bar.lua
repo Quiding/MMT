@@ -5,7 +5,7 @@
 -- Mouse on a slot:
 --   drop an item       put it in this slot (every character)
 --   left click         use the item here
---   right click        use it here and on the team (see Module.lua)
+--   right click        use it here, light the slot up on the team (see Module.lua)
 --   Ctrl-click         remove it (every character)
 --   Shift + drag       move the bar
 --   Shift-right-click  settings
@@ -102,7 +102,7 @@ local function Tooltip(b)
         end
     end
     GameTooltip:AddLine(" ")
-    GameTooltip:AddLine("Left-click: use   Right-click: use on the team", 0.5, 0.5, 0.5)
+    GameTooltip:AddLine("Left-click: use   Right-click: use, light up on the team", 0.5, 0.5, 0.5)
     GameTooltip:AddLine("Ctrl-click: remove   Shift-drag: move   Shift-right-click: settings", 0.5, 0.5, 0.5)
     GameTooltip:Show()
 end
