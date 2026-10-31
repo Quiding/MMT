@@ -5,7 +5,7 @@
 -- Mouse on a slot:
 --   drop an item       put it in this slot (every character)
 --   left click         use the item here
---   right click        use it here, light the slot up on the team (see Module.lua)
+--   right click        use the item here too
 --   Ctrl-click         remove it (every character)
 --   Shift + drag       move the bar
 --   Shift-right-click  settings
@@ -102,7 +102,7 @@ local function Tooltip(b)
         end
     end
     GameTooltip:AddLine(" ")
-    GameTooltip:AddLine("Left-click: use   Right-click: use, light up on the team", 0.5, 0.5, 0.5)
+    GameTooltip:AddLine("Click: use (on the team: the slot's key with key broadcasting)", 0.5, 0.5, 0.5)
     GameTooltip:AddLine("Ctrl-click: remove   Shift-drag: move   Shift-right-click: settings", 0.5, 0.5, 0.5)
     GameTooltip:Show()
 end
@@ -130,10 +130,6 @@ local function Button(slot)
     b.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
     b.count = b:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
     b.count:SetPoint("BOTTOMRIGHT", -2, 2)
-    b.glow = b:CreateTexture(nil, "OVERLAY")
-    b.glow:SetAllPoints()
-    b.glow:SetColorTexture(1, 0.82, 0, 0.35)
-    b.glow:Hide()
     local hl = b:CreateTexture(nil, "HIGHLIGHT")
     hl:SetAllPoints()
     hl:SetColorTexture(1, 1, 1, 0.12)
@@ -158,9 +154,6 @@ local function Button(slot)
                 mod.SetSlot(self.slot, nil)
             end
             return
-        end
-        if button == "RightButton" and id then
-            MMT.SendToTeam(("IBU:%d:%d"):format(self.slot, id), true, "ALERT")
         end
     end)
     b:SetScript("OnReceiveDrag", function(self) if DropOn(self) then ApplyAttributes(self) end end)
@@ -210,7 +203,6 @@ local function UpdateIcons(n)
             b.icon:Hide()
             b.count:SetText("")
         end
-        b.glow:SetShown((mod.flash[slot] or 0) > GetTime())
     end
 end
 
@@ -272,11 +264,5 @@ end
 
 M:On("PLAYER_REGEN_ENABLED", function()
     if pendingAttributes then pendingAttributes = false mod.Update() end
-end)
--- slots that light up (right click on another client) go dark again
-C_Timer.NewTicker(1, function()
-    for slot, untilTime in pairs(mod.flash) do
-        if untilTime <= GetTime() then mod.flash[slot] = nil if M.enabled then mod.Update() end end
-    end
 end)
 MMT.OnRefresh(function() if MMT.ready then mod.Update() end end)

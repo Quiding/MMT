@@ -9,15 +9,14 @@
 -- Using items: WoW lets an addon use an item only on the client where you
 -- click or press a key. So
 --   * left click: uses the item here,
---   * right click: uses it here and lights the slot up on the others (an item
---     used from a team message is blocked by the game, whatever it is),
+--   * right click: the same (using it on the other clients from a message is
+--     blocked by the game, so the bar doesn't try),
 --   * key bindings per slot (Esc > Options > Keybindings > MMT (Manage My Team)): with key
 --     broadcasting, one key press uses the item on every client.
 --
 -- Messages:
 --   IBS:<slot>:<itemID>      slot set (0 = empty)
 --   IBA:<n>:<id,id,...>      the whole bar (refresh button; empty list = clear)
---   IBU:<slot>:<itemID>      right click: light the slot up
 --   IBC:<id>,<bags>,<bank>,<guild bank>;...   this character's counts
 --                                          (guild bank -1 = not seen)
 
@@ -46,7 +45,6 @@ mod.M = M
 mod.MAX_SLOTS = 8
 
 mod.counts = {}     -- [teamKey] = { [itemID] = { bags, bank, gbank } }
-mod.flash = {}      -- [slot] = GetTime() until which the slot lights up
 
 local function Send(msg, prio) MMT.SendToTeam(msg, true, prio or "NORMAL") end
 
@@ -101,8 +99,6 @@ M:Listen("TEAM_MESSAGE", function(key, sender, text)
         return
     end
 
-    local uslot, uid = text:match("^IBU:(%d+):(%d+)$")
-    if uslot then mod.UseFromTeam(tonumber(uslot), tonumber(uid), key) return end
 
     local counts = text:match("^IBC:(.*)$")
     if counts then
@@ -186,21 +182,6 @@ local function ScanGuildBank()
 end
 M:On("GUILDBANKBAGSLOTS_CHANGED", function() C_Timer.After(0.5, ScanGuildBank) end)
 
----------------------------------------------------------------------------
--- Right click on another client: its slot lights up
----------------------------------------------------------------------------
-
--- The game blocks using an item without a click or key press on this client
--- (also bags and food it doesn't report a spell for), so the slot only lights
--- up here: a click on it, or its key, uses it.
-function mod.UseFromTeam(slot, id, fromKey)
-    if not M.enabled or not id then return end
-    if Count(id, false) == 0 then return end
-    mod.flash[slot] = GetTime() + 6
-    M:Debug("slot %d (item %s) lit up for %s", slot, tostring(id), MMT.Repr(fromKey))
-    if mod.Update then mod.Update() end
-end
-
 M.OnEnable = function()
     if mod.Update then mod.Update() end
     C_Timer.After(3, mod.SendCounts)
@@ -212,7 +193,7 @@ M.OnSyncReceived = function() if mod.Update then mod.Update() end end
 M.Report = function(_, add)
     local ids = {}
     for slot = 1, mod.MAX_SLOTS do ids[#ids + 1] = tostring(mod.Items()[slot] or "-") end
-    add(("-- Item Bar 1.0.5  slots=%d layout=%s scale=%s items=[%s]"):format(M.db.slots, M.db.layout,
+    add(("-- Item Bar 1.0.6  slots=%d layout=%s scale=%s items=[%s]"):format(M.db.slots, M.db.layout,
         tostring(M.db.scale), table.concat(ids, ",")))
     for key, t in pairs(mod.counts) do
         local parts = {}
