@@ -37,6 +37,7 @@ local M = MMT.NewModule({
         -- tracker
         show          = true,
         hideBlizzard  = true,
+        hideOthers    = true,     -- Questie's / EllesmereUI's quest tracker (Tracker.lua)
         locked        = false,
         clickThrough  = false,
         showHeader    = true,

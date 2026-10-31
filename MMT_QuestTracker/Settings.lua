@@ -77,6 +77,9 @@ M.Page = function(_, page)
     L:Check("Show quest tracker", Opt("show"))
     local ghb, shb = Opt("hideBlizzard")
     L:Check("Hide the Blizzard quest tracker", ghb, shb, "Comes back when you switch this off or disable the module (outside combat).")
+    local gho, sho = Opt("hideOthers")
+    L:Check("Hide other addons' quest trackers", gho, sho, "Hides the quest trackers of " .. mod.OtherTrackerNames() ..
+        " (when they are loaded). Their own settings stay as they are; the trackers come back when you switch this off or disable the module (outside combat).")
     local glk, slk = Opt("locked")
     L:Check("Lock position", glk, slk, "Unlocked, Shift + drag moves the tracker.")
     local gct, sct = Opt("clickThrough")
@@ -206,6 +209,7 @@ function M.Report(_, add)
     add(("tracker: onlyWatched=%s teamQuests=%s showMissing=%s focusZone=%s tracked=%d"):format(
         tostring(M.db.onlyWatched), tostring(M.db.teamQuests), tostring(M.db.showMissing),
         MMT.Repr(M.store.focusZone), watchedN))
+    add(("other trackers: hideOthers=%s  %s"):format(tostring(M.db.hideOthers), mod.OtherTrackersReport()))
     for _, id in ipairs(mod.ownOrder or {}) do
         local own = mod.AllData()[MMT.PlayerFull()]
         local q = own and own.quests and own.quests[id]
