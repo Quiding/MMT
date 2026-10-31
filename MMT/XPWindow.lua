@@ -262,7 +262,7 @@ local function RowTooltip(row)
             tip:AddDoubleLine("Rested", ("%d XP (%d%%)"):format(s.rested, math.floor(s.rested / s.max * 100 + 0.5)), 0.75, 0.6, 1, 0.75, 0.6, 1)
         end
     end
-    if s.money then tip:AddDoubleLine("Gold", GetCoinTextureString and GetCoinTextureString(s.money) or ns.FormatMoney(s.money), 1, 1, 1, 1, 1, 1) end
+    if s.money then tip:AddDoubleLine("Gold", ns.CoinText(s.money) or ns.FormatMoney(s.money), 1, 1, 1, 1, 1, 1) end
     if s.free then tip:AddDoubleLine("Bags", ("%d of %d slots free"):format(s.free, s.slots or 0), 1, 1, 1, 1, 1, 1) end
     if s.durMin then
         tip:AddDoubleLine("Durability", ("lowest %d%%, average %d%%"):format(s.durMin, s.durAvg or s.durMin), 1, 1, 1, 1, 1, 1)

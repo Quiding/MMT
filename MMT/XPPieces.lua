@@ -75,7 +75,10 @@ ns.RegisterXPPiece{ id = "gold", title = "Gold", side = "LEFT", on = true, sampl
     tip = "Gold of the character (format: Gold below).",
     text = function(_, s)
         if not s.money then return nil end
-        if ns.db.xp.goldFormat == "FULL" and GetCoinTextureString then return GetCoinTextureString(s.money) end
+        if ns.db.xp.goldFormat == "FULL" then
+            local text = ns.CoinText(s.money)
+            if text then return text end
+        end
         return Thousands(math.floor(s.money / 10000)) .. GOLD_ICON
     end }
 ns.RegisterXPPiece{ id = "bags", title = "Free bag slots", side = "LEFT", on = true, sample = BAG_ICON .. " 12",

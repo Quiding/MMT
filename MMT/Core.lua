@@ -4,7 +4,7 @@
 local ADDON, ns = ...
 _G.MMT = ns
 ns.title = "MMT"
-ns.version = "0.9.36"
+ns.version = "0.9.37"
 ns.prefix = "MMT"
 ns.LOGO = "Interface\\AddOns\\MMT\\Media\\Logo"   -- the MMT mark (Media/Logo.tga)
 ns.ICON = "Interface\\AddOns\\MMT\\Media\\Icon"   -- the mark on a dark tile (Media/Icon.tga)
@@ -124,11 +124,21 @@ function ns.Trim(s)
     return ((s or ""):match("^%s*(.-)%s*$"))
 end
 
+-- gold / silver / copper with coin icons, or nil when the client can't:
+-- WoW: Forever has C_CurrencyInfo.GetCoinTextureString, not the old global
+function ns.CoinText(copper)
+    local coins = (C_CurrencyInfo and C_CurrencyInfo.GetCoinTextureString) or GetCoinTextureString
+    if not coins then return nil end
+    local ok, text = pcall(coins, math.floor(copper or 0))
+    if ok and type(text) == "string" then return text end
+end
+
 function ns.FormatMoney(copper)
     copper = math.floor(copper or 0)
     local style = ns.db and ns.db.merchant.moneyFormat or "text"
-    if style == "coins" and GetCoinTextureString then
-        return GetCoinTextureString(copper)
+    if style == "coins" then
+        local text = ns.CoinText(copper)
+        if text then return text end
     end
     local g = math.floor(copper / 10000)
     local s = math.floor(copper / 100) % 100
