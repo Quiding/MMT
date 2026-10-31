@@ -17,7 +17,8 @@
 --   right-click elsewhere          settings
 -- The mouse wheel scrolls when the list is taller than the maximum height.
 -- The Blizzard quest tracker is moved into a hidden frame (re-parenting out of
--- combat; nothing of Blizzard's code is replaced).
+-- combat; nothing of Blizzard's code is replaced). So are other addons' trackers
+-- (option hideOthers): Questie's window, EllesmereUI's through its own API.
 
 local _, mod = ...
 local MMT = MMT
@@ -576,12 +577,42 @@ local function BlizzardTrackers()
     return { _G.ObjectiveTrackerFrame, _G.QuestWatchFrame, _G.WatchFrame }
 end
 
+-- Other addons' trackers (hideOthers). Each one only counts while its addon
+-- has made it; nothing of theirs is replaced and none of their settings change.
+--   frames:   their own windows, re-parented like the Blizzard tracker.
+--   suppress: the addon's own hide switch (on = hidden).
+mod.OTHER_TRACKERS = {
+    {   -- Questie: its "Enable Tracker" option reloads the UI and clears tracked quests, so only its window is hidden
+        title = "Questie",
+        frames = function() return { rawget(_G, "Questie_BaseFrame") } end,
+    },
+    {   -- EllesmereUI Quest Tracker skins Blizzard's tracker and adds a background of its own;
+        -- _EQT_SetSuppressed is its cross-module hide (stacks with its other hide reasons)
+        title = "EllesmereUI Quest Tracker",
+        suppress = function(on)
+            local fn = rawget(_G, "_EQT_SetSuppressed")
+            if type(fn) ~= "function" then return false end
+            fn("MMT_QuestTracker", on)
+            return true
+        end,
+    },
+}
+
+function mod.OtherTrackerNames()
+    local l = {}
+    for _, t in ipairs(mod.OTHER_TRACKERS) do l[#l + 1] = t.title end
+    return table.concat(l, ", ")
+end
+
+local function HideBlizzard() return M.enabled and M.db.hideBlizzard and true or false end
+local function HideOthers() return M.enabled and M.db.hideOthers and true or false end
+
 -- The game puts its tracker back into its own container when it shows up
 -- (e.g. with the first quest of a new character): hide it again then.
 local hooked = {}
 local function Rehide()
     C_Timer.After(0, function()
-        if M.enabled and M.db.hideBlizzard then mod.UpdateBlizzardTracker() end
+        if HideBlizzard() or HideOthers() then mod.UpdateBlizzardTracker() end
     end)
 end
 local function HookTracker(frame)
@@ -590,28 +621,76 @@ local function HookTracker(frame)
     if frame.HookScript then frame:HookScript("OnShow", Rehide) end
     if hooksecurefunc then
         hooksecurefunc(frame, "SetParent", function(self, parent)
-            if parent ~= hiddenParent and M.enabled and M.db.hideBlizzard then Rehide() end
+            if parent ~= hiddenParent and (HideBlizzard() or HideOthers()) then Rehide() end
         end)
     end
 end
 
+local function ParkFrame(frame, hide, what)
+    if not (frame and frame.SetParent) then return end
+    HookTracker(frame)
+    local parent = frame:GetParent()
+    if hide and parent ~= hiddenParent then
+        originalParent[frame] = parent
+        frame:SetParent(hiddenParent)
+        M:Debug("%s tracker hidden: %s", what, frame:GetName() or "?")
+    elseif not hide and parent == hiddenParent then
+        frame:SetParent(originalParent[frame] or UIParent)
+    end
+end
+
+-- An addon can build its tracker a few seconds after login (Questie does it in
+-- its own init): look again for a while when one is missing.
+local suppressed = {}
+local retries, retryPending = 0, false
+local function RetryLater()
+    if retryPending or retries >= 15 then return end
+    retryPending, retries = true, retries + 1
+    C_Timer.After(2, function()
+        retryPending = false
+        if HideOthers() then mod.UpdateBlizzardTracker() end
+    end)
+end
+
 function mod.UpdateBlizzardTracker()
-    local hide = M.enabled and M.db.hideBlizzard
-    if InCombatLockdown() then waitingForCombat = true return end -- its quest item buttons are protected
-    waitingForCombat = false
-    for _, frame in ipairs(BlizzardTrackers()) do
-        if frame and frame.SetParent then
-            HookTracker(frame)
-            local parent = frame:GetParent()
-            if hide and parent ~= hiddenParent then
-                originalParent[frame] = parent
-                frame:SetParent(hiddenParent)
-                M:Debug("Blizzard tracker hidden: %s", frame:GetName() or "?")
-            elseif not hide and parent == hiddenParent then
-                frame:SetParent(originalParent[frame] or UIParent)
-            end
+    local hide, others = HideBlizzard(), HideOthers()
+    -- EllesmereUI's skin is Blizzard's tracker: its background must go with either option
+    for i, t in ipairs(mod.OTHER_TRACKERS) do
+        local on = others or (hide and t.suppress ~= nil)
+        if t.suppress and suppressed[i] ~= on then
+            local ok, done = pcall(t.suppress, on)
+            if ok and done then suppressed[i] = on end
+            if not ok then M:Debug("%s: %s", t.title, tostring(done)) end
         end
     end
+    if InCombatLockdown() then waitingForCombat = true return end -- its quest item buttons are protected
+    waitingForCombat = false
+    for _, frame in ipairs(BlizzardTrackers()) do ParkFrame(frame, hide, "Blizzard") end
+    local missing = false
+    for _, t in ipairs(mod.OTHER_TRACKERS) do
+        if t.frames then
+            local list = t.frames()
+            if #list == 0 then missing = true end
+            for _, frame in ipairs(list) do ParkFrame(frame, others, t.title) end
+        end
+    end
+    if others and missing then RetryLater() end
+end
+
+function mod.OtherTrackersReport()
+    local l = {}
+    for i, t in ipairs(mod.OTHER_TRACKERS) do
+        local state
+        if t.frames then
+            local list = t.frames()
+            state = #list == 0 and "not found" or
+                (list[1]:GetParent() == hiddenParent and "hidden" or "shown")
+        else
+            state = suppressed[i] == nil and "not found" or (suppressed[i] and "suppressed" or "shown")
+        end
+        l[#l + 1] = t.title .. "=" .. state
+    end
+    return table.concat(l, "  ")
 end
 
 -- these run whether or not the module is on: switching it off must restore the tracker
