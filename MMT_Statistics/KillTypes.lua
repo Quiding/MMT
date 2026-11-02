@@ -124,9 +124,14 @@ local function PlateCheck(unit)
         local D = mod.killDiag
         if D then D.plateDead = D.plateDead + 1 end
         if not name then
-            -- the name was hidden all along: the target path counts it if it was the target
+            -- the name was hidden all along: the target path counts the target; any
+            -- other one (AoE, a pet, cleave) counts as an unknown NPC if ours
             if D then D.plateHidden = D.plateHidden + 1 end
             if not plateHiddenSaid then plateHiddenSaid = true M:Debug("nameplate death: the game hides the NPC's name") end
+            local isTarget = Safe(UnitIsUnit, unit, "target")
+            if isTarget == false and Safe(UnitIsTapDenied, unit) == false and M.db.trackKills and mod.CountKill then
+                mod.CountKill(mod.UNKNOWN_NPC, "nameplate")
+            end
             return
         end
         if not Safe(UnitIsTapDenied, unit) and M.db.trackKills and mod.CountKill then
@@ -148,6 +153,7 @@ M:On("UNIT_HEALTH", function(unit) if type(unit) == "string" and unit:match("^na
 ---------------------------------------------------------------------------
 local lastEncounter   -- debug report
 local encounter       -- { name, zk, raid, endedAt } the current / just ended encounter
+local lastTargetDied  -- GetTime() of the last target death with a hidden name
 
 local function Won(success)
     return success == 1 or success == true or success == "1"
@@ -171,7 +177,7 @@ end
 M:On("ENCOUNTER_START", function(_, name)
     for k in pairs(encounterUnits) do encounterUnits[k] = nil end
     local zk = mod.CurrentZone()
-    encounter = { name = Plain(name), zk = zk, raid = InRaid() }
+    encounter = { name = Plain(name), zk = zk, raid = InRaid() }   -- counted: its boss kill is counted
     M:Debug("encounter started: %s (%s, %s)", tostring(encounter.name), encounter.raid and "raid" or "dungeon", tostring(zk))
     lastEncounter = ("%s, started %s"):format(tostring(encounter.name), date("%H:%M"))
 end)
@@ -185,9 +191,15 @@ M:On("ENCOUNTER_END", function(id, name, difficulty, size, success)
     e.endedAt = GetTime()
     encounter = e
     if not Won(Plain(success)) then
-        M:Debug("encounter ended without a win: %s", args)
-        lastEncounter = ("%s, ended %s without a win (%s)"):format(tostring(e.name), date("%H:%M"), args)
-        return
+        -- WoW: Forever reports success 0 even for a kill: a target that died
+        -- within 3 s of the end while this character lives means the boss died
+        if lastTargetDied and math.abs(GetTime() - lastTargetDied) <= 3 and not Safe(UnitIsDeadOrGhost, "player") then
+            M:Debug("encounter ended (success %s), a target died with it: counted as won", tostring(Plain(success)))
+        else
+            M:Debug("encounter ended without a win: %s", args)
+            lastEncounter = ("%s, ended %s without a win (%s)"):format(tostring(e.name), date("%H:%M"), args)
+            return
+        end
     end
     local _, _, inst = mod.CurrentZone()
     if not inst and not e.zk then
@@ -200,10 +212,30 @@ M:On("ENCOUNTER_END", function(id, name, difficulty, size, success)
     if mod.CountKill then
         for _, n2 in ipairs(names) do mod.CountKill(n2, "encounter") end
     end
+    e.counted = true
     M:Debug("encounter won: %s (%s) -> %s", tostring(e.name), e.raid and "raid: big baddies" or "dungeon bosses",
         table.concat(names, ", "))
     lastEncounter = ("%s, won %s (%s)"):format(tostring(e.name), date("%H:%M"), args)
 end)
+
+-- a target with a hidden name died at this GetTime() (from Kills.lua)
+function mod.TargetDiedAt(t)
+    lastTargetDied = t
+    -- the end may come a moment after the death: remember for EncounterBossAt
+end
+
+-- the encounter's boss name if a target that died at time t died with the
+-- end of that encounter (within 3 s)
+function mod.EncounterBossAt(t)
+    local e = encounter
+    if not e or not e.name or not e.endedAt or not t then return nil end
+    if math.abs(e.endedAt - t) > 3 then return nil end
+    local n = Npcs()[e.name] or {}
+    if not (n.d or n.rb) then MarkBoss(n, e.zk) Npcs()[e.name] = n end
+    local already = e.counted
+    e.counted = true
+    return e.name, already
+end
 
 -- a kill during an encounter (or up to 10 s after it): the encounter's NPC
 -- itself is its boss even when ENCOUNTER_END doesn't come or doesn't say

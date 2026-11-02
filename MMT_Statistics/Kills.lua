@@ -136,6 +136,8 @@ M:On("PLAYER_TARGET_DIED", function()
     -- the game hides the name (inside instances in combat): read it again
     -- from the corpse a little later, else count an unknown NPC
     D.hiddenName = D.hiddenName + 1
+    local diedAt = GetTime()
+    if mod.TargetDiedAt then mod.TargetDiedAt(diedAt) end
     M:Debug("target died: name hidden, trying again")
     local tries = 0
     local function Again()
@@ -148,6 +150,16 @@ M:On("PLAYER_TARGET_DIED", function()
         elseif tries < 20 and Safe(UnitExists, "target") then
             C_Timer.After(0.5, Again)
         else
+            -- the target that died when a boss fight ended is that boss (the
+            -- encounter's name is the one name the game still tells)
+            local boss, already
+            if mod.EncounterBossAt then boss, already = mod.EncounterBossAt(diedAt) end
+            if boss then
+                M:Debug("target died: name hidden, but it died as the encounter %s ended: that boss%s", boss,
+                    already and " (already counted)" or "")
+                if not already then Count(boss, nil, "encounter") end
+                return
+            end
             D.unknown = D.unknown + 1
             M:Debug("target died: name stayed hidden, counted as an unknown NPC")
             Count(mod.UNKNOWN_NPC, nil, "target")
