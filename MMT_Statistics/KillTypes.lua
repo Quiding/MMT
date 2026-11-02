@@ -73,11 +73,16 @@ local function Learn(unit)
     local cls = Plain(Safe(UnitClassification, unit))
     if type(cls) == "string" then n.c = cls end
     local level = tonumber(Plain(Safe(UnitLevel, unit)))
-    if Safe(UnitIsBossMob, unit) or cls == "worldboss" or level == -1 then n.b = true end
+    local bossFlag = Safe(UnitIsBossMob, unit) or cls == "worldboss" or level == -1
     local ctype = Plain(Safe(UnitCreatureType, unit))
     if type(ctype) == "string" and CRITTER[ctype] then n.cr = true end
     local zk, _, inst = mod.CurrentZone()   -- (Leveling.lua; not "x and f()": that keeps one value)
-    if inst and (encounterUnits[name] or unit:match("^boss%d")) then MarkBoss(n, zk) end
+    if inst and (encounterUnits[name] or unit:match("^boss%d") or bossFlag) then
+        -- a boss inside an instance: dungeon boss (raid: big baddie)
+        MarkBoss(n, zk)
+    elseif bossFlag then
+        n.b = true   -- world boss / skull level outside instances
+    end
     Npcs()[name] = n
     local now = KindText(n)
     if now ~= before and not now:match("^normal") then   -- special kinds only (no log spam)
@@ -108,20 +113,31 @@ end)
 ---------------------------------------------------------------------------
 -- Nameplate kills
 ---------------------------------------------------------------------------
-local alive = {}   -- [nameplate unit] = name, while alive
+local alive = {}   -- [nameplate unit] = name (false: name hidden), while alive
+local plateHiddenSaid
 local function PlateCheck(unit)
     if type(unit) ~= "string" or not unit:match("^nameplate%d") then return end
     if Safe(UnitIsDead, unit) then
         local name = alive[unit]
         alive[unit] = nil
-        if name and not Safe(UnitIsTapDenied, unit) and M.db.trackKills and mod.CountKill then
+        if name == nil then return end
+        local D = mod.killDiag
+        if D then D.plateDead = D.plateDead + 1 end
+        if not name then
+            -- the name was hidden all along: the target path counts it if it was the target
+            if D then D.plateHidden = D.plateHidden + 1 end
+            if not plateHiddenSaid then plateHiddenSaid = true M:Debug("nameplate death: the game hides the NPC's name") end
+            return
+        end
+        if not Safe(UnitIsTapDenied, unit) and M.db.trackKills and mod.CountKill then
             mod.CountKill(name, "nameplate")
         end
         return
     end
     if Safe(UnitIsPlayer, unit) or not Safe(UnitCanAttack, "player", unit) then alive[unit] = nil return end
     local name = Plain(Safe(UnitName, unit))
-    if type(name) == "string" and name ~= "" then alive[unit] = name end
+    if type(name) == "string" and name ~= "" then alive[unit] = name
+    elseif alive[unit] == nil then alive[unit] = false end
 end
 M:On("NAME_PLATE_UNIT_ADDED", function(unit) alive[unit] = nil Learn(unit) PlateCheck(unit) end)
 M:On("NAME_PLATE_UNIT_REMOVED", function(unit) PlateCheck(unit) alive[unit] = nil end)

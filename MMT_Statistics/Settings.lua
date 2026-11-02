@@ -326,8 +326,8 @@ M.Page = function(_, page)
     end
     Box(1, "all", "NPCs", { 1, 1, 1 }, "Every NPC killed.")
     Box(2, "rare", "Rares", { 0.75, 0.75, 1 }, "Rare and rare elite NPCs.")
-    Box(3, "dboss", "Dungeon Bosses", { 1, 0.6, 0.2 }, "Bosses of dungeon encounters (raid bosses count as Big Baddies).")
-    Box(4, "big", "Big Baddies", { 1, 0.3, 0.3 }, "Raid encounter bosses, and NPCs with the game's boss flag: world bosses and skull-level (??) bosses.")
+    Box(3, "dboss", "Dungeon Bosses", { 1, 0.6, 0.2 }, "Bosses of dungeons: encounter bosses and NPCs with the game's boss flag inside a dungeon (raid bosses count as Big Baddies).")
+    Box(4, "big", "Big Baddies", { 1, 0.3, 0.3 }, "Raid bosses, and NPCs with the game's boss flag outside instances: world bosses and skull-level (??) bosses.")
     -- deaths: split into two halves
     local dbox = CreateFrame("Frame", nil, k)
     dbox:SetSize(boxW, BOX_H)

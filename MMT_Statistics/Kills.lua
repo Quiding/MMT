@@ -24,6 +24,7 @@ local recent = {}       -- [name] = { t, guid }: the same kill from another sour
 local engaged = {}      -- [guid] = name: NPCs in combat with this character
 
 local function Plain(v) if v == nil or IsSecret(v) then return nil end return v end
+mod.UNKNOWN_NPC = "(unknown NPC)"   -- a kill whose name the game kept hidden
 
 local function IsNPCGuid(guid)
     guid = Plain(guid)
@@ -38,7 +39,7 @@ local function Count(name, guid, source)
     guid = Plain(guid)
     local now = GetTime()
     local r = recent[name]
-    if r and now - r.t < 3 and (not guid or not r.guid or guid == r.guid) then return false end
+    if name ~= mod.UNKNOWN_NPC and r and now - r.t < 3 and (not guid or not r.guid or guid == r.guid) then return false end
     recent[name] = { t = now, guid = guid }
     local c = mod.Char()
     if not c then return end
@@ -100,20 +101,59 @@ end)
 local targetName   -- the target's name, read while it was readable
 local TellTeam     -- below (1c)
 local function ReadTarget()
-    if not Safe(UnitExists, "target") or Safe(UnitIsPlayer, "target") then targetName = nil return end
+    if not Safe(UnitExists, "target") then targetName = nil return end
+    if Safe(UnitIsPlayer, "target") then targetName = nil return end
     local name = Plain(Safe(UnitName, "target"))
-    if type(name) == "string" and name ~= "" then targetName = name end
+    targetName = (type(name) == "string" and name ~= "") and name or nil   -- nil: hidden (a new target)
 end
 M:On("PLAYER_TARGET_CHANGED", ReadTarget)
-M:On("UNIT_NAME_UPDATE", function(unit) if unit == "target" then ReadTarget() end end)
-M:On("PLAYER_TARGET_DIED", function()
-    if not M.db.trackKills then return end
-    local name = Plain(Safe(UnitName, "target")) or targetName
-    if type(name) ~= "string" or name == "" then return end
-    if Safe(UnitIsPlayer, "target") then return end
-    if Safe(UnitIsTapDenied, "target") then return end   -- someone else's
+M:On("UNIT_NAME_UPDATE", function(unit)
+    if unit ~= "target" then return end
+    local name = Plain(Safe(UnitName, "target"))
+    if type(name) == "string" and name ~= "" then targetName = name end
+end)
+-- diagnostics for the debug report
+mod.killDiag = { targetDied = 0, hiddenName = 0, tapDenied = 0, late = 0, unknown = 0, plateDead = 0, plateHidden = 0 }
+local D = mod.killDiag
+
+local function TargetKill(name)
     if mod.LearnUnit then mod.LearnUnit("target") end
     if Count(name, Plain(Safe(UnitGUID, "target")), "target") then TellTeam(name) end
+end
+
+M:On("PLAYER_TARGET_DIED", function()
+    if not M.db.trackKills then return end
+    D.targetDied = D.targetDied + 1
+    if Safe(UnitIsPlayer, "target") then return end
+    if Safe(UnitIsTapDenied, "target") then D.tapDenied = D.tapDenied + 1 return end   -- someone else's
+    local now = Plain(Safe(UnitName, "target"))
+    local name = now or targetName
+    if type(name) == "string" and name ~= "" then
+        if not now then M:Debug("target died: name hidden now, using %s from before", name) end
+        TargetKill(name)
+        return
+    end
+    -- the game hides the name (inside instances in combat): read it again
+    -- from the corpse a little later, else count an unknown NPC
+    D.hiddenName = D.hiddenName + 1
+    M:Debug("target died: name hidden, trying again")
+    local tries = 0
+    local function Again()
+        tries = tries + 1
+        local later = Plain(Safe(UnitName, "target"))
+        if type(later) == "string" and later ~= "" and Safe(UnitIsDead, "target") then
+            D.late = D.late + 1
+            M:Debug("target died: name readable later: %s", later)
+            TargetKill(later)
+        elseif tries < 20 and Safe(UnitExists, "target") then
+            C_Timer.After(0.5, Again)
+        else
+            D.unknown = D.unknown + 1
+            M:Debug("target died: name stayed hidden, counted as an unknown NPC")
+            Count(mod.UNKNOWN_NPC, nil, "target")
+        end
+    end
+    C_Timer.After(0.5, Again)
 end)
 
 ---------------------------------------------------------------------------
@@ -223,5 +263,7 @@ end
 function mod.KillReport(add)
     add(("  kill sources: threat %d, target died %d, nameplate %d, encounter %d, team %d, xp message %d; deaths %d; xp pattern %s"):format(
         sources.threat, sources.target, sources.nameplate, sources.encounter, sources.team, sources.xp, sources.deaths, tostring(XPPattern())))
+    add(("  target died events %d: name hidden %d (read later %d, unknown %d), tapped by others %d; nameplate deaths %d (name hidden %d)"):format(
+        D.targetDied, D.hiddenName, D.late, D.unknown, D.tapDenied, D.plateDead, D.plateHidden))
     if mod.KillTypesReport then mod.KillTypesReport(add) end
 end
