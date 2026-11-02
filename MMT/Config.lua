@@ -110,7 +110,8 @@ end
 -- Navigation
 ---------------------------------------------------------------------------
 -- isOn(): nil = no on/off state, true/false = module state
-local function Tab(parent, title, target, isOn)
+-- indent: extra space before the title (module entries inside a group: Official / Community)
+local function Tab(parent, title, target, isOn, indent)
     local b = CreateFrame("Button", nil, parent)
     b:SetSize(NAV, 26)
     local bg = UI.Fill(b, 1, 1, 1, 0)
@@ -119,7 +120,7 @@ local function Tab(parent, title, target, isOn)
     bar:SetPoint("TOPLEFT"); bar:SetPoint("BOTTOMLEFT")
     bar:SetWidth(2)
     local label = UI.Label(b, title, "GameFontNormal")
-    label:SetPoint("LEFT", 16, 0)
+    label:SetPoint("LEFT", 16 + (indent or 0), 0)
     local state = UI.Label(b, "")
     state:SetPoint("RIGHT", -10, 0)
     local hl = b:CreateTexture(nil, "HIGHLIGHT")
@@ -202,13 +203,14 @@ local function Build()
     local function Header(text, section, parent, count)
         local b = CreateFrame("Button", nil, nav)
         b:SetSize(NAV, NAV_HEAD)
-        local label = UI.Label(b, text)
-        label:SetPoint("LEFT", parent and 24 or 16, -2)
-        if parent then label:SetTextColor(0.6, 0.6, 0.6)
+        -- a sub-header: smaller, a little in, the accent dimmed; its entries come further in
+        local label = UI.Label(b, text, parent and "GameFontNormalSmall" or nil)
+        label:SetPoint("LEFT", parent and 20 or 16, -2)
+        if parent then label:SetTextColor(A[1], A[2], A[3], 0.55)
         else label:SetTextColor(A[1], A[2], A[3], 0.8) end
         local sign = UI.Label(b, "")
         sign:SetPoint("RIGHT", -12, -2)
-        if parent then sign:SetTextColor(0.6, 0.6, 0.6)
+        if parent then sign:SetTextColor(A[1], A[2], A[3], 0.55)
         else sign:SetTextColor(A[1], A[2], A[3], 0.8) end
         local hl = b:CreateTexture(nil, "HIGHLIGHT")
         hl:SetAllPoints(); hl:SetColorTexture(1, 1, 1, 0.03)
@@ -257,7 +259,7 @@ local function Build()
                 if m then return m.enabled end
                 return false
             end
-            AddTab(Tab(nav, entry.title, target, isOn), section, target, isOn, entry.title, parent)
+            AddTab(Tab(nav, entry.title, target, isOn, parent and 10 or 0), section, target, isOn, entry.title, parent)
         end
     end
     local function Counter(list)
