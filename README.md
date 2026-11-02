@@ -185,7 +185,7 @@ Saved data from MMT 0.1.x is converted automatically.
     money; tracked quests keep their details. Names and levels from the quest log,
     QuestieDB when installed, or the game. The tab shows accepted (active, completed and
     abandoned together), completed, abandoned, scanned and scanned completed, and the last
-    10 completed quests.
+    10 completed quests (date, character, quest, quest level, character level, XP, money).
   - Leveling (a character, or the average of the account): per level 1-59, newest first,
     the time played to the next level (dd:hh:mm:ss), when it was reached, quests
     completed, NPCs killed, deaths and the zone with the most time.

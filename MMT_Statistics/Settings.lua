@@ -523,12 +523,13 @@ M.Page = function(_, page)
     qc:Header("Last 10 completed quests")
     -- small table: completed | character | quest | level | XP | money
     local QCOLS = {
-        { x = 8, w = 110, head = "Completed" },
-        { x = 124, w = 110, head = "Character" },
-        { x = 240, w = 240, head = "Quest" },
-        { right = 530, w = 44, head = "Level" },
-        { right = 600, w = 64, head = "XP" },
-        { right = PAGE_W - 8, w = 90, head = "Money" },
+        { x = 8, w = 104, head = "Completed" },
+        { x = 116, w = 96, head = "Character" },
+        { x = 216, w = 196, head = "Quest" },
+        { right = 474, w = 58, head = "Quest Lvl" },
+        { right = 536, w = 58, head = "Char Lvl" },
+        { right = 600, w = 60, head = "XP" },
+        { right = PAGE_W - 8, w = 86, head = "Money" },
     }
     local recent = CreateFrame("Frame", nil, q)
     recent:SetSize(PAGE_W, ROW_H * 11 + 4)
@@ -630,9 +631,10 @@ M.Page = function(_, page)
                 row.cells[2]:SetText(mod.CharName(e.key, e.class))
                 row.cells[3]:SetText(name)
                 row.cells[4]:SetText(r.l and tostring(r.l) or "")
-                row.cells[5]:SetText(r.xp and (BreakUpLargeNumbers and BreakUpLargeNumbers(r.xp) or tostring(r.xp)) or "")
-                row.cells[6]:SetText(r.cp and mod.Money(r.cp) or "")
-                for c = 1, 6 do row.cells[c]:SetTextColor(0.8, 0.8, 0.8) end
+                row.cells[5]:SetText(r.cl and tostring(r.cl) or "")
+                row.cells[6]:SetText(r.xp and (BreakUpLargeNumbers and BreakUpLargeNumbers(r.xp) or tostring(r.xp)) or "")
+                row.cells[7]:SetText(r.cp and mod.Money(r.cp) or "")
+                for c = 1, 7 do row.cells[c]:SetTextColor(0.8, 0.8, 0.8) end
                 row.cells[3]:SetTextColor(1, 1, 1)
             end
         end
