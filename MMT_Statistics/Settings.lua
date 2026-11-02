@@ -1,5 +1,5 @@
 -- MMT Statistics: the module's page under MODULES, with the tabs Gold,
--- Kills, Quests and Settings.
+-- Kills, Quests, Leveling, Zones and Settings.
 
 local _, mod = ...
 local MMT = MMT
@@ -106,6 +106,82 @@ local function RankList(parent, width, n)
     return f
 end
 
+-- table with free columns, scrolling with the mouse wheel
+--   cols: { { head, x = left edge | right = right edge, w = width }, ... }
+--   rows: { cells = { text, ... }, grey = bool, tip = function(tooltip) end }
+local function Grid(parent, cols, visible)
+    local f = CreateFrame("Frame", nil, parent)
+    f:SetSize(PAGE_W, ROW_H * (visible + 1) + 4)
+    local function Cell(owner, col, y, template)
+        local l = UI.Label(owner, "", template)
+        if col.right then
+            l:SetPoint("TOPRIGHT", owner, "TOPLEFT", col.right, y)
+            l:SetJustifyH("RIGHT")
+        else
+            l:SetPoint("TOPLEFT", owner, "TOPLEFT", col.x, y)
+            l:SetJustifyH("LEFT")
+        end
+        l:SetWidth(col.w)
+        l:SetWordWrap(false)
+        return l
+    end
+    f.heads = {}
+    for i, col in ipairs(cols) do
+        local l = Cell(f, col, -3, "GameFontNormal")
+        l:SetText(col[1])
+        l:SetTextColor(A[1], A[2], A[3])
+        f.heads[i] = l
+    end
+    local line = f:CreateTexture(nil, "ARTWORK")
+    line:SetColorTexture(1, 1, 1, 0.08)
+    line:SetHeight(1)
+    line:SetPoint("TOPLEFT", 0, -ROW_H)
+    line:SetWidth(PAGE_W)
+    f.list = H.List(f, PAGE_W, visible, ROW_H, function(list, i)
+        local row = CreateFrame("Frame", nil, list)
+        H.RowBackground(row, i)
+        row.cells = {}
+        for c, col in ipairs(cols) do row.cells[c] = Cell(row, col, -4) end
+        row:EnableMouse(true)
+        row:SetScript("OnEnter", function(self)
+            if not (self.data and self.data.tip) then return end
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            self.data.tip(GameTooltip)
+            GameTooltip:Show()
+        end)
+        row:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        return row
+    end, function(row, d)
+        row.data = d
+        for c = 1, #cols do
+            row.cells[c]:SetText(d.cells[c] or "")
+            if d.grey then row.cells[c]:SetTextColor(0.55, 0.55, 0.55)
+            else row.cells[c]:SetTextColor(0.85, 0.85, 0.85) end
+        end
+    end)
+    f.list:SetPoint("TOPLEFT", 0, -ROW_H - 2)
+    f.empty = UI.Label(f, "")
+    f.empty:SetPoint("TOPLEFT", 8, -ROW_H - 8)
+    f.empty:SetTextColor(0.5, 0.5, 0.5)
+    function f:Show_(rows, emptyText)
+        self.list:Render(rows)
+        self.empty:SetText(#rows == 0 and (emptyText or "") or "")
+    end
+    return f
+end
+
+local function Num(n)
+    if not n then return "" end
+    n = math.floor(n + 0.5)
+    return BreakUpLargeNumbers and BreakUpLargeNumbers(n) or tostring(n)
+end
+-- averages: one decimal below 10
+local function Avg(n)
+    if not n then return "" end
+    if n < 10 and math.floor(n) ~= n then return ("%.1f"):format(n) end
+    return Num(n)
+end
+
 ---------------------------------------------------------------------------
 -- Rows: you first, then the team; per member its account
 ---------------------------------------------------------------------------
@@ -170,10 +246,11 @@ M.Page = function(_, page)
         if key ~= "settings" then mod.RequestIfOld() end
         if mod.Redraw then mod.Redraw() end
     end
-    local tabs = { { "gold", "Gold" }, { "kills", "Kills" }, { "quests", "Quests" }, { "settings", "Settings" } }
+    local tabs = { { "gold", "Gold" }, { "kills", "Kills" }, { "quests", "Quests" }, { "leveling", "Leveling" },
+        { "zones", "Zones" }, { "settings", "Settings" } }
     for i, t in ipairs(tabs) do
-        local b = UI.Button(page, 120, t[2], function() Show(t[1]) end)
-        b:SetPoint("TOPLEFT", (i - 1) * 130, 0)
+        local b = UI.Button(page, 108, t[2], function() Show(t[1]) end)
+        b:SetPoint("TOPLEFT", (i - 1) * 116, 0)
         buttons[t[1]] = b
         local p = CreateFrame("Frame", nil, page)
         p:SetPoint("TOPLEFT", 0, -32)
@@ -374,6 +451,178 @@ M.Page = function(_, page)
         qempty:SetShown(#done == 0)
     end
 
+    -- Leveling -----------------------------------------------------------------
+    local lvp = panels.leveling
+    local lc = UI.Column(lvp, 0, 0, PAGE_W)
+    local lscope = UI.Dropdown(lvp, 300, "Show", {
+        { value = "CHAR", text = "This Character" },
+        { value = "ACCOUNT", text = "Average of this Account" },
+        { value = "TEAM", text = "Average of Team" },
+        { value = "ALL", text = "Average of all Accounts" },
+    }, function() return M.db.levelScope end, function(v) M.db.levelScope = v; mod.Redraw() end)
+    lc:Add(lscope, UI.ROW + 8)
+    local LEVEL_ROWS = 17
+    local levelGrid = Grid(lvp, {
+        { "Level", right = 44, w = 40 },
+        { "Time to Level", x = 60, w = 104 },
+        { "Date/Time leveled", x = 168, w = 128 },
+        { "compl. Quests", right = 392, w = 90 },
+        { "NPCs killed", right = 476, w = 80 },
+        { "Deaths", right = 530, w = 50 },
+        { "Fav. Zone", x = 546, w = PAGE_W - 552 },
+    }, LEVEL_ROWS)
+    lc:Add(levelGrid, ROW_H * (LEVEL_ROWS + 1) + 10)
+    local levelNote = lc:Note("")
+
+    local function DrawLeveling()
+        lscope.Refresh()
+        local scope = M.db.levelScope or "CHAR"
+        local rows = {}
+        if scope == "CHAR" then
+            levelGrid.heads[3]:SetText("Date/Time leveled")
+            local c = mod.Store().chars[MMT.PlayerFull() or ""]
+            for _, r in ipairs(c and mod.CharLevelRows(c) or {}) do
+                rows[#rows + 1] = {
+                    cells = { tostring(r.L), mod.Duration(r.t) .. ((r.partial or r.current) and " *" or ""),
+                        r.done and date("%Y-%m-%d %H:%M", r.done) or "(current)", Num(r.q), Num(r.k), Num(r.d), r.z or "" },
+                    grey = r.current,
+                    tip = (r.partial or r.current) and function(t)
+                        t:SetText(("Level %d"):format(r.L))
+                        if r.current then t:AddLine("The current level: still running.", 1, 1, 1, true) end
+                        if r.partial then t:AddLine("Tracking began during this level: the time and counts are only from then on.", 1, 1, 1, true) end
+                    end or nil,
+                }
+            end
+            levelNote:SetText("Time counts while this character is logged in. * = the current level, or tracking began during it.")
+        else
+            levelGrid.heads[3]:SetText("Characters")
+            for _, r in ipairs(mod.AverageLevelRows(scope)) do
+                rows[#rows + 1] = {
+                    cells = { tostring(r.L), r.t and mod.Duration(r.t) or "-", tostring(r.n), Avg(r.q), Avg(r.k), Avg(r.d), r.z or "" },
+                }
+            end
+            levelNote:SetText("Averages per level over the characters that have it; the time only over the ones that finished it (from its start). Other accounts send theirs with the statistics summary.")
+        end
+        levelGrid:Show_(rows, scope == "CHAR" and "No levels recorded yet for this character." or "No levels recorded yet.")
+    end
+
+    -- Zones / Instances ----------------------------------------------------------
+    local zp = panels.zones
+    local zscope = UI.Dropdown(zp, COL_W, "Show", {
+        { value = "CHAR", text = "This Character" },
+        { value = "ACCOUNT", text = "This Account" },
+    }, function() return M.db.zoneScope end, function(v) M.db.zoneScope = v; mod.Redraw() end)
+    zscope:SetPoint("TOPLEFT", 0, 0)
+    local zview = UI.Dropdown(zp, COL_W, "List", {
+        { value = "ZONES", text = "Zones" },
+        { value = "INSTANCES", text = "Instances" },
+    }, function() return M.db.zoneView end, function(v) M.db.zoneView = v; mod.Redraw() end)
+    zview:SetPoint("TOPLEFT", COL2_X, 0)
+    local zy = -(UI.ROW + 8)
+    local favTiles = {}
+    for i, t in ipairs({ { "time", "favorite zone (time spent)" }, { "kills", "most NPC kills in" } }) do
+        local tile = CreateFrame("Frame", nil, zp)
+        local w = math.floor((PAGE_W - 12) / 2)
+        tile:SetSize(w, 70)
+        tile:SetPoint("TOPLEFT", zp, "TOPLEFT", (i - 1) * (w + 12), zy)
+        UI.Fill(tile, 1, 1, 1, 0.03)
+        UI.Border(tile, 1, 1, 1, 0.08)
+        tile.value = UI.Label(tile, "-", "GameFontHighlightLarge")
+        pcall(tile.value.SetFont, tile.value, STANDARD_TEXT_FONT, 20, "")
+        tile.value:SetPoint("TOP", 0, -12)
+        tile.value:SetWidth(w - 16)
+        tile.value:SetWordWrap(false)
+        tile.value:SetTextColor(A[1], A[2], A[3])
+        tile.label = UI.Label(tile, t[2])
+        tile.label:SetPoint("TOP", tile.value, "BOTTOM", 0, -6)
+        tile.label:SetTextColor(0.6, 0.6, 0.6)
+        favTiles[t[1]] = tile
+    end
+    zy = zy - 70 - 14
+    local ZONE_ROWS = 15
+    local zoneGrid = Grid(zp, {
+        { "Zone Name", x = 8, w = 250 },
+        { "Time Spent", right = 380, w = 110 },
+        { "NPC kills", right = 470, w = 80 },
+        { "Quests completed", right = 590, w = 110 },
+        { "XP gathered", right = PAGE_W - 8, w = 90 },
+    }, ZONE_ROWS)
+    zoneGrid:SetPoint("TOPLEFT", 0, zy)
+    local instGrid = Grid(zp, {
+        { "Instance Name", x = 8, w = 200 },
+        { "Instance ID", right = 300, w = 84 },
+        { "Time Spent", right = 410, w = 100 },
+        { "NPC kills", right = 480, w = 64 },
+        { "XP Gathered", right = 580, w = 90 },
+        { "XP/hr", right = PAGE_W - 8, w = 100 },
+    }, ZONE_ROWS)
+    instGrid:SetPoint("TOPLEFT", 0, zy)
+    local zoneNote = UI.Label(zp, "")
+    zoneNote:SetPoint("TOPLEFT", 0, zy - ROW_H * (ZONE_ROWS + 1) - 12)
+    zoneNote:SetWidth(PAGE_W)
+    zoneNote:SetJustifyH("LEFT")
+    zoneNote:SetTextColor(0.6, 0.6, 0.6)
+
+    local function DrawZones()
+        zscope.Refresh()
+        zview.Refresh()
+        local me = MMT.PlayerFull()
+        local zones, runs = {}, {}
+        for key, c in pairs(mod.Store().chars) do
+            if M.db.zoneScope == "ACCOUNT" or key == me then
+                for key0, z in pairs(c.zones or {}) do
+                    -- land zones by name (a zone read once without its map ID counts the same)
+                    local zk = z.inst and key0 or ("name:" .. tostring(z.n))
+                    local sum = zones[zk] or { n = z.n, inst = z.inst, t = 0, k = 0, q = 0, xp = 0 }
+                    sum.t, sum.k, sum.q, sum.xp = sum.t + (z.t or 0), sum.k + (z.k or 0), sum.q + (z.q or 0), sum.xp + (z.xp or 0)
+                    zones[zk] = sum
+                end
+                for _, r in ipairs(c.runs or {}) do runs[#runs + 1] = { r = r, key = key, class = c.class } end
+            end
+        end
+        local favT, favK
+        for _, z in pairs(zones) do
+            if z.t > 0 and (not favT or z.t > favT.t) then favT = z end
+            if z.k > 0 and (not favK or z.k > favK.k) then favK = z end
+        end
+        favTiles.time.value:SetText(favT and favT.n or "-")
+        favTiles.kills.value:SetText(favK and favK.n or "-")
+        local instances = M.db.zoneView == "INSTANCES"
+        zoneGrid:SetShown(not instances)
+        instGrid:SetShown(instances)
+        if instances then
+            table.sort(runs, function(a, b) return (a.r.enter or 0) > (b.r.enter or 0) end)
+            local rows = {}
+            for _, e in ipairs(runs) do
+                local r = e.r
+                local perHour = (r.t or 0) >= 60 and (r.xp or 0) / (r.t / 3600) or nil
+                rows[#rows + 1] = {
+                    cells = { r.n or ("Instance " .. tostring(r.map)), r.uid and tostring(r.uid) or "?", mod.Duration(r.t),
+                        Num(r.k), Num(r.xp), perHour and Num(perHour) or "-" },
+                    tip = function(t)
+                        t:SetText(r.n or "Instance")
+                        t:AddLine(("Entered %s"):format(date("%Y-%m-%d %H:%M", r.enter or 0)), 1, 1, 1)
+                        if r.leave then t:AddLine(("Left %s"):format(date("%Y-%m-%d %H:%M", r.leave)), 1, 1, 1) end
+                        t:AddLine(mod.CharName(e.key, e.class), 0.7, 0.7, 0.7)
+                        if not r.uid then t:AddLine("Instance ID unknown: no NPC targeted or seen there.", 0.7, 0.7, 0.7, true) end
+                    end,
+                }
+            end
+            instGrid:Show_(rows, "No instance visits recorded yet.")
+            zoneNote:SetText("One row per instance copy (Instance ID, read from the NPCs there). Entering the same copy again within 3 hours continues its row.")
+        else
+            local list = {}
+            for _, z in pairs(zones) do if not z.inst then list[#list + 1] = z end end
+            table.sort(list, function(a, b) if a.t ~= b.t then return a.t > b.t end return (a.n or "") < (b.n or "") end)
+            local rows = {}
+            for _, z in ipairs(list) do
+                rows[#rows + 1] = { cells = { z.n or "?", mod.Duration(z.t), Num(z.k), Num(z.q), Num(z.xp) } }
+            end
+            zoneGrid:Show_(rows, "No zones recorded yet.")
+            zoneNote:SetText("Main zones only (a town counts for its zone). Time in dd:hh:mm:ss while logged in; XP includes quest rewards.")
+        end
+    end
+
     -- Settings -----------------------------------------------------------------
     local s = panels.settings
     local SL = UI.Column(s, 0, 0, COL_W)
@@ -381,6 +630,8 @@ M.Page = function(_, page)
     SL:Check("Track gold", function() return M.db.trackGold end, function(v) M.db.trackGold = v; mod.RecordGold() end,
         "Records every character's gold after login and on every change: one record per day, kept for 60 days. Saved per account, not per profile.")
     SL:Check("Track kills and deaths", function() return M.db.trackKills end, function(v) M.db.trackKills = v end)
+    SL:Check("Track leveling, zones and instances", function() return M.db.trackLeveling end, function(v) M.db.trackLeveling = v end,
+        "Time played per level, zone and instance copy, with the quests, kills, deaths and experience there. For the Leveling and Zones tabs.")
     SL:Check("Track quests", function() return M.db.trackQuests end, function(v) M.db.trackQuests = v end,
         "Records the quests each character accepts, completes (with its level, the experience and the money of the reward) and abandons. For the export (Quests). Not sent to the team.")
     SL:Check("Share with the team", function() return M.db.share end, function(v) M.db.share = v; if v then mod.SendNow() end end,
@@ -495,6 +746,10 @@ M.Page = function(_, page)
             killers:Show_(mod.TopList(M.db.killScope, "deaths", 3), "Nobody killed you yet.")
         elseif current == "quests" then
             DrawQuests()
+        elseif current == "leveling" then
+            DrawLeveling()
+        elseif current == "zones" then
+            DrawZones()
         end
     end
     page:SetScript("OnShow", function() mod.Redraw() end)

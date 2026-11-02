@@ -184,6 +184,15 @@ Saved data from MMT 0.1.x is converted automatically.
     and abandoned quests MMT tracked, scanned quests and scanned completed ones (this
     character or this account) and the last 10 completed ones
     (date, character, quest, level, XP, money).
+  - Leveling: per level (1-59, newest first) the time played to reach the next level
+    (dd:hh:mm:ss), when it was reached, quests completed, NPCs killed, deaths and the zone
+    the most time was spent in; for this character, or the averages of this account, the
+    team or all accounts (other accounts send their levels with the summary).
+  - Zones: time, NPC kills, quests and experience per main zone (a town counts for its
+    zone), and per instance copy (Instance ID read from the NPCs' GUIDs as
+    NovaInstanceTracker does; re-entering the same copy within 3 hours continues it) with
+    XP per hour; tiles for the favourite zone by time and by kills. Kills and deaths are
+    also kept with the character level and the zone they happened in.
   - Export (Settings tab): CSV text to copy into a spreadsheet or a .csv file (addons can't
     write files): gold per day and character (this account), gold per day and account,
     characters (class, gold, kills, deaths, last seen), kills and deaths per NPC, or quests

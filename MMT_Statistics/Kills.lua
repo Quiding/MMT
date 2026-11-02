@@ -40,6 +40,7 @@ local function Count(name, guid, source)
     if not c then return end
     c.kills[name] = (c.kills[name] or 0) + 1
     c.killTotal = (c.killTotal or 0) + 1
+    if mod.OnKill then mod.OnKill(name) end   -- level / zone / instance (Leveling.lua)
     sources[source] = sources[source] + 1
     M:Debug("kill %s (%s)", name, source)
     mod.SendSoon()
@@ -124,7 +125,9 @@ end
 M:On("PLAYER_DEAD", function()
     if not M.db.trackKills then return end
     local name = Plain(Killer())
-    if not name then return end   -- fell, drowned, a player, or unknown: not counted
+    -- every death counts for the level / zone; the killer only when an NPC is known
+    if mod.OnDeath then mod.OnDeath(name) end
+    if not name then return end   -- fell, drowned, a player, or unknown: no killer
     local c = mod.Char()
     if not c then return end
     c.deaths[name] = (c.deaths[name] or 0) + 1

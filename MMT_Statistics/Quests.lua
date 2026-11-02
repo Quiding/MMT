@@ -240,6 +240,7 @@ M:On("QUEST_TURNED_IN", function(questID, xp, money)
     q.cl = Plain(Safe(UnitLevel, "player"))
     q.xp = tonumber(Plain(xp)) or 0
     q.cp = tonumber(Plain(money)) or 0
+    q.z = mod.OnQuestDone and mod.OnQuestDone() or q.z   -- zone key; counts for the level / zone
     M:Debug("quest completed %d xp=%s copper=%s", questID, tostring(q.xp), tostring(q.cp))
     RewardItems(questID, function(items)
         q.items = items

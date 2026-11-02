@@ -1,0 +1,388 @@
+-- MMT Statistics: levels, zones and instances of this account's characters.
+--
+-- Per character record (Module.lua Store().chars[key]):
+--   levels[L] = { start, done, t = seconds played on L, q = quests completed,
+--                 k = NPCs killed, d = deaths, z = { [zoneKey] = seconds },
+--                 partial = true while L was already running when tracking began }
+--   zones[zoneKey] = { n = name, inst = true for instances, t, k, d, q, xp }
+--   runs = { { map = instance map ID, n = name, uid = instance copy ID,
+--              enter, leave, t, k, d, xp }, ... }   newest last, at most 300
+--   killDetail[npc] = { ["<level>|<zoneKey>"] = count }   (also deathDetail)
+-- Zone keys: "z:<uiMapID>" (the main zone: Goldshire counts as Elwynn Forest),
+-- "i:<instanceMapID>" (every dungeon / raid / battleground its own zone),
+-- "n:<name>" when the map API has nothing.
+-- Instance copies: the 5th part of a creature GUID inside an instance (as
+-- NovaInstanceTracker reads it: Creature-0-server-map-copyID-npcID-spawn);
+-- entering the same copy again continues its run.
+-- Time counts every 5 s while logged in (gaps over 30 s, e.g. a frozen
+-- client, count as 30 s).
+
+local _, mod = ...
+local MMT = MMT
+local M = mod.M
+
+local Safe, IsSecret = MMT.Safe, MMT.IsSecret
+local function Plain(v) if v == nil or IsSecret(v) then return nil end return v end
+
+mod.MAX_TRACKED_LEVEL = 59
+local MAX_RUNS = 300
+local MERGE_GAP = 3 * 3600   -- the same instance copy within 3 hours: one run
+
+---------------------------------------------------------------------------
+-- Records
+---------------------------------------------------------------------------
+local function Level()
+    return tonumber(Plain(Safe(UnitLevel, "player"))) or 0
+end
+
+local function LevelRec(c, L, fresh)
+    c.levels = c.levels or {}
+    local r = c.levels[L]
+    if not r then
+        r = { start = time(), t = 0, q = 0, k = 0, d = 0, z = {}, partial = not fresh or nil }
+        c.levels[L] = r
+    end
+    r.z = r.z or {}
+    return r
+end
+
+---------------------------------------------------------------------------
+-- The zone the character is in
+---------------------------------------------------------------------------
+local zoneKey, zoneName, zoneInst, instMap
+
+local ZONE_TYPE = (Enum and Enum.UIMapType and Enum.UIMapType.Zone) or 3
+
+local function ReadZone()
+    local inInstance, kind = Safe(IsInInstance)
+    if inInstance and kind and kind ~= "none" then
+        -- (MMT.Safe returns at most 7 values: the map ID is the 8th)
+        local ok, name, _, _, _, _, _, _, mapID = pcall(GetInstanceInfo)
+        if not ok then name, mapID = nil, nil end
+        mapID, name = tonumber(Plain(mapID)), Plain(name)
+        if mapID then return "i:" .. mapID, name or ("Instance " .. mapID), true, mapID end
+    end
+    if C_Map and C_Map.GetBestMapForUnit and C_Map.GetMapInfo then
+        local id = tonumber(Plain(Safe(C_Map.GetBestMapForUnit, "player")))
+        local info = id and Safe(C_Map.GetMapInfo, id)
+        -- micro maps (towns, caves) and dungeon floors belong to their zone
+        local guard = 0
+        while type(info) == "table" and (info.mapType or 0) > ZONE_TYPE and (info.parentMapID or 0) > 0 and guard < 6 do
+            local parent = Safe(C_Map.GetMapInfo, info.parentMapID)
+            if type(parent) ~= "table" or (parent.mapType or 0) < ZONE_TYPE then break end
+            id, info, guard = info.parentMapID, parent, guard + 1
+        end
+        if type(info) == "table" and Plain(info.name) and info.name ~= "" then return "z:" .. id, info.name, false end
+    end
+    local name = Plain(Safe(GetRealZoneText)) or Plain(Safe(GetZoneText))
+    if name and name ~= "" then return "n:" .. name, name, false end
+    return nil
+end
+
+local run   -- the instance run this character is in now
+
+local function UpdateZone()
+    local c = mod.Char()
+    if not c then return end
+    local key, name, inst, map = ReadZone()
+    zoneKey, zoneName, zoneInst, instMap = key, name, inst, map
+    if key then
+        c.zones = c.zones or {}
+        local z = c.zones[key] or { t = 0, k = 0, d = 0, q = 0, xp = 0 }
+        z.n, z.inst = name, inst or nil
+        c.zones[key] = z
+    end
+    -- instance runs
+    c.runs = c.runs or {}
+    if inst then
+        if not run or run.map ~= map then
+            if run then run.leave = time() end
+            run = { map = map, n = name, enter = time(), t = 0, k = 0, d = 0, xp = 0 }
+            table.insert(c.runs, run)
+            while #c.runs > MAX_RUNS do table.remove(c.runs, 1) end
+            M:Debug("instance entered: %s (%d)", tostring(name), map)
+        end
+    elseif run then
+        run.leave = time()
+        run = nil
+    end
+end
+mod.UpdateZone = UpdateZone
+
+function mod.CurrentZone() return zoneKey, zoneName, zoneInst end
+
+-- the instance copy from a creature GUID; the same copy as an earlier run
+-- (re-entered, relogged) continues that run
+local function SeeGUID(unit)
+    if not run or run.uid then return end
+    local guid = Plain(Safe(UnitGUID, unit))
+    if type(guid) ~= "string" then return end
+    local kind, _, _, map, uid = strsplit("-", guid)
+    if kind ~= "Creature" and kind ~= "Vehicle" then return end
+    uid, map = tonumber(uid), tonumber(map)
+    if not uid or uid <= 0 or (map and map > 0 and map ~= run.map) then return end
+    run.uid = uid
+    local c = mod.Char()
+    for i = #c.runs, 1, -1 do
+        local r = c.runs[i]
+        if r ~= run and r.map == run.map and r.uid == uid and (time() - (r.leave or r.enter)) < MERGE_GAP then
+            r.t, r.k, r.d, r.xp = (r.t or 0) + run.t, (r.k or 0) + run.k, (r.d or 0) + run.d, (r.xp or 0) + run.xp
+            r.leave = nil
+            for j = #c.runs, 1, -1 do if c.runs[j] == run then table.remove(c.runs, j) end end
+            run = r
+            M:Debug("instance copy %d again: run continued", uid)
+            return
+        end
+    end
+    M:Debug("instance copy %d", uid)
+end
+
+---------------------------------------------------------------------------
+-- Time
+---------------------------------------------------------------------------
+local lastTick
+-- level: the level the time since the last tick belongs to (default: now)
+local function Tick(level)
+    local now = GetTime()
+    local dt = lastTick and math.min(30, now - lastTick) or 0
+    lastTick = now
+    if dt <= 0 or not M.db.trackLeveling then return end
+    local c = mod.Char()
+    local L = level or Level()
+    if not c or L < 1 then return end
+    local lv = LevelRec(c, L)
+    lv.t = (lv.t or 0) + dt
+    if zoneKey then
+        lv.z[zoneKey] = (lv.z[zoneKey] or 0) + dt
+        local z = c.zones and c.zones[zoneKey]
+        if z then z.t = (z.t or 0) + dt end
+    end
+    if run then run.t = (run.t or 0) + dt end
+end
+
+---------------------------------------------------------------------------
+-- Experience
+---------------------------------------------------------------------------
+local xpLevel, xpCur, xpMax
+local function ReadXP()
+    return Level(), tonumber(Plain(Safe(UnitXP, "player"))) or 0, tonumber(Plain(Safe(UnitXPMax, "player"))) or 0
+end
+
+local function OnXP()
+    local L, cur, max = ReadXP()
+    local gained = 0
+    if xpLevel then
+        if L == xpLevel then gained = cur - xpCur
+        elseif L == xpLevel + 1 then gained = (xpMax - xpCur) + cur end
+    end
+    xpLevel, xpCur, xpMax = L, cur, max
+    if gained <= 0 or not M.db.trackLeveling then return end
+    local c = mod.Char()
+    if not c then return end
+    local z = zoneKey and c.zones and c.zones[zoneKey]
+    if z then z.xp = (z.xp or 0) + gained end
+    if run then run.xp = (run.xp or 0) + gained end
+end
+
+---------------------------------------------------------------------------
+-- Hooks from Kills.lua and Quests.lua
+---------------------------------------------------------------------------
+local function Detail(c, field, name)
+    if not name then return end
+    c[field] = c[field] or {}
+    local d = c[field][name] or {}
+    c[field][name] = d
+    local k = Level() .. "|" .. (zoneKey or "?")
+    d[k] = (d[k] or 0) + 1
+end
+
+function mod.OnKill(name)
+    local c = mod.Char()
+    if not c then return end
+    Detail(c, "killDetail", name)
+    if not M.db.trackLeveling then return end
+    local L = Level()
+    if L >= 1 then local lv = LevelRec(c, L) lv.k = (lv.k or 0) + 1 end
+    local z = zoneKey and c.zones and c.zones[zoneKey]
+    if z then z.k = (z.k or 0) + 1 end
+    if run then run.k = (run.k or 0) + 1 end
+end
+
+-- killer: NPC name or nil (fell, drowned, a player, unknown)
+function mod.OnDeath(killer)
+    local c = mod.Char()
+    if not c then return end
+    Detail(c, "deathDetail", killer)
+    if not M.db.trackLeveling then return end
+    local L = Level()
+    if L >= 1 then local lv = LevelRec(c, L) lv.d = (lv.d or 0) + 1 end
+    local z = zoneKey and c.zones and c.zones[zoneKey]
+    if z then z.d = (z.d or 0) + 1 end
+    if run then run.d = (run.d or 0) + 1 end
+end
+
+-- returns the zone key for the quest record
+function mod.OnQuestDone()
+    local c = mod.Char()
+    if not c or not M.db.trackLeveling then return zoneKey end
+    local L = Level()
+    if L >= 1 then local lv = LevelRec(c, L) lv.q = (lv.q or 0) + 1 end
+    local z = zoneKey and c.zones and c.zones[zoneKey]
+    if z then z.q = (z.q or 0) + 1 end
+    return zoneKey
+end
+
+---------------------------------------------------------------------------
+-- Events
+---------------------------------------------------------------------------
+M:On("PLAYER_LEVEL_UP", function(newLevel)
+    newLevel = tonumber(Plain(newLevel))
+    local c = mod.Char()
+    if not c or not newLevel or not M.db.trackLeveling then return end
+    Tick(newLevel - 1)   -- the time until now belongs to the old level
+    local old = LevelRec(c, newLevel - 1)
+    old.done = time()
+    if c.levels[newLevel] and (c.levels[newLevel].t or 0) < 10 then c.levels[newLevel] = nil end
+    LevelRec(c, newLevel, true)
+    M:Debug("level %d reached (level %d took %d s)", newLevel, newLevel - 1, math.floor(old.t or 0))
+    if mod.Redraw then mod.Redraw() end
+end)
+M:On("PLAYER_XP_UPDATE", function(unit) if unit == nil or unit == "player" then OnXP() end end)
+for _, e in ipairs({ "ZONE_CHANGED_NEW_AREA", "ZONE_CHANGED", "ZONE_CHANGED_INDOORS" }) do
+    M:On(e, function() Tick() UpdateZone() end)
+end
+M:On("PLAYER_ENTERING_WORLD", function()
+    C_Timer.After(1, function() Tick() UpdateZone() end)
+end)
+M:On("PLAYER_TARGET_CHANGED", function() SeeGUID("target") end)
+M:On("UPDATE_MOUSEOVER_UNIT", function() SeeGUID("mouseover") end)
+M:On("NAME_PLATE_UNIT_ADDED", function(unit) if type(unit) == "string" then SeeGUID(unit) end end)
+M:On("PLAYER_LOGOUT", function() Tick() if run then run.leave = time() end end)
+
+local started
+local function Start()
+    if started then return end
+    started = true
+    xpLevel, xpCur, xpMax = ReadXP()
+    UpdateZone()
+    lastTick = GetTime()
+    C_Timer.NewTicker(5, function() Tick() end)   -- (the ticker passes itself)
+end
+local oldEnable = M.OnEnable
+M.OnEnable = function(...)
+    if oldEnable then oldEnable(...) end
+    C_Timer.After(2, Start)
+end
+
+---------------------------------------------------------------------------
+-- Views
+---------------------------------------------------------------------------
+-- "dd:hh:mm:ss"
+function mod.Duration(seconds)
+    if not seconds then return "" end
+    seconds = math.floor(seconds)
+    return ("%02d:%02d:%02d:%02d"):format(math.floor(seconds / 86400), math.floor(seconds / 3600) % 24,
+        math.floor(seconds / 60) % 60, seconds % 60)
+end
+
+local function FavZone(c, z)
+    local best, bestT
+    for key, t in pairs(z or {}) do
+        if not bestT or t > bestT then best, bestT = key, t end
+    end
+    return best and (c.zones and c.zones[best] and c.zones[best].n or best:gsub("^%a:", ""))
+end
+
+-- a character's levels in the compact form sent to the team:
+-- { [L] = { t, q, k, d, z = favourite zone name, done = time or nil, p = partial } }
+function mod.CompactLevels(c)
+    local out = {}
+    for L, r in pairs(c.levels or {}) do
+        if L >= 1 and L <= mod.MAX_TRACKED_LEVEL then
+            out[L] = { t = math.floor(r.t or 0), q = r.q or 0, k = r.k or 0, d = r.d or 0,
+                z = FavZone(c, r.z), done = r.done, p = r.partial and 1 or nil }
+        end
+    end
+    return out
+end
+
+-- level rows of one character: { L, t, done, q, k, d, z, partial, current }
+function mod.CharLevelRows(c)
+    local rows = {}
+    local lv = mod.CompactLevels(c)
+    for L = mod.MAX_TRACKED_LEVEL, 1, -1 do
+        local r = lv[L]
+        if r then
+            rows[#rows + 1] = { L = L, t = r.t, done = r.done, q = r.q, k = r.k, d = r.d, z = r.z,
+                partial = r.p ~= nil, current = not r.done }
+        end
+    end
+    return rows
+end
+
+-- characters of a scope with their compact levels: list of { key, lv }
+--   ACCOUNT: this account | TEAM: the team's characters | ALL: every account
+function mod.LevelChars(scope)
+    local list, seen = {}, {}
+    local function Add(key, lv)
+        if seen[key] or not lv or next(lv) == nil then return end
+        seen[key] = true
+        list[#list + 1] = { key, lv }
+    end
+    local own = mod.Store().chars
+    if scope == "ACCOUNT" or scope == "ALL" then
+        for key, c in pairs(own) do Add(key, mod.CompactLevels(c)) end
+    end
+    if scope == "ALL" then
+        for _, a in pairs(mod.Store().accounts) do
+            for key, c in pairs(a.chars or {}) do Add(key, c.lv) end
+        end
+    elseif scope == "TEAM" then
+        local members = MMT.SortedMembers()
+        local me = MMT.PlayerFull()
+        if me then table.insert(members, 1, me) end
+        for _, key in ipairs(members) do
+            if own[key] then
+                Add(key, mod.CompactLevels(own[key]))
+            else
+                local acc = mod.AccountOf(key)
+                local a = acc and mod.Account(acc)
+                local c = a and a.chars and a.chars[key]
+                if c then Add(key, c.lv) end
+            end
+        end
+    end
+    return list
+end
+
+-- averages per level over the characters of a scope: levels finished (done)
+-- count for the time; quests, kills and deaths average over the same
+-- characters (all that have the level when none finished it yet).
+-- Rows { L, t, n = characters, q, k, d, z = most common favourite zone }
+function mod.AverageLevelRows(scope)
+    local chars = mod.LevelChars(scope)
+    local rows = {}
+    for L = mod.MAX_TRACKED_LEVEL, 1, -1 do
+        local done, any = {}, {}
+        for _, e in ipairs(chars) do
+            local r = e[2][L]
+            if r then
+                any[#any + 1] = r
+                if r.done and not r.p then done[#done + 1] = r end
+            end
+        end
+        local use = #done > 0 and done or any
+        if #use > 0 then
+            local t, q, k, d, zones = 0, 0, 0, 0, {}
+            for _, r in ipairs(use) do
+                t, q, k, d = t + (r.t or 0), q + (r.q or 0), k + (r.k or 0), d + (r.d or 0)
+                if r.z then zones[r.z] = (zones[r.z] or 0) + 1 end
+            end
+            local z, zn
+            for name, n in pairs(zones) do if not zn or n > zn then z, zn = name, n end end
+            rows[#rows + 1] = { L = L, t = #done > 0 and t / #done or nil, n = #use, q = q / #use,
+                k = k / #use, d = d / #use, z = z }
+        end
+    end
+    return rows
+end

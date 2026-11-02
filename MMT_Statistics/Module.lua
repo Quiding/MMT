@@ -26,7 +26,7 @@ local M = MMT.NewModule({
     title = "Statistics",
     description = "Gold of every character and account over 60 days, NPCs killed and what killed you, quests.",
     sync = true,
-    syncExclude = { "chartScope", "killScope", "exportKind", "exportScope", "exportSep", "questScope" },
+    syncExclude = { "chartScope", "killScope", "exportKind", "exportScope", "exportSep", "questScope", "levelScope", "zoneScope", "zoneView" },
     defaults = {
         trackGold   = true,
         trackKills  = true,
@@ -37,6 +37,10 @@ local M = MMT.NewModule({
         killScope   = "TEAM",
         sendEvery   = 5,        -- minutes: at most one summary per this time
         questScope  = "CHAR",   -- Quests tab: CHAR | ACCOUNT
+        trackLeveling = true,   -- time per level / zone / instance, xp (Leveling.lua)
+        levelScope  = "CHAR",   -- Leveling tab: CHAR | ACCOUNT | TEAM | ALL
+        zoneScope   = "CHAR",   -- Zones tab: CHAR | ACCOUNT
+        zoneView    = "ZONES",  -- ZONES | INSTANCES
         exportKind  = "GOLD_CHAR",   -- CSV export (Export.lua)
         exportScope = "ALL",
         exportSep   = ",",       -- , | ; (decimal comma)
@@ -193,7 +197,8 @@ end
 function mod.OwnAccount()
     local chars = {}
     for key, c in pairs(Store().chars) do
-        chars[key] = { c = c.class, g = c.gold, k = c.killTotal or 0, d = c.deathTotal or 0, s = c.seen }
+        chars[key] = { c = c.class, g = c.gold, k = c.killTotal or 0, d = c.deathTotal or 0, s = c.seen,
+            lv = mod.CompactLevels and mod.CompactLevels(c) or nil }
     end
     return {
         id = mod.AccountId(), owner = MMT.PlayerFull(), own = true, at = time(),
@@ -467,7 +472,7 @@ M.Report = function(_, add)
     local nChars, nAcc = 0, 0
     for _ in pairs(s.chars) do nChars = nChars + 1 end
     for _ in pairs(s.accounts) do nAcc = nAcc + 1 end
-    add(("-- Statistics 1.0.17  account=%s characters=%d otherAccounts=%d gold=%s kills=%s share=%s"):format(
+    add(("-- Statistics 1.0.18  account=%s characters=%d otherAccounts=%d gold=%s kills=%s share=%s"):format(
         s.accountId, nChars, nAcc, tostring(M.db.trackGold), tostring(M.db.trackKills), tostring(M.db.share)))
     for key, c in pairs(s.chars) do
         local n = 0

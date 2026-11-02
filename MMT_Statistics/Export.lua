@@ -203,6 +203,33 @@ function mod.ImportBackup(text)
             for _, n in pairs(c.deaths) do dt = dt + n end
             c.killTotal = math.max(kt, c.killTotal or 0, src.killTotal or 0)
             c.deathTotal = math.max(dt, c.deathTotal or 0, src.deathTotal or 0)
+            -- levels, zones, instance runs, kill / death details (1.0.18)
+            c.levels = c.levels or {}
+            for L, r in pairs(src.levels or {}) do if c.levels[L] == nil then c.levels[L] = r end end
+            c.zones = c.zones or {}
+            for zk, z in pairs(src.zones or {}) do
+                local mine = c.zones[zk]
+                if not mine then c.zones[zk] = z
+                else
+                    for _, f in ipairs({ "t", "k", "d", "q", "xp" }) do
+                        if (z[f] or 0) > (mine[f] or 0) then mine[f] = z[f] end
+                    end
+                end
+            end
+            c.runs = c.runs or {}
+            local haveRun = {}
+            for _, r in ipairs(c.runs) do haveRun[(r.map or 0) .. ":" .. (r.enter or 0)] = true end
+            for _, r in ipairs(src.runs or {}) do
+                if not haveRun[(r.map or 0) .. ":" .. (r.enter or 0)] then table.insert(c.runs, r) end
+            end
+            table.sort(c.runs, function(a, b) return (a.enter or 0) < (b.enter or 0) end)
+            for _, field in ipairs({ "killDetail", "deathDetail" }) do
+                c[field] = c[field] or {}
+                for npc, map in pairs(src[field] or {}) do
+                    c[field][npc] = c[field][npc] or {}
+                    MaxMap(c[field][npc], map)
+                end
+            end
             -- quests: a tracked record beats a scanned one, else the one here
             c.quests = c.quests or {}
             for qid, q in pairs(src.quests or {}) do
