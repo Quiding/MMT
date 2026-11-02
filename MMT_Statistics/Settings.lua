@@ -1,5 +1,5 @@
 -- MMT Statistics: the module's page under MODULES, with the tabs Gold,
--- Kills and Settings.
+-- Kills, Quests and Settings.
 
 local _, mod = ...
 local MMT = MMT
@@ -170,7 +170,7 @@ M.Page = function(_, page)
         if key ~= "settings" then mod.RequestIfOld() end
         if mod.Redraw then mod.Redraw() end
     end
-    local tabs = { { "gold", "Gold" }, { "kills", "Kills" }, { "settings", "Settings" } }
+    local tabs = { { "gold", "Gold" }, { "kills", "Kills" }, { "quests", "Quests" }, { "settings", "Settings" } }
     for i, t in ipairs(tabs) do
         local b = UI.Button(page, 120, t[2], function() Show(t[1]) end)
         b:SetPoint("TOPLEFT", (i - 1) * 130, 0)
@@ -212,6 +212,153 @@ M.Page = function(_, page)
     local killers = RankList(k, COL_W, 3)
     R:Add(killers, 3 * 18 + 8)
     R:Note("Kills count where the game lets MMT see them: NPCs this character fought that died (targeted or with a nameplate) and the experience message. Deaths count the NPC that targeted you.")
+
+    -- Quests -------------------------------------------------------------------
+    local q = panels.quests
+    local qc = UI.Column(q, 0, 0, PAGE_W)
+    local qscope = UI.Dropdown(q, 300, "Show", {
+        { value = "CHAR", text = "This character" },
+        { value = "ACCOUNT", text = "This account" },
+    }, function() return M.db.questScope end, function(v) M.db.questScope = v; mod.Redraw() end)
+    qc:Add(qscope, UI.ROW + 8)
+    -- three tiles: large number, small label below
+    local TILE_GAP = 12
+    local tileW = math.floor((PAGE_W - 2 * TILE_GAP) / 3)
+    local tiles = {}
+    for i, t in ipairs({ { "A", "accepted" }, { "C", "completed" }, { "X", "abandoned" } }) do
+        local tile = CreateFrame("Frame", nil, q)
+        tile:SetSize(tileW, 84)
+        tile:SetPoint("TOPLEFT", q, "TOPLEFT", (i - 1) * (tileW + TILE_GAP), qc.y)
+        UI.Fill(tile, 1, 1, 1, 0.03)
+        UI.Border(tile, 1, 1, 1, 0.08)
+        tile.number = UI.Label(tile, "0", "GameFontHighlightHuge")
+        pcall(tile.number.SetFont, tile.number, STANDARD_TEXT_FONT, 34, "")
+        tile.number:SetPoint("TOP", 0, -12)
+        tile.label = UI.Label(tile, t[2])
+        tile.label:SetPoint("TOP", tile.number, "BOTTOM", 0, -4)
+        tile.label:SetTextColor(0.6, 0.6, 0.6)
+        tile:EnableMouse(true)
+        tile:SetScript("OnEnter", function(self)
+            if not self.tip then return end
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetText(t[2]:gsub("^%l", string.upper))
+            GameTooltip:AddLine(self.tip, 1, 1, 1, true)
+            GameTooltip:Show()
+        end)
+        tile:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        tiles[t[1]] = tile
+    end
+    tiles.A.number:SetTextColor(1, 0.82, 0)
+    tiles.C.number:SetTextColor(0.4, 1, 0.4)
+    tiles.X.number:SetTextColor(1, 0.4, 0.4)
+    qc:Space(84 + 16)
+    qc:Header("Last 10 completed quests")
+    -- small table: completed | character | quest | level | XP | money
+    local QCOLS = {
+        { x = 8, w = 110, head = "Completed" },
+        { x = 124, w = 110, head = "Character" },
+        { x = 240, w = 240, head = "Quest" },
+        { right = 530, w = 44, head = "Level" },
+        { right = 600, w = 64, head = "XP" },
+        { right = PAGE_W - 8, w = 90, head = "Money" },
+    }
+    local recent = CreateFrame("Frame", nil, q)
+    recent:SetSize(PAGE_W, ROW_H * 11 + 4)
+    qc:Add(recent, ROW_H * 11 + 8)
+    local function Cell(parent, col, y, template)
+        local l = UI.Label(parent, "", template)
+        if col.right then
+            l:SetPoint("TOPRIGHT", parent, "TOPLEFT", col.right, y)
+            l:SetJustifyH("RIGHT")
+        else
+            l:SetPoint("TOPLEFT", parent, "TOPLEFT", col.x, y)
+            l:SetJustifyH("LEFT")
+        end
+        l:SetWidth(col.w)
+        l:SetWordWrap(false)
+        return l
+    end
+    for _, col in ipairs(QCOLS) do
+        local l = Cell(recent, col, -3, "GameFontNormal")
+        l:SetText(col.head)
+        l:SetTextColor(A[1], A[2], A[3])
+    end
+    local qline = recent:CreateTexture(nil, "ARTWORK")
+    qline:SetColorTexture(1, 1, 1, 0.08)
+    qline:SetHeight(1)
+    qline:SetPoint("TOPLEFT", 0, -ROW_H)
+    qline:SetWidth(PAGE_W)
+    local qrows = {}
+    for i = 1, 10 do
+        local row = CreateFrame("Frame", nil, recent)
+        row:SetSize(PAGE_W, ROW_H)
+        row:SetPoint("TOPLEFT", 0, -ROW_H - 2 - (i - 1) * ROW_H)
+        H.RowBackground(row, i)
+        row.cells = {}
+        for c, col in ipairs(QCOLS) do row.cells[c] = Cell(row, col, -4) end
+        row:EnableMouse(true)
+        row:SetScript("OnEnter", function(self)
+            if not self.quest then return end
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetText(self.quest.name)
+            GameTooltip:AddLine(("Quest ID %d"):format(self.quest.id), 1, 1, 1)
+            if self.quest.cl then GameTooltip:AddLine(("Completed at character level %d"):format(self.quest.cl), 1, 1, 1) end
+            GameTooltip:Show()
+        end)
+        row:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        qrows[i] = row
+    end
+    local qempty = UI.Label(recent, "No completed quests recorded yet.")
+    qempty:SetPoint("TOPLEFT", 8, -ROW_H - 8)
+    qempty:SetTextColor(0.5, 0.5, 0.5)
+    qc:Note("Scanned quests (Settings tab) count as completed, but have no date, so they don't show here.")
+
+    local function DrawQuests()
+        qscope.Refresh()
+        local s = mod.Store()
+        local me = MMT.PlayerFull()
+        local n = { A = 0, C = 0, X = 0 }
+        local scanned = 0
+        local done = {}
+        for key, c in pairs(s.chars) do
+            if M.db.questScope ~= "CHAR" or key == me then
+                for id, rec in pairs(c.quests or {}) do
+                    if n[rec.st] then n[rec.st] = n[rec.st] + 1 end
+                    if rec.st == "C" then
+                        if rec.tc then
+                            done[#done + 1] = { id = id, rec = rec, key = key, class = c.class }
+                        else
+                            scanned = scanned + 1
+                        end
+                    end
+                end
+            end
+        end
+        for k, tile in pairs(tiles) do tile.number:SetText(BreakUpLargeNumbers and BreakUpLargeNumbers(n[k]) or tostring(n[k])) end
+        tiles.A.tip = "Quests accepted and still in the quest log (or not completed yet)."
+        tiles.C.tip = scanned > 0 and ("%d of them found by the scan (no date, experience or money)."):format(scanned)
+            or "Quests turned in."
+        tiles.X.tip = "Quests abandoned (and not accepted again since)."
+        table.sort(done, function(a, b) if a.rec.tc ~= b.rec.tc then return a.rec.tc > b.rec.tc end return a.id > b.id end)
+        for i, row in ipairs(qrows) do
+            local e = done[i]
+            row:SetShown(e ~= nil)
+            if e then
+                local r = e.rec
+                local name = r.n or ("Quest " .. e.id)
+                row.quest = { id = e.id, name = name, cl = r.cl }
+                row.cells[1]:SetText(date("%Y-%m-%d %H:%M", r.tc))
+                row.cells[2]:SetText(mod.CharName(e.key, e.class))
+                row.cells[3]:SetText(name)
+                row.cells[4]:SetText(r.l and tostring(r.l) or "")
+                row.cells[5]:SetText(r.xp and (BreakUpLargeNumbers and BreakUpLargeNumbers(r.xp) or tostring(r.xp)) or "")
+                row.cells[6]:SetText(r.cp and mod.Money(r.cp) or "")
+                for c = 1, 6 do row.cells[c]:SetTextColor(0.8, 0.8, 0.8) end
+                row.cells[3]:SetTextColor(1, 1, 1)
+            end
+        end
+        qempty:SetShown(#done == 0)
+    end
 
     -- Settings -----------------------------------------------------------------
     local s = panels.settings
@@ -332,6 +479,8 @@ M.Page = function(_, page)
             kscope.Refresh()
             top:Show_(mod.TopList(M.db.killScope, "kills", 10), "No kills recorded yet.")
             killers:Show_(mod.TopList(M.db.killScope, "deaths", 3), "Nobody killed you yet.")
+        elseif current == "quests" then
+            DrawQuests()
         end
     end
     page:SetScript("OnShow", function() mod.Redraw() end)

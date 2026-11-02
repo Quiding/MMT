@@ -26,7 +26,7 @@ local M = MMT.NewModule({
     title = "Statistics",
     description = "Gold of every character and account over 60 days, NPCs killed and what killed you, quests.",
     sync = true,
-    syncExclude = { "chartScope", "killScope", "exportKind", "exportScope", "exportSep" },
+    syncExclude = { "chartScope", "killScope", "exportKind", "exportScope", "exportSep", "questScope" },
     defaults = {
         trackGold   = true,
         trackKills  = true,
@@ -36,6 +36,7 @@ local M = MMT.NewModule({
         chartScope  = "TEAM",   -- TEAM | ACCOUNT | ALL | acc:<id>
         killScope   = "TEAM",
         sendEvery   = 5,        -- minutes: at most one summary per this time
+        questScope  = "CHAR",   -- Quests tab: CHAR | ACCOUNT
         exportKind  = "GOLD_CHAR",   -- CSV export (Export.lua)
         exportScope = "ALL",
         exportSep   = ",",       -- , | ; (decimal comma)
@@ -466,7 +467,7 @@ M.Report = function(_, add)
     local nChars, nAcc = 0, 0
     for _ in pairs(s.chars) do nChars = nChars + 1 end
     for _ in pairs(s.accounts) do nAcc = nAcc + 1 end
-    add(("-- Statistics 1.0.12  account=%s characters=%d otherAccounts=%d gold=%s kills=%s share=%s"):format(
+    add(("-- Statistics 1.0.13  account=%s characters=%d otherAccounts=%d gold=%s kills=%s share=%s"):format(
         s.accountId, nChars, nAcc, tostring(M.db.trackGold), tostring(M.db.trackKills), tostring(M.db.share)))
     for key, c in pairs(s.chars) do
         local n = 0

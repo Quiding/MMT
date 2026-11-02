@@ -113,6 +113,7 @@ M:On("QUEST_ACCEPTED", function(a, b)
     q.scan = nil
     C_Timer.After(0.5, function() Fill(questID, q) end)
     M:Debug("quest accepted %d", questID)
+    if mod.Redraw then mod.Redraw() end
 end)
 
 M:On("QUEST_TURNED_IN", function(questID, xp, money)
@@ -129,6 +130,7 @@ M:On("QUEST_TURNED_IN", function(questID, xp, money)
     q.xp = tonumber(Plain(xp)) or 0
     q.cp = tonumber(Plain(money)) or 0
     M:Debug("quest completed %d xp=%s copper=%s", questID, tostring(q.xp), tostring(q.cp))
+    if mod.Redraw then mod.Redraw() end
 end)
 
 M:On("QUEST_REMOVED", function(questID)
@@ -150,6 +152,7 @@ M:On("QUEST_REMOVED", function(questID)
         Fill(questID, q)
         q.st, q.tx = "X", time()
         M:Debug("quest abandoned %d", questID)
+        if mod.Redraw then mod.Redraw() end
     end)
 end)
 
