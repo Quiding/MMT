@@ -167,7 +167,8 @@ Saved data from MMT 0.1.x is converted automatically.
     group, and on "Request update" (button beside "Sync to team").
   - Kills: the same table for NPCs killed, the top 10 NPCs killed and the top 3 NPCs that
     killed you, for the same choice of accounts. Kills count where the game lets addons
-    see them (NPCs the character fought that died while targeted or with a nameplate, and
+    see them (the target dying, also NPCs that give no experience such as grey ones, as long
+    as this character or its group tapped it; NPCs fought that died with a nameplate; and
     the experience message; the combat log is reserved for the Blizzard UI on WoW:
     Forever); a kill seen twice counts once. The killer at death: the hostile target that
     targeted you, else an NPC nameplate that did.

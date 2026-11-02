@@ -5,6 +5,7 @@
 -- COMBAT_LOG_EVENT_UNFILTERED gets the addon blocked). So kills come from:
 --   1. NPCs this character was in combat with (threat) that die while they
 --      are its target or have a nameplate, and that it (or its group) tapped,
+--   1b. the target dying (PLAYER_TARGET_DIED), also for NPCs without experience,
 --   2. the experience message "X dies, you gain N experience.".
 -- A kill seen by both counts once.
 -- The killer at death: the hostile target that targets this character, else
@@ -15,7 +16,7 @@ local MMT = MMT
 local M = mod.M
 
 local Safe, IsSecret = MMT.Safe, MMT.IsSecret
-local sources = { threat = 0, xp = 0, deaths = 0 }   -- debug report
+local sources = { threat = 0, target = 0, xp = 0, deaths = 0 }   -- debug report
 local recent = {}       -- [name] = { t, guid }: the same kill from another source
 local engaged = {}      -- [guid] = name: NPCs in combat with this character
 
@@ -82,6 +83,28 @@ M:On("PLAYER_REGEN_ENABLED", function()
     C_Timer.After(5, function()
         if not Safe(UnitAffectingCombat, "player") then wipe(engaged) end
     end)
+end)
+
+---------------------------------------------------------------------------
+-- 1b. The target dies (PLAYER_TARGET_DIED): counts kills that give no
+--     experience too (grey NPCs), and works when the game hides GUIDs and
+--     threat in combat. Only NPCs this character or its group tapped.
+---------------------------------------------------------------------------
+local targetName   -- the target's name, read while it was readable
+local function ReadTarget()
+    if not Safe(UnitExists, "target") or Safe(UnitIsPlayer, "target") then targetName = nil return end
+    local name = Plain(Safe(UnitName, "target"))
+    if type(name) == "string" and name ~= "" then targetName = name end
+end
+M:On("PLAYER_TARGET_CHANGED", ReadTarget)
+M:On("UNIT_NAME_UPDATE", function(unit) if unit == "target" then ReadTarget() end end)
+M:On("PLAYER_TARGET_DIED", function()
+    if not M.db.trackKills then return end
+    local name = Plain(Safe(UnitName, "target")) or targetName
+    if type(name) ~= "string" or name == "" then return end
+    if Safe(UnitIsPlayer, "target") then return end
+    if Safe(UnitIsTapDenied, "target") then return end   -- someone else's
+    Count(name, Plain(Safe(UnitGUID, "target")), "target")
 end)
 
 ---------------------------------------------------------------------------
@@ -156,6 +179,6 @@ function mod.TopList(scope, field, n)
 end
 
 function mod.KillReport(add)
-    add(("  kill sources: threat %d, xp message %d; deaths %d; xp pattern %s"):format(
-        sources.threat, sources.xp, sources.deaths, tostring(XPPattern())))
+    add(("  kill sources: threat %d, target died %d, xp message %d; deaths %d; xp pattern %s"):format(
+        sources.threat, sources.target, sources.xp, sources.deaths, tostring(XPPattern())))
 end
