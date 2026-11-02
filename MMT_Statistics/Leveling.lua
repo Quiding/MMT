@@ -83,6 +83,7 @@ local function ReadZone()
 end
 
 local run   -- the instance run this character is in now
+local said = {}   -- debug: each instance-copy reason once per instance entry
 
 local function UpdateZone()
     local c = mod.Char()
@@ -119,6 +120,7 @@ local function UpdateZone()
             end
             run.seenAt = time()   -- the copy ID is checked again after each entry
             run.checked = nil
+            for k in pairs(said) do said[k] = nil end
         end
     elseif run then
         run.leave = time()
@@ -131,20 +133,28 @@ function mod.CurrentZone() return zoneKey, zoneName, zoneInst end
 
 -- the instance copy from a creature GUID; the same copy as an earlier run
 -- (re-entered, relogged) continues that run
-local hiddenSaid
+local function Why(reason, ...)
+    if said[reason] then return end
+    said[reason] = true
+    M:Debug("instance copy: " .. reason, ...)
+end
 local function SeeGUID(unit)
     if not run or run.checked then return end
-    local raw = Safe(UnitGUID, unit)
-    if raw == nil and Safe(UnitExists, unit) and not hiddenSaid then
-        hiddenSaid = true
-        M:Debug("instance copy: the game hides the GUID of %s here", unit)
-    end
-    local guid = Plain(raw)
-    if type(guid) ~= "string" then return end
-    local kind, _, _, map, uid = strsplit("-", guid)
+    -- not MMT.Safe: it turns a secret value into nil, and the debug line
+    -- should tell a hidden GUID from a missing one
+    local ok, raw = pcall(UnitGUID, unit)
+    if not ok or raw == nil then return end
+    if IsSecret(raw) then Why("the game hides the GUIDs here (%s)", unit) return end
+    if type(raw) ~= "string" then return end
+    local kind, _, _, map, uid = strsplit("-", raw)
     if kind ~= "Creature" and kind ~= "Vehicle" then return end
     uid, map = tonumber(uid), tonumber(map)
-    if not uid or uid <= 0 or (map and map > 0 and map ~= run.map) then return end
+    -- the copy ID is 0 outside instances; the map part of the GUID needn't be
+    -- the instance's map ID on this client, so it isn't compared
+    if not uid or uid <= 0 then
+        Why("no copy ID in the GUID (map part %s, copy part %s)", tostring(map), tostring(uid))
+        return
+    end
     run.checked = true
     local c = mod.Char()
     if run.uid and run.uid ~= uid then
@@ -169,7 +179,7 @@ local function SeeGUID(unit)
             return
         end
     end
-    M:Debug("instance copy %d", uid)
+    M:Debug("instance copy %d (map part of the GUID: %s, instance map %s)", uid, tostring(map), tostring(run.map))
 end
 
 -- "Deadmines has been reset.": the next entry is a new copy
@@ -313,6 +323,7 @@ M:On("PLAYER_ENTERING_WORLD", function()
     C_Timer.After(1, function() Tick() UpdateZone() end)
 end)
 M:On("PLAYER_TARGET_CHANGED", function() SeeGUID("target") end)
+M:On("PLAYER_SOFT_ENEMY_CHANGED", function() SeeGUID("softenemy") end)
 M:On("UPDATE_MOUSEOVER_UNIT", function() SeeGUID("mouseover") end)
 M:On("NAME_PLATE_UNIT_ADDED", function(unit) if type(unit) == "string" then SeeGUID(unit) end end)
 -- secret GUIDs can be readable out of combat: look again then
