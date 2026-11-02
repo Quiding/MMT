@@ -11,6 +11,7 @@
 --   sep   "," (decimal point) | ";" (decimal comma, e.g. German Excel)
 --         QUESTS     quests of this account's characters (Quests.lua)
 --         ZONES / INSTANCES  zones and instance visits of this account's characters (Leveling.lua)
+--         KILL_SUMMARY / KILL_DETAIL / JOURNAL  the Kills tab (KillTypes.lua)
 -- Names follow the privacy setting, like everything MMT shows.
 
 local _, mod = ...
@@ -22,6 +23,9 @@ mod.EXPORT_KINDS = {
     { value = "GOLD_ACC", text = "Gold per day and account" },
     { value = "CHARS", text = "Characters" },
     { value = "KILLS", text = "Kills and deaths (this account)" },
+    { value = "KILL_SUMMARY", text = "Kill summary (this account)" },
+    { value = "KILL_DETAIL", text = "Kills by zone and level (this account)" },
+    { value = "JOURNAL", text = "Dungeon Journal (this account)" },
     { value = "QUESTS", text = "Quests (this account)" },
     { value = "ZONES", text = "Zones (this account)" },
     { value = "INSTANCES", text = "Instances (this account)" },
@@ -178,16 +182,65 @@ function mod.ExportCSV(kind, scope, sep)
                 end
             end
         end
+    elseif kind == "KILL_SUMMARY" then
+        Row("Account", "Character", "NPCs", "Rares", "Dungeon Bosses", "Big Baddies", "Critters", "Deaths",
+            "By Gravity", "Unique instances visited", "Instance visits")
+        for _, id in ipairs(ids) do
+            if id == own then
+                for _, e in ipairs(Sorted(s.chars)) do
+                    local key, c = e[1], e[2]
+                    local t = mod.KillTotals("char:" .. key)
+                    Row(mod.AccountLabel(id), mod.CharName(key, c.class), t.all, t.rare, t.dboss, t.big, t.critter,
+                        t.deaths, t.gravity, mod.UniqueInstances("char:" .. key), #(c.runs or {}))
+                end
+            end
+        end
+    elseif kind == "KILL_DETAIL" then
+        Row("Account", "Character", "Type", "NPC", "Kind", "Zone", "Instance", "Character level", "Count")
+        for _, id in ipairs(ids) do
+            if id == own then
+                for _, e in ipairs(Sorted(s.chars)) do
+                    local key, c = e[1], e[2]
+                    local name = mod.CharName(key, c.class)
+                    for field, label in pairs({ killDetail = "Killed", deathDetail = "Killed by" }) do
+                        for _, n in ipairs(Sorted(c[field])) do
+                            for _, d in ipairs(Sorted(n[2])) do
+                                local level, zk = tostring(d[1]):match("^(%-?%d+)|(.+)$")
+                                local z = zk and c.zones and c.zones[zk]
+                                Row(mod.AccountLabel(id), name, label, n[1], mod.NpcKindText(n[1]),
+                                    z and z.n or (zk ~= "?" and zk or ""), z and z.inst and "yes" or "no", level or "", d[2])
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    elseif kind == "JOURNAL" then
+        Row("Account", "Instance", "Unique instances visited", "Visits", "Last visit", "Boss", "Kind", "Killed", "Killed me")
+        -- the whole account (or the scope's characters: all of this account)
+        if mod.AccountId() and (function() for _, id in ipairs(ids) do if id == own then return true end end end)() then
+            local uniq = mod.UniqueInstances("ACCOUNT")
+            for _, inst in ipairs(mod.JournalChoices("ACCOUNT")) do
+                local j = mod.Journal("ACCOUNT", inst.value)
+                local last = j.last > 0 and date("%Y-%m-%d %H:%M", j.last) or ""
+                if #j.bosses == 0 then
+                    Row(mod.AccountLabel(own), inst.text, uniq, j.visits, last, "", "", "", "")
+                end
+                for _, b in ipairs(j.bosses) do
+                    Row(mod.AccountLabel(own), inst.text, uniq, j.visits, last, b.name, mod.NpcKindText(b.name), b.kills, b.deaths)
+                end
+            end
+        end
     elseif kind == "KILLS" then
-        Row("Account", "Character", "Type", "NPC", "Count")
+        Row("Account", "Character", "Type", "NPC", "Kind", "Count")
         for _, id in ipairs(ids) do
             local label = mod.AccountLabel(id)
             if id == own then
                 for _, e in ipairs(Sorted(s.chars)) do
                     local key, c = e[1], e[2]
                     local name = mod.CharName(key, c.class)
-                    for _, k in ipairs(Sorted(c.kills, true)) do Row(label, name, "Killed", k[1], k[2]) end
-                    for _, k in ipairs(Sorted(c.deaths, true)) do Row(label, name, "Killed by", k[1], k[2]) end
+                    for _, k in ipairs(Sorted(c.kills, true)) do Row(label, name, "Killed", k[1], mod.NpcKindText(k[1]), k[2]) end
+                    for _, k in ipairs(Sorted(c.deaths, true)) do Row(label, name, "Killed by", k[1], mod.NpcKindText(k[1]), k[2]) end
                 end
             end   -- other accounts keep their kills (not sent to the team)
         end

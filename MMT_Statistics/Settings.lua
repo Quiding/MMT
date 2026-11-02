@@ -378,7 +378,7 @@ M.Page = function(_, page)
     pcall(cn.SetFont, cn, STANDARD_TEXT_FONT, 16, "")
     cn:SetPoint("TOPLEFT", sheep, "TOPRIGHT", 8, 2)
     cn:SetTextColor(0.5, 1, 0.55)
-    local cl = UI.Label(cb, "critters squished")
+    local cl = UI.Label(cb, "cuddly kills")
     cl:SetPoint("TOPLEFT", cn, "BOTTOMLEFT", 0, -1)
     cl:SetTextColor(0.55, 0.75, 0.55)
     kboxes.critter = { number = cn }
@@ -407,21 +407,43 @@ M.Page = function(_, page)
     local kzone = UI.Dropdown(k, COL_W, "Zone", function() return mod.KillZoneChoices(M.db.killScope) end,
         function() return M.db.killZone end, function(v) M.db.killZone = v; mod.Redraw() end)
     KL:Add(kzone, UI.ROW + 6)
-    KL:Header("Top 5 kills")
-    local top = RankList(k, COL_W, 5)
-    KL:Add(top, 5 * 18 + 4)
+    KL:Header("Top 10 kills")
+    local top = RankList(k, COL_W, 10)
+    KL:Add(top, 10 * 18 + 4)
     KL:Header("Top 3 killed by")
     local killers = RankList(k, COL_W, 3)
     KL:Add(killers, 3 * 18)
 
-    -- right: dungeon journal
-    local KR = UI.Column(k, COL2_X, below, COL_W)
-    local jinst = UI.Dropdown(k, COL_W, "Dungeon Journal", function() return mod.JournalChoices(M.db.killScope) end,
+    -- right: the Dungeon Journal, a box of its own with a title like a page's
+    local JROWS = 7
+    local jbox = CreateFrame("Frame", nil, k)
+    jbox:SetPoint("TOPLEFT", k, "TOPLEFT", COL2_X - 8, below)
+    jbox:SetSize(COL_W + 16, 34 + (UI.ROW + 4) + 40 + ROW_H * (JROWS + 1) + 16)
+    UI.Fill(jbox, A[1], A[2], A[3], 0.04)
+    UI.Border(jbox, A[1], A[2], A[3], 0.30)
+    local jicon = jbox:CreateTexture(nil, "ARTWORK")
+    jicon:SetTexture("Interface\\Icons\\INV_Misc_Book_11")
+    jicon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    jicon:SetSize(22, 22)
+    jicon:SetPoint("TOPLEFT", 8, -7)
+    local jtitle = UI.Label(jbox, "Dungeon Journal", "GameFontNormalLarge")
+    jtitle:SetPoint("LEFT", jicon, "RIGHT", 8, 0)
+    jtitle:SetTextColor(A[1], A[2], A[3])
+    local jline = jbox:CreateTexture(nil, "ARTWORK")
+    jline:SetColorTexture(A[1], A[2], A[3], 0.35)
+    jline:SetHeight(1)
+    jline:SetPoint("TOPLEFT", 8, -34)
+    jline:SetPoint("TOPRIGHT", -8, -34)
+    local KR = UI.Column(jbox, 8, -40, COL_W)
+    local jinst = UI.Dropdown(jbox, COL_W, "Instance", function() return mod.JournalChoices(M.db.killScope) end,
         function() return mod.JournalInstance(M.db.killScope) end, function(v) mod.journalPick = v; mod.Redraw() end)
     KR:Add(jinst, UI.ROW + 4)
-    local jvisits = KR:Note("")
-    local JROWS = 7
-    local journal = Grid(k, {
+    local junique = UI.Label(jbox, "")
+    KR:Add(junique, 16)
+    local jvisits = UI.Label(jbox, "")
+    jvisits:SetTextColor(0.6, 0.6, 0.6)
+    KR:Add(jvisits, 20)
+    local journal = Grid(jbox, {
         { "Boss", x = 8, w = 180 },
         { "Killed", right = 262, w = 64 },
         { "Killed me", right = COL_W - 8, w = 70 },
@@ -433,10 +455,12 @@ M.Page = function(_, page)
         local scope = M.db.killScope
         local t = mod.KillTotals(scope)
         for key, b in pairs(kboxes) do b.number:SetText(Num(t[key] or 0)) end
-        top:Show_(mod.TopKills(scope, M.db.killKind or "ALL", M.db.killZone or "ALL", "killDetail", 5), "No kills recorded yet.")
+        top:Show_(mod.TopKills(scope, M.db.killKind or "ALL", M.db.killZone or "ALL", "killDetail", 10), "No kills recorded yet.")
         killers:Show_(mod.TopKills(scope, "ALL", M.db.killZone or "ALL", "deathDetail", 3), "Nobody killed you yet.")
         local inst = mod.JournalInstance(scope)
         local j = inst and mod.Journal(scope, inst)
+        local uniq = mod.UniqueInstances(scope)
+        junique:SetText(("Total unique instances visited: |cffffffff%d|r"):format(uniq))
         if j then
             jvisits:SetText(j.visits > 0 and ("Visited %d %s, last on %s."):format(j.visits, j.visits == 1 and "time" or "times",
                 date("%Y-%m-%d %H:%M", j.last)) or "No visits recorded.")

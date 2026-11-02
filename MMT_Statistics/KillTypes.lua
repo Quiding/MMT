@@ -366,3 +366,14 @@ function mod.KillTypesReport(add)
     add(("  this character: kills %d (rare %d, dungeon boss %d, big baddie %d, critter %d), deaths %d (gravity %d)"):format(
         t.all, t.rare, t.dboss, t.big, t.critter, t.deaths, t.gravity))
 end
+
+-- different instances (maps) visited by the characters of a scope
+function mod.UniqueInstances(scope)
+    local seen, n = {}, 0
+    for _, c in ipairs(ScopeChars(scope)) do
+        for _, r in ipairs(c.runs or {}) do
+            if r.map and not seen[r.map] then seen[r.map] = true; n = n + 1 end
+        end
+    end
+    return n
+end

@@ -167,11 +167,11 @@ Saved data from MMT 0.1.x is converted automatically.
     boxes for NPCs, Rares (rare and rare elite), Dungeon Bosses (the bosses of a dungeon
     encounter), Big Baddies (raid encounter bosses, the game's boss flag, world bosses,
     skull level), Deaths with
-    "By Gravity" (right after a fall) and critters squished. Left: the top 5 kills by kind
+    "By Gravity" (right after a fall) and critters ("cuddly kills"). Left: the top 10 kills by kind
     (all, rares, dungeon bosses, big baddies, critters) and zone or instance, and the top 3
-    that killed you. Right: the Dungeon Journal: an instance with kills (the current one,
-    else the last visited), how often and when last visited, and its bosses with kills and
-    deaths. The kind of an NPC is read when it is targeted, moused over, has a nameplate or
+    that killed you. Right: the Dungeon Journal (a box of its own): total unique instances
+    visited, an instance with kills (the current one, else the last visited), how often and
+    when last visited, and its bosses with kills and deaths. The kind of an NPC is read when it is targeted, moused over, has a nameplate or
     is an encounter's boss, and remembered by name for the account. Kills count where the
     game lets addons see them (the combat log is reserved for the Blizzard UI on WoW:
     Forever): the target dying, NPCs with a nameplate dying tapped by you or your group
@@ -204,7 +204,8 @@ Saved data from MMT 0.1.x is converted automatically.
     forget other accounts.
   - Export (Settings tab): CSV text to copy into a spreadsheet or a .csv file (addons can't
     write files): gold per day and character, gold per day and account, characters, kills
-    and deaths per NPC, quests, zones or instance visits; comma or semicolon (decimal
+    and deaths per NPC (with their kind), the kill summary per character, kills by zone and
+    level, the Dungeon Journal, quests, zones or instance visits; comma or semicolon (decimal
     comma) as separator; names follow the privacy setting.
   - Backup / import (Settings tab): "Backup (for import)" puts all statistics of this
     account (real names, gold per day, kills, quests, levels, zones, instances) into the
