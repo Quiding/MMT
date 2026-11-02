@@ -10,6 +10,7 @@
 --                    other accounts: their top 25 kills / top 10 killers)
 --   scope TEAM | ACCOUNT | ALL | acc:<id> (as the tables)
 --   sep   "," (decimal point) | ";" (decimal comma, e.g. German Excel)
+--         QUESTS     quests of this account's characters (Quests.lua)
 -- Names follow the privacy setting, like everything MMT shows.
 
 local _, mod = ...
@@ -21,6 +22,7 @@ mod.EXPORT_KINDS = {
     { value = "GOLD_ACC", text = "Gold per day and account" },
     { value = "CHARS", text = "Characters" },
     { value = "KILLS", text = "Kills and deaths" },
+    { value = "QUESTS", text = "Quests (this account)" },
 }
 
 local function Field(v, sep)
@@ -104,6 +106,26 @@ function mod.ExportCSV(kind, scope, sep)
                     c.g and math.floor(c.g) or "", c.k or 0, c.d or 0, c.s and date("%Y-%m-%d %H:%M", c.s) or "")
             end
         end
+    elseif kind == "QUESTS" then
+        Row("Account", "Character", "Quest ID", "Quest name", "Quest level", "Status",
+            "Character level", "XP gained", "Copper gained", "Accepted", "Completed / abandoned", "Source")
+        local function When(t) return t and date("%Y-%m-%d %H:%M", t) or "" end
+        for _, id in ipairs(ids) do
+            if id == own then
+                for _, e in ipairs(Sorted(s.chars)) do
+                    local key, c = e[1], e[2]
+                    local name = mod.CharName(key, c.class)
+                    local qs = {}
+                    for qid, q in pairs(c.quests or {}) do qs[#qs + 1] = { qid, q } end
+                    table.sort(qs, function(a, b) return a[1] < b[1] end)
+                    for _, qe in ipairs(qs) do
+                        local qid, q = qe[1], qe[2]
+                        Row(mod.AccountLabel(id), name, qid, q.n or "", q.l or "", mod.QUEST_STATUS[q.st] or "",
+                            q.cl or "", q.xp or "", q.cp or "", When(q.ta), When(q.tc or q.tx), q.scan and "scan" or "tracked")
+                    end
+                end
+            end
+        end
     elseif kind == "KILLS" then
         Row("Account", "Character", "Type", "NPC", "Count")
         for _, id in ipairs(ids) do
@@ -123,4 +145,84 @@ function mod.ExportCSV(kind, scope, sep)
         end
     end
     return table.concat(lines, "\n"), #lines - 1
+end
+
+---------------------------------------------------------------------------
+-- Backup / import: this account's statistics as one text (another computer,
+-- a reinstalled client). Unlike the CSV it keeps everything: real names,
+-- gold per day, kills, deaths and quests of every character.
+--   "MMTSTATS1:" .. packed serialized { v = 1, chars = { [key] = record } }
+-- Import merges into this account: nothing recorded here is lost.
+---------------------------------------------------------------------------
+local BACKUP_TAG = "MMTSTATS1:"
+
+function mod.BackupText()
+    local chars = {}
+    for key, c in pairs(mod.Store().chars) do chars[key] = c end
+    return BACKUP_TAG .. MMT.Pack(MMT.Serialize({ v = 1, at = time(), chars = chars }))
+end
+
+local function MaxMap(dst, src)
+    for k, v in pairs(src or {}) do
+        if type(v) == "number" and (dst[k] or 0) < v then dst[k] = v end
+    end
+end
+
+-- returns characters, gold days, quests added (or nil and an error)
+function mod.ImportBackup(text)
+    text = (text or ""):gsub("^%s+", ""):gsub("%s+$", "")
+    if text:sub(1, #BACKUP_TAG) ~= BACKUP_TAG then return nil, "That text is not an MMT Statistics backup." end
+    local plain = MMT.Unpack(text:sub(#BACKUP_TAG + 1))
+    local t = plain and MMT.Deserialize(plain)
+    if type(t) ~= "table" or type(t.chars) ~= "table" then return nil, "The backup could not be read (incomplete copy?)." end
+    local s = mod.Store()
+    local nChars, nDays, nQuests = 0, 0, 0
+    for key, src in pairs(t.chars) do
+        if type(key) == "string" and type(src) == "table" then
+            local c = s.chars[key]
+            if not c then
+                c = { days = {}, kills = {}, deaths = {}, killTotal = 0, deathTotal = 0 }
+                s.chars[key] = c
+                nChars = nChars + 1
+            end
+            c.acc = s.accountId   -- counts for this account from now on
+            c.class = c.class or src.class
+            c.gold = c.gold or src.gold
+            if (src.seen or 0) > (c.seen or 0) then c.seen = src.seen; c.gold = src.gold or c.gold end
+            c.days = c.days or {}
+            for d, v in pairs(src.days or {}) do
+                if c.days[d] == nil then c.days[d] = v; nDays = nDays + 1 end   -- recorded here wins
+            end
+            -- kills / deaths: the higher count (a reinstall starts again from 0)
+            c.kills, c.deaths = c.kills or {}, c.deaths or {}
+            MaxMap(c.kills, src.kills)
+            MaxMap(c.deaths, src.deaths)
+            local kt, dt = 0, 0
+            for _, n in pairs(c.kills) do kt = kt + n end
+            for _, n in pairs(c.deaths) do dt = dt + n end
+            c.killTotal = math.max(kt, c.killTotal or 0, src.killTotal or 0)
+            c.deathTotal = math.max(dt, c.deathTotal or 0, src.deathTotal or 0)
+            -- quests: a tracked record beats a scanned one, else the one here
+            c.quests = c.quests or {}
+            for qid, q in pairs(src.quests or {}) do
+                local mine = c.quests[qid]
+                if type(q) == "table" then
+                    if not mine or (mine.scan and not q.scan) then
+                        c.quests[qid] = q
+                        if not mine then nQuests = nQuests + 1 end
+                    else
+                        mine.n, mine.l = mine.n or q.n, mine.l or q.l
+                    end
+                end
+            end
+        end
+    end
+    -- the chart keeps 60 days
+    local first = mod.Days()[1]
+    for _, c in pairs(s.chars) do
+        for d in pairs(c.days or {}) do if d < first then c.days[d] = nil end end
+    end
+    mod.SendSoon()
+    if mod.Redraw then mod.Redraw() end
+    return nChars, nDays, nQuests
 end

@@ -173,12 +173,25 @@ Saved data from MMT 0.1.x is converted automatically.
     targeted you, else an NPC nameplate that did.
   - Settings tab: track gold, track kills and deaths, share with the team, money format
     (5g 32s 1c, 5g, coin icons), clear this account's statistics, forget other accounts.
+  - Quests ("Track quests", on by default): every quest a character accepts, completes
+    (with the character's level, the experience and the money of the reward) and abandons.
+    "Scan completed quests" (Settings tab) adds the quests this character completed before
+    (as Questie does on its first login), without date, experience and money; quests MMT
+    already tracked keep their details. Names and levels come from the quest log,
+    Questie's database (QuestieDB) when installed, or the game. Kept for this account
+    only (not sent to the team).
   - Export (Settings tab): CSV text to copy into a spreadsheet or a .csv file (addons can't
     write files): gold per day and character (this account), gold per day and account,
-    characters (class, gold, kills, deaths, last seen), or kills and deaths per NPC; for the
-    same choice of accounts; comma or semicolon (decimal comma) as separator. Names follow
-    the privacy setting. Other accounts only send summaries (daily account totals, top 25
-    kills, top 10 killers).
+    characters (class, gold, kills, deaths, last seen), kills and deaths per NPC, or quests
+    (this account: quest ID, name, level, status, character level, XP, copper, dates);
+    for the same choice of accounts; comma or semicolon (decimal comma) as separator.
+    Names follow the privacy setting. Other accounts only send summaries (daily account
+    totals, top 25 kills, top 10 killers).
+  - Backup / import (Settings tab): "Backup (for import)" puts all statistics of this
+    account (real names, gold per day, kills, deaths, quests) into the box as one text;
+    "Import backup" merges such a text on another computer or after a reinstall (data
+    recorded there is kept, missing days and quests are added, kill counts take the higher
+    number).
 - **Item Compare** (module): set a key, hover an item and press it to see what every team
   member wears in that slot (both slots for rings, trinkets and one-hand weapons),
   with the stat and item level changes if they equipped the hovered item.

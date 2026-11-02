@@ -24,12 +24,13 @@ local MMT = MMT
 local M = MMT.NewModule({
     name = "Statistics",
     title = "Statistics",
-    description = "Gold of every character and account over 60 days, NPCs killed and what killed you.",
+    description = "Gold of every character and account over 60 days, NPCs killed and what killed you, quests.",
     sync = true,
     syncExclude = { "chartScope", "killScope", "exportKind", "exportScope", "exportSep" },
     defaults = {
         trackGold   = true,
         trackKills  = true,
+        trackQuests = true,     -- accepted / completed / abandoned (Quests.lua)
         share       = true,     -- send and receive account summaries
         money       = "SHORT",  -- SHORT 5g 32s 1c | GOLD 5g | COINS icons
         chartScope  = "TEAM",   -- TEAM | ACCOUNT | ALL | acc:<id>
@@ -465,7 +466,7 @@ M.Report = function(_, add)
     local nChars, nAcc = 0, 0
     for _ in pairs(s.chars) do nChars = nChars + 1 end
     for _ in pairs(s.accounts) do nAcc = nAcc + 1 end
-    add(("-- Statistics 1.0.11  account=%s characters=%d otherAccounts=%d gold=%s kills=%s share=%s"):format(
+    add(("-- Statistics 1.0.12  account=%s characters=%d otherAccounts=%d gold=%s kills=%s share=%s"):format(
         s.accountId, nChars, nAcc, tostring(M.db.trackGold), tostring(M.db.trackKills), tostring(M.db.share)))
     for key, c in pairs(s.chars) do
         local n = 0
@@ -480,4 +481,5 @@ M.Report = function(_, add)
         add(("  member %s: account %s"):format(MMT.Repr(key), tostring(id)))
     end
     if mod.KillReport then mod.KillReport(add) end
+    if M.QuestReport then M.QuestReport(add) end
 end

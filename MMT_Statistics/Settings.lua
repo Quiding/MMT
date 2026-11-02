@@ -220,6 +220,8 @@ M.Page = function(_, page)
     SL:Check("Track gold", function() return M.db.trackGold end, function(v) M.db.trackGold = v; mod.RecordGold() end,
         "Records every character's gold after login and on every change: one record per day, kept for 60 days. Saved per account, not per profile.")
     SL:Check("Track kills and deaths", function() return M.db.trackKills end, function(v) M.db.trackKills = v end)
+    SL:Check("Track quests", function() return M.db.trackQuests end, function(v) M.db.trackQuests = v end,
+        "Records the quests each character accepts, completes (with its level, the experience and the money of the reward) and abandons. For the export (Quests). Not sent to the team.")
     SL:Check("Share with the team", function() return M.db.share end, function(v) M.db.share = v; if v then mod.SendNow() end end,
         "Sends a summary of this account (characters with gold and kills, daily totals, top kills) to the team and keeps theirs. Needed for the other accounts in the tables and the chart. Never in combat, at most as often as set below, and with the lowest priority.")
     SL:Slider("Send at most every (minutes)", 1, 30, 1, function() return M.db.sendEvery or 5 end,
@@ -240,6 +242,16 @@ M.Page = function(_, page)
         mod.Redraw()
         MMT.Print("Statistics of this account cleared.")
     end), UI.ROW + 4)
+    local scanButton = UI.Button(s, COL_W, "Scan completed quests", function()
+        local added, updated, inLog, unnamed = mod.ScanQuests()
+        MMT.Print("Statistics: %d completed %s found that MMT didn't know yet%s%s.%s", added,
+            added == 1 and "quest" or "quests",
+            updated > 0 and (", %d marked as completed"):format(updated) or "",
+            inLog > 0 and (", %d from the quest log added as accepted"):format(inLog) or "",
+            unnamed > 0 and (" %d names are still loading from the game."):format(unnamed) or "")
+    end)
+    SR:Add(scanButton, UI.ROW + 4)
+    UI.Tooltip(scanButton, "Scan completed quests", "Asks the game which quests this character has completed (like Questie does on its first login) and adds the ones MMT doesn't know yet, without date, experience and money. Quests MMT already tracked keep their details. Names and levels come from Questie's database when it is installed, else from the game.")
     SR:Add(H.ConfirmButton(s, COL_W, "Forget other accounts", function()
         local st = mod.Store()
         wipe(st.accounts)
@@ -281,6 +293,27 @@ M.Page = function(_, page)
     end)
     ER:Add(exportButton, UI.ROW + 2)
     UI.Tooltip(exportButton, "Export", "Addons can't write files: the CSV text goes into the box below to copy. Names follow the privacy setting (Team page). Other accounts only send summaries: their gold per day as account totals, their top 25 kills and top 10 killers.")
+    local backupButton = UI.Button(s, COL_W, "Backup (for import)", function()
+        local text = mod.BackupText()
+        area.edit:SetText(text)
+        area.edit:SetFocus()
+        area.edit:HighlightText()
+        estatus:SetText(("Backup of this account (%d characters). Copy it with Ctrl+A, Ctrl+C and keep it in a text file."):format(
+            (function() local n = 0 for _ in pairs(mod.Store().chars) do n = n + 1 end return n end)()))
+    end)
+    EL:Add(backupButton, UI.ROW + 2)
+    UI.Tooltip(backupButton, "Backup (for import)", "All statistics of this account (real names, gold per day, kills, deaths, quests) as one text, for another computer or a reinstalled client: paste it into this box there and click \"Import backup\".")
+    local importButton = UI.Button(s, COL_W, "Import backup", function()
+        local chars, days, quests = mod.ImportBackup(area.edit:GetText())
+        if not chars then
+            estatus:SetText("|cffff6666" .. days .. "|r")
+            return
+        end
+        estatus:SetText(("Imported: %d new characters, %d days of gold, %d quests. Data recorded here was kept."):format(chars, days, quests))
+        MMT.Print("Statistics backup imported: %d new characters, %d days of gold, %d quests.", chars, days, quests)
+    end)
+    ER:Add(importButton, UI.ROW + 2)
+    UI.Tooltip(importButton, "Import backup", "Paste a backup (made with \"Backup (for import)\") into the box below first. It is merged into this account: what was recorded here stays, missing days and quests are added, kill counts take the higher number.")
     local ay = math.min(EL.y, ER.y)
     mod.exportAreaY = ay   -- debug / harness
     area:SetPoint("TOPLEFT", s, "TOPLEFT", 0, ay)
