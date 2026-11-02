@@ -6,8 +6,9 @@
 --         "worldboss" | "trivial" | "minus"),
 --     b = true  a "big baddie": the game's boss flag (UnitIsBossMob), a world
 --               boss or a skull level (??),
---     d = true  a dungeon boss: a named boss of an instance (a boss unit of a
---               dungeon encounter, or the encounter's name),
+--     d = true  a dungeon boss: a boss of a dungeon encounter (a boss unit, or
+--               the encounter's name); raid encounter bosses are big
+--               baddies instead (rb = true),
 --     cr = true a critter,
 --     z = zone key of the instance it was seen in (dungeon bosses) }
 -- Read whenever an NPC is targeted, moused over, gets a nameplate or is a boss
@@ -41,11 +42,34 @@ mod.Npcs = Npcs
 local encounterUnits = {}   -- names of the current encounter's boss units
 
 -- remembers what kind of NPC the unit is
+local function InRaid()
+    local inInstance, kind = Safe(IsInInstance)
+    return inInstance and kind == "raid"
+end
+
+-- text for the debug log: "rare, big baddie (raid boss)"
+local function KindText(n)
+    local t = {}
+    if n.c == "rare" or n.c == "rareelite" then t[#t + 1] = "rare" end
+    if n.d then t[#t + 1] = "dungeon boss" end
+    if n.b then t[#t + 1] = n.rb and "big baddie (raid boss)" or "big baddie" end
+    if n.cr then t[#t + 1] = "critter" end
+    return #t > 0 and table.concat(t, ", ") or ("normal" .. (n.c and (" (" .. n.c .. ")") or ""))
+end
+mod.NpcKindText = function(name) local n = Npcs()[name] return n and KindText(n) or "unknown" end
+
+-- marks a boss of an encounter: a dungeon boss, or in a raid a big baddie
+local function MarkBoss(n, zk)
+    n.z = zk
+    if InRaid() then n.b, n.rb, n.d = true, true, nil else n.d = true end
+end
+
 local function Learn(unit)
     if not Safe(UnitExists, unit) or Safe(UnitIsPlayer, unit) then return end
     local name = Plain(Safe(UnitName, unit))
     if type(name) ~= "string" or name == "" then return end
     local n = Npcs()[name] or {}
+    local before = Npcs()[name] and KindText(n) or nil
     local cls = Plain(Safe(UnitClassification, unit))
     if type(cls) == "string" then n.c = cls end
     local level = tonumber(Plain(Safe(UnitLevel, unit)))
@@ -53,10 +77,12 @@ local function Learn(unit)
     local ctype = Plain(Safe(UnitCreatureType, unit))
     if type(ctype) == "string" and CRITTER[ctype] then n.cr = true end
     local zk, _, inst = mod.CurrentZone()   -- (Leveling.lua; not "x and f()": that keeps one value)
-    if inst and (encounterUnits[name] or unit:match("^boss%d")) then
-        n.d, n.z = true, zk
-    end
+    if inst and (encounterUnits[name] or unit:match("^boss%d")) then MarkBoss(n, zk) end
     Npcs()[name] = n
+    local now = KindText(n)
+    if now ~= before and not now:match("^normal") then   -- special kinds only (no log spam)
+        M:Debug("npc %s: %s (%s, level %s)", name, now, unit, tostring(level))
+    end
 end
 mod.LearnUnit = Learn
 
@@ -104,19 +130,30 @@ M:On("UNIT_HEALTH", function(unit) if type(unit) == "string" and unit:match("^na
 ---------------------------------------------------------------------------
 -- Dungeon encounters
 ---------------------------------------------------------------------------
-M:On("ENCOUNTER_START", function() for k in pairs(encounterUnits) do encounterUnits[k] = nil end end)
+local lastEncounter   -- debug report
+M:On("ENCOUNTER_START", function(_, name)
+    for k in pairs(encounterUnits) do encounterUnits[k] = nil end
+    M:Debug("encounter started: %s (%s)", tostring(Plain(name)), InRaid() and "raid" or "dungeon")
+    lastEncounter = ("%s, started %s"):format(tostring(Plain(name)), date("%H:%M"))
+end)
+M:On("ENCOUNTER_END", function(_, name, _, _, success)
+    if success ~= 1 and success ~= true then
+        M:Debug("encounter ended without a win: %s", tostring(Plain(name)))
+    end
+end)
 M:On("ENCOUNTER_END", function(_, name, _, _, success)
     name = Plain(name)
     if success ~= 1 and success ~= true then return end
     if type(name) ~= "string" or name == "" then return end
     local zk, _, inst = mod.CurrentZone()   -- (Leveling.lua; not "x and f()": that keeps one value)
     if not inst then return end
+    -- dungeon bosses; raid bosses are big baddies
     local n = Npcs()[name] or {}
-    n.d, n.z = true, zk
+    MarkBoss(n, zk)
     Npcs()[name] = n
     for unitName in pairs(encounterUnits) do
         local u = Npcs()[unitName] or {}
-        u.d, u.z = true, zk
+        MarkBoss(u, zk)
         Npcs()[unitName] = u
     end
     -- the bosses (a kill already counted in the last seconds isn't counted again);
@@ -128,7 +165,9 @@ M:On("ENCOUNTER_END", function(_, name, _, _, success)
     if mod.CountKill then
         for _, n2 in ipairs(names) do mod.CountKill(n2, "encounter") end
     end
-    M:Debug("encounter won: %s", name)
+    M:Debug("encounter won: %s (%s) -> %s", name, InRaid() and "raid: big baddies" or "dungeon bosses",
+        table.concat(names, ", "))
+    lastEncounter = ("%s, won %s"):format(name, date("%H:%M"))
 end)
 
 ---------------------------------------------------------------------------
@@ -286,7 +325,7 @@ function mod.Journal(scope, inst)
         return b
     end
     for name, n in pairs(Npcs()) do
-        if n.d and n.z == inst then Boss(name) end
+        if (n.d or n.rb) and n.z == inst then Boss(name) end
     end
     for _, c in ipairs(ScopeChars(scope)) do
         for _, r in ipairs(c.runs or {}) do
@@ -297,7 +336,8 @@ function mod.Journal(scope, inst)
         end
         for field, key in pairs({ killDetail = "kills", deathDetail = "deaths" }) do
             for name, m in pairs(c[field] or {}) do
-                if mod.NpcKinds(name).dboss then
+                local nk = Npcs()[name]
+                if nk and (nk.d or nk.rb) then
                     for lk, count in pairs(m) do
                         if lk:match("|(.+)$") == inst then local b = Boss(name) b[key] = b[key] + count end
                     end
@@ -307,4 +347,22 @@ function mod.Journal(scope, inst)
     end
     table.sort(j.bosses, function(a, b) if a.kills ~= b.kills then return a.kills > b.kills end return a.name < b.name end)
     return j
+end
+
+-- debug report lines
+function mod.KillTypesReport(add)
+    local n = { all = 0, rare = 0, d = 0, b = 0, rb = 0, cr = 0 }
+    for _, x in pairs(Npcs()) do
+        n.all = n.all + 1
+        if x.c == "rare" or x.c == "rareelite" then n.rare = n.rare + 1 end
+        if x.d then n.d = n.d + 1 end
+        if x.b then n.b = n.b + 1 end
+        if x.rb then n.rb = n.rb + 1 end
+        if x.cr then n.cr = n.cr + 1 end
+    end
+    add(("  npc kinds known: %d (rare %d, dungeon boss %d, big baddie %d of them raid bosses %d, critter %d); last encounter: %s; in raid: %s"):format(
+        n.all, n.rare, n.d, n.b, n.rb, n.cr, tostring(lastEncounter), tostring(InRaid() and true or false)))
+    local t = mod.KillTotals("CHAR")
+    add(("  this character: kills %d (rare %d, dungeon boss %d, big baddie %d, critter %d), deaths %d (gravity %d)"):format(
+        t.all, t.rare, t.dboss, t.big, t.critter, t.deaths, t.gravity))
 end

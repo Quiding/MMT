@@ -46,7 +46,7 @@ local function Count(name, guid, source)
     c.killTotal = (c.killTotal or 0) + 1
     if mod.OnKill then mod.OnKill(name) end   -- level / zone / instance (Leveling.lua)
     sources[source] = sources[source] + 1
-    M:Debug("kill %s (%s)", name, source)
+    M:Debug("kill %s (%s): %s", name, source, mod.NpcKindText and mod.NpcKindText(name) or "?")
     if mod.Redraw then mod.Redraw() end
     return true
 end
@@ -222,4 +222,5 @@ end
 function mod.KillReport(add)
     add(("  kill sources: threat %d, target died %d, nameplate %d, encounter %d, team %d, xp message %d; deaths %d; xp pattern %s"):format(
         sources.threat, sources.target, sources.nameplate, sources.encounter, sources.team, sources.xp, sources.deaths, tostring(XPPattern())))
+    if mod.KillTypesReport then mod.KillTypesReport(add) end
 end

@@ -164,8 +164,9 @@ Saved data from MMT 0.1.x is converted automatically.
     priority; answers to a request at most every 20 s. Exchanged at login, 20 s after
     joining a group, and on "Request update" (beside "Sync to team").
   - Kills (this character, another character of this account, or the whole account):
-    boxes for NPCs, Rares (rare and rare elite), Dungeon Bosses (the bosses of an instance
-    encounter), Big Baddies (the game's boss flag, world bosses, skull level), Deaths with
+    boxes for NPCs, Rares (rare and rare elite), Dungeon Bosses (the bosses of a dungeon
+    encounter), Big Baddies (raid encounter bosses, the game's boss flag, world bosses,
+    skull level), Deaths with
     "By Gravity" (right after a fall) and critters squished. Left: the top 5 kills by kind
     (all, rares, dungeon bosses, big baddies, critters) and zone or instance, and the top 3
     that killed you. Right: the Dungeon Journal: an instance with kills (the current one,
