@@ -6,6 +6,9 @@
 --   1. NPCs this character was in combat with (threat) that die while they
 --      are its target or have a nameplate, and that it (or its group) tapped,
 --   1b. the target dying (PLAYER_TARGET_DIED), also for NPCs without experience,
+--   1c. NPCs with a nameplate that die tapped by this character or its group,
+--       dungeon encounters won, and kills a team member near you reports
+--       (KillTypes.lua and below),
 --   2. the experience message "X dies, you gain N experience.".
 -- A kill seen by both counts once.
 -- The killer at death: the hostile target that targets this character, else
@@ -16,7 +19,7 @@ local MMT = MMT
 local M = mod.M
 
 local Safe, IsSecret = MMT.Safe, MMT.IsSecret
-local sources = { threat = 0, target = 0, team = 0, xp = 0, deaths = 0 }   -- debug report
+local sources = { threat = 0, target = 0, team = 0, nameplate = 0, encounter = 0, xp = 0, deaths = 0 }   -- debug report
 local recent = {}       -- [name] = { t, guid }: the same kill from another source
 local engaged = {}      -- [guid] = name: NPCs in combat with this character
 
@@ -47,6 +50,9 @@ local function Count(name, guid, source)
     if mod.Redraw then mod.Redraw() end
     return true
 end
+
+-- for KillTypes.lua (nameplate kills, encounters)
+function mod.CountKill(name, source) return Count(name, nil, source) end
 
 ---------------------------------------------------------------------------
 -- 1. Threat: NPCs in combat with this character that die
@@ -105,6 +111,7 @@ M:On("PLAYER_TARGET_DIED", function()
     if type(name) ~= "string" or name == "" then return end
     if Safe(UnitIsPlayer, "target") then return end
     if Safe(UnitIsTapDenied, "target") then return end   -- someone else's
+    if mod.LearnUnit then mod.LearnUnit("target") end
     if Count(name, Plain(Safe(UnitGUID, "target")), "target") then TellTeam(name) end
 end)
 
@@ -213,6 +220,6 @@ function mod.TopList(scope, field, n)
 end
 
 function mod.KillReport(add)
-    add(("  kill sources: threat %d, target died %d, team %d, xp message %d; deaths %d; xp pattern %s"):format(
-        sources.threat, sources.target, sources.team, sources.xp, sources.deaths, tostring(XPPattern())))
+    add(("  kill sources: threat %d, target died %d, nameplate %d, encounter %d, team %d, xp message %d; deaths %d; xp pattern %s"):format(
+        sources.threat, sources.target, sources.nameplate, sources.encounter, sources.team, sources.xp, sources.deaths, tostring(XPPattern())))
 end

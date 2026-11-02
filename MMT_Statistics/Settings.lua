@@ -109,9 +109,10 @@ end
 -- table with free columns, scrolling with the mouse wheel
 --   cols: { { head, x = left edge | right = right edge, w = width }, ... }
 --   rows: { cells = { text, ... }, grey = bool, tip = function(tooltip) end }
-local function Grid(parent, cols, visible)
+local function Grid(parent, cols, visible, width)
+    width = width or PAGE_W
     local f = CreateFrame("Frame", nil, parent)
-    f:SetSize(PAGE_W, ROW_H * (visible + 1) + 4)
+    f:SetSize(width, ROW_H * (visible + 1) + 4)
     local function Cell(owner, col, y, template)
         local l = UI.Label(owner, "", template)
         if col.right then
@@ -136,8 +137,8 @@ local function Grid(parent, cols, visible)
     line:SetColorTexture(1, 1, 1, 0.08)
     line:SetHeight(1)
     line:SetPoint("TOPLEFT", 0, -ROW_H)
-    line:SetWidth(PAGE_W)
-    f.list = H.List(f, PAGE_W, visible, ROW_H, function(list, i)
+    line:SetWidth(width)
+    f.list = H.List(f, width, visible, ROW_H, function(list, i)
         local row = CreateFrame("Frame", nil, list)
         H.RowBackground(row, i)
         row.cells = {}
@@ -290,28 +291,163 @@ M.Page = function(_, page)
 
     -- Kills --------------------------------------------------------------------
     local k = panels.kills
-    local kc = UI.Column(k, 0, 0, PAGE_W)
     local kscope = UI.Dropdown(k, 300, "Show", function() return mod.CharChoices("This account") end,
         function() return M.db.killScope end, function(v) M.db.killScope = v; mod.Redraw() end)
-    kc:Add(kscope, UI.ROW + 8)
-    kc:Header("NPCs killed per character (this account)")
-    local KILL_ROWS = 6
-    local killGrid = Grid(k, {
-        { "Character", x = 8, w = 250 },
-        { "NPCs killed", right = 420, w = 120 },
-        { "Deaths", right = 540, w = 100 },
-        { "Share of kills", right = PAGE_W - 8, w = 130 },
-    }, KILL_ROWS)
-    kc:Add(killGrid, ROW_H * (KILL_ROWS + 1) + 14)
-    local L = UI.Column(k, 0, kc.y, COL_W)
-    L:Header("Top 10 NPCs killed")
-    local top = RankList(k, COL_W, 10)
-    L:Add(top, 10 * 18)
-    local R = UI.Column(k, COL2_X, kc.y, COL_W)
-    R:Header("Top 3 killed by NPC")
+    kscope:SetPoint("TOPLEFT", 0, 0)
+    local ky = -(UI.ROW + 8)
+    -- six boxes: NPCs | Rares | Dungeon Bosses | Big Baddies | Deaths / By Gravity | Critters
+    local BOX_H, GAP = 54, 8
+    local boxW = math.floor((PAGE_W - 5 * GAP) / 6)
+    local kboxes = {}
+    local function Box(i, key, label, colour, tip)
+        local b = CreateFrame("Frame", nil, k)
+        b:SetSize(boxW, BOX_H)
+        b:SetPoint("TOPLEFT", k, "TOPLEFT", (i - 1) * (boxW + GAP), ky)
+        b:SetFrameLevel(k:GetFrameLevel() + 5)
+        UI.Fill(b, 1, 1, 1, 0.03)
+        UI.Border(b, 1, 1, 1, 0.08)
+        b.number = UI.Label(b, "0", "GameFontHighlightLarge")
+        pcall(b.number.SetFont, b.number, STANDARD_TEXT_FONT, 22, "")
+        b.number:SetPoint("TOP", 0, -8)
+        b.number:SetTextColor(colour[1], colour[2], colour[3])
+        b.label = UI.Label(b, label)
+        b.label:SetPoint("TOP", b.number, "BOTTOM", 0, -3)
+        b.label:SetTextColor(0.6, 0.6, 0.6)
+        b:EnableMouse(true)
+        b:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetText(label, 1, 1, 1)
+            GameTooltip:AddLine(tip, 0.9, 0.9, 0.9, true)
+            GameTooltip:Show()
+        end)
+        b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        kboxes[key] = b
+        return b
+    end
+    Box(1, "all", "NPCs", { 1, 1, 1 }, "Every NPC killed.")
+    Box(2, "rare", "Rares", { 0.75, 0.75, 1 }, "Rare and rare elite NPCs.")
+    Box(3, "dboss", "Dungeon Bosses", { 1, 0.6, 0.2 }, "Named bosses of dungeons and raids (the bosses of an encounter).")
+    Box(4, "big", "Big Baddies", { 1, 0.3, 0.3 }, "NPCs with the game's boss flag: world bosses and skull-level (??) bosses.")
+    -- deaths: split into two halves
+    local dbox = CreateFrame("Frame", nil, k)
+    dbox:SetSize(boxW, BOX_H)
+    dbox:SetPoint("TOPLEFT", k, "TOPLEFT", 4 * (boxW + GAP), ky)
+    dbox:SetFrameLevel(k:GetFrameLevel() + 5)
+    UI.Fill(dbox, 1, 1, 1, 0.03)
+    UI.Border(dbox, 1, 1, 1, 0.08)
+    local split = dbox:CreateTexture(nil, "ARTWORK")
+    split:SetColorTexture(1, 1, 1, 0.08)
+    split:SetHeight(1)
+    split:SetPoint("LEFT", 4, 0)
+    split:SetPoint("RIGHT", -4, 0)
+    local function Half(top, label)
+        local n = UI.Label(dbox, "0", "GameFontHighlight")
+        pcall(n.SetFont, n, STANDARD_TEXT_FONT, 15, "")
+        n:SetPoint(top and "TOPLEFT" or "BOTTOMLEFT", 10, top and -6 or 6)
+        local l = UI.Label(dbox, label)
+        l:SetPoint("LEFT", n, "RIGHT", 6, 0)
+        l:SetTextColor(0.6, 0.6, 0.6)
+        return n
+    end
+    kboxes.deaths = { number = Half(true, "Deaths") }
+    kboxes.deaths.number:SetTextColor(0.9, 0.9, 0.9)
+    kboxes.gravity = { number = Half(false, "By Gravity") }
+    kboxes.gravity.number:SetTextColor(0.6, 0.8, 1)
+    dbox:EnableMouse(true)
+    dbox:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Deaths", 1, 1, 1)
+        GameTooltip:AddLine("Every death; \"By Gravity\": the ones right after a fall.", 0.9, 0.9, 0.9, true)
+        GameTooltip:Show()
+    end)
+    dbox:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    -- critters: a smaller, playful box
+    local cb = CreateFrame("Frame", nil, k)
+    cb:SetSize(boxW, BOX_H - 10)
+    cb:SetPoint("TOPLEFT", k, "TOPLEFT", 5 * (boxW + GAP), ky - 5)
+    cb:SetFrameLevel(k:GetFrameLevel() + 5)
+    UI.Fill(cb, 0.4, 1, 0.5, 0.06)
+    UI.Border(cb, 0.4, 1, 0.5, 0.35)
+    local sheep = cb:CreateTexture(nil, "ARTWORK")
+    sheep:SetTexture("Interface\\Icons\\Spell_Nature_Polymorph")
+    sheep:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    sheep:SetSize(26, 26)
+    sheep:SetPoint("LEFT", 8, 0)
+    sheep:SetRotation(math.rad(-12))
+    local cn = UI.Label(cb, "0", "GameFontHighlight")
+    pcall(cn.SetFont, cn, STANDARD_TEXT_FONT, 16, "")
+    cn:SetPoint("TOPLEFT", sheep, "TOPRIGHT", 8, 2)
+    cn:SetTextColor(0.5, 1, 0.55)
+    local cl = UI.Label(cb, "critters squished")
+    cl:SetPoint("TOPLEFT", cn, "BOTTOMLEFT", 0, -1)
+    cl:SetTextColor(0.55, 0.75, 0.55)
+    kboxes.critter = { number = cn }
+    cb:EnableMouse(true)
+    cb:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Critters", 0.5, 1, 0.55)
+        GameTooltip:AddLine("Rabbits, squirrels, toads... They had it coming.", 0.9, 0.9, 0.9, true)
+        GameTooltip:Show()
+    end)
+    cb:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    -- left: top kills by kind and zone, top killers
+    local below = ky - BOX_H - 14
+    local KL = UI.Column(k, 0, below, COL_W)
+    local KIND_CHOICES = {
+        { value = "ALL", text = "All kills" },
+        { value = "rare", text = "Rares" },
+        { value = "dboss", text = "Dungeon Bosses" },
+        { value = "big", text = "Big Baddies" },
+        { value = "critter", text = "Critters" },
+    }
+    local kkind = UI.Dropdown(k, COL_W, "Kills", KIND_CHOICES,
+        function() return M.db.killKind end, function(v) M.db.killKind = v; mod.Redraw() end)
+    KL:Add(kkind, UI.ROW + 2)
+    local kzone = UI.Dropdown(k, COL_W, "Zone", function() return mod.KillZoneChoices(M.db.killScope) end,
+        function() return M.db.killZone end, function(v) M.db.killZone = v; mod.Redraw() end)
+    KL:Add(kzone, UI.ROW + 6)
+    KL:Header("Top 5 kills")
+    local top = RankList(k, COL_W, 5)
+    KL:Add(top, 5 * 18 + 4)
+    KL:Header("Top 3 killed by")
     local killers = RankList(k, COL_W, 3)
-    R:Add(killers, 3 * 18 + 8)
-    R:Note("Kills count where the game lets MMT see them: your target dying, the experience message, and NPCs without experience a team member near you killed. Deaths count the NPC that targeted you. Kills stay on this account (not sent to the team).")
+    KL:Add(killers, 3 * 18)
+
+    -- right: dungeon journal
+    local KR = UI.Column(k, COL2_X, below, COL_W)
+    local jinst = UI.Dropdown(k, COL_W, "Dungeon Journal", function() return mod.JournalChoices(M.db.killScope) end,
+        function() return mod.JournalInstance(M.db.killScope) end, function(v) mod.journalPick = v; mod.Redraw() end)
+    KR:Add(jinst, UI.ROW + 4)
+    local jvisits = KR:Note("")
+    local JROWS = 7
+    local journal = Grid(k, {
+        { "Boss", x = 8, w = 180 },
+        { "Killed", right = 262, w = 64 },
+        { "Killed me", right = COL_W - 8, w = 70 },
+    }, JROWS, COL_W)
+    KR:Add(journal, ROW_H * (JROWS + 1) + 6)
+
+    local function DrawKills()
+        kscope.Refresh() kkind.Refresh() kzone.Refresh() jinst.Refresh()
+        local scope = M.db.killScope
+        local t = mod.KillTotals(scope)
+        for key, b in pairs(kboxes) do b.number:SetText(Num(t[key] or 0)) end
+        top:Show_(mod.TopKills(scope, M.db.killKind or "ALL", M.db.killZone or "ALL", "killDetail", 5), "No kills recorded yet.")
+        killers:Show_(mod.TopKills(scope, "ALL", M.db.killZone or "ALL", "deathDetail", 3), "Nobody killed you yet.")
+        local inst = mod.JournalInstance(scope)
+        local j = inst and mod.Journal(scope, inst)
+        if j then
+            jvisits:SetText(j.visits > 0 and ("Visited %d %s, last on %s."):format(j.visits, j.visits == 1 and "time" or "times",
+                date("%Y-%m-%d %H:%M", j.last)) or "No visits recorded.")
+            local rows = {}
+            for _, b in ipairs(j.bosses) do rows[#rows + 1] = { cells = { b.name, Num(b.kills), Num(b.deaths) } } end
+            journal:Show_(rows, "No dungeon bosses recorded here yet.")
+        else
+            jvisits:SetText("No instance with kills recorded yet.")
+            journal:Show_({}, "")
+        end
+    end
 
     -- Quests -------------------------------------------------------------------
     local q = panels.quests
@@ -804,22 +940,7 @@ M.Page = function(_, page)
             scope.Refresh()
             chart:SetData(mod.GoldSeries(M.db.chartScope), mod.Money)
         elseif current == "kills" then
-            kscope.Refresh()
-            local rows, total = {}, 0
-            for key, c in pairs(mod.Store().chars) do total = total + (c.killTotal or 0) end
-            local list = {}
-            for key, c in pairs(mod.Store().chars) do
-                if mod.InScope(M.db.killScope, key) then list[#list + 1] = { key = key, c = c } end
-            end
-            table.sort(list, function(a, b) return (a.c.killTotal or 0) > (b.c.killTotal or 0) end)
-            for _, e in ipairs(list) do
-                local n = e.c.killTotal or 0
-                rows[#rows + 1] = { cells = { mod.CharName(e.key, e.c.class), Num(n), Num(e.c.deathTotal or 0),
-                    total > 0 and ("%d%%"):format(math.floor(n / total * 100 + 0.5)) or "-" } }
-            end
-            killGrid:Show_(rows, "No kills recorded yet.")
-            top:Show_(mod.TopList(M.db.killScope, "kills", 10), "No kills recorded yet.")
-            killers:Show_(mod.TopList(M.db.killScope, "deaths", 3), "Nobody killed you yet.")
+            DrawKills()
         elseif current == "quests" then
             DrawQuests()
         elseif current == "leveling" then

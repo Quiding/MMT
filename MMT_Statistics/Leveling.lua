@@ -128,6 +128,7 @@ local function UpdateZone()
                 table.insert(c.runs, run)
                 while #c.runs > MAX_RUNS do table.remove(c.runs, 1) end
                 M:Debug("instance entered: %s (%d)", tostring(name), map)
+                mod.journalPick = nil   -- the Dungeon Journal shows this instance again
                 local ask = sameMap and time() - last.leave < ASK_GAP and M.db.askSameInstance ~= false
                 mod.InstanceNote(("Entered %s: %s (%s). %s"):format(tostring(name),
                     ask and "a new instance unless you answer \"Same instance\"" or "new instance",

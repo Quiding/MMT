@@ -164,12 +164,19 @@ Saved data from MMT 0.1.x is converted automatically.
     priority; answers to a request at most every 20 s. Exchanged at login, 20 s after
     joining a group, and on "Request update" (beside "Sync to team").
   - Kills (this character, another character of this account, or the whole account):
-    NPCs killed and deaths per character, the top 10 NPCs killed and the top 3 that killed
-    you. Kills count where the game lets addons see them (the combat log is reserved for
-    the Blizzard UI on WoW: Forever): the target dying (also NPCs without experience, if
-    you or your group tapped it), the experience message, and NPCs without experience a
-    team member near you killed (that client tells the team); a kill seen twice counts
-    once. Each kill and death is also kept with the character level and zone.
+    boxes for NPCs, Rares (rare and rare elite), Dungeon Bosses (the bosses of an instance
+    encounter), Big Baddies (the game's boss flag, world bosses, skull level), Deaths with
+    "By Gravity" (right after a fall) and critters squished. Left: the top 5 kills by kind
+    (all, rares, dungeon bosses, big baddies, critters) and zone or instance, and the top 3
+    that killed you. Right: the Dungeon Journal: an instance with kills (the current one,
+    else the last visited), how often and when last visited, and its bosses with kills and
+    deaths. The kind of an NPC is read when it is targeted, moused over, has a nameplate or
+    is an encounter's boss, and remembered by name for the account. Kills count where the
+    game lets addons see them (the combat log is reserved for the Blizzard UI on WoW:
+    Forever): the target dying, NPCs with a nameplate dying tapped by you or your group
+    (also without experience: level 60, grey NPCs, AoE), dungeon encounters won, the
+    experience message, and NPCs without experience a team member near you killed; a kill
+    seen twice counts once. Each kill and death is also kept with the level and zone.
   - Quests: every quest a character accepts, completes (character level, experience,
     money and item rewards incl. the chosen one) and abandons. "Scan completed quests"
     adds the quests completed before (as Questie does), without date, experience and
