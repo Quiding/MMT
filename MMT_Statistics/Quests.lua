@@ -122,52 +122,98 @@ end)
 -- the index passed to GetQuestReward (by the player's click or MMT's turn-in)
 --   q.items = { { id = itemID, n = name, c = count, q = quality, pick = true|nil }, ... }
 ---------------------------------------------------------------------------
-local offer   -- { questID, fixed = {...}, choices = {...}, pick = index }
+local offer   -- { questID, at, fixed = {...}, choices = {...}, pick = index, before = {[itemID] = count} }
+
+local function ItemCount(id)
+    local f = (C_Item and C_Item.GetItemCount) or GetItemCount
+    local ok, n = pcall(f, id, true)
+    return ok and tonumber(Plain(n)) or 0
+end
 
 local function ReadItems(kind, n)
     local list = {}
     for i = 1, n do
         local name, _, count, quality, _, itemID = GetQuestItemInfo(kind, i)
         local link = GetQuestItemLink and GetQuestItemLink(kind, i)
-        itemID = Plain(itemID) or (link and tonumber(link:match("item:(%d+)")))
+        link = Plain(link)
+        itemID = tonumber(Plain(itemID))
+        if (not itemID or itemID == 0) and type(link) == "string" then itemID = tonumber(link:match("item:(%d+)")) end
         name = Plain(name)
-        if name or itemID then
+        if (not name or name == "") and type(link) == "string" then name = link:match("%[(.-)%]") end
+        if (name and name ~= "") or (itemID and itemID > 0) then
             list[#list + 1] = { id = itemID, n = name, c = math.max(1, tonumber(Plain(count)) or 1), q = Plain(quality) }
         end
     end
     return list
 end
 
-M:On("QUEST_COMPLETE", function()
+local function ReadOffer()
     if not M.db.trackQuests or not GetQuestItemInfo then return end
-    local questID = GetQuestID and Plain(GetQuestID())
-    if type(questID) ~= "number" or questID == 0 then offer = nil return end
+    local questID = GetQuestID and tonumber(Plain(Safe(GetQuestID)))
     offer = {
-        questID = questID,
+        questID = (questID and questID > 0) and questID or nil,   -- unknown: the next turn-in
+        at = GetTime(),
         fixed = ReadItems("reward", GetNumQuestRewards and GetNumQuestRewards() or 0),
         choices = ReadItems("choice", GetNumQuestChoices and GetNumQuestChoices() or 0),
+        before = {},
     }
+    for _, list in ipairs({ offer.fixed, offer.choices }) do
+        for _, it in ipairs(list) do if it.id then offer.before[it.id] = ItemCount(it.id) end end
+    end
+    M:Debug("quest reward window %s: %d fixed, %d choices", tostring(offer.questID), #offer.fixed, #offer.choices)
+end
+M:On("QUEST_COMPLETE", function()
+    ReadOffer()
+    -- item names may arrive a moment later
+    C_Timer.After(0.5, function()
+        if offer and GetTime() - offer.at < 1 then
+            local pick = offer.pick
+            ReadOffer()
+            if offer then offer.pick = pick end
+        end
+    end)
 end)
+-- the choice: GetQuestReward(index) by the reward button or MMT's turn-in
 if hooksecurefunc and GetQuestReward then
     hooksecurefunc("GetQuestReward", function(choice)
         if offer then offer.pick = tonumber(choice) end
+        M:Debug("GetQuestReward(%s)", tostring(choice))
     end)
 end
 
-local function RewardItems(questID)
-    if not offer or offer.questID ~= questID then return nil end
-    local items = {}
-    for _, it in ipairs(offer.fixed) do items[#items + 1] = it end
-    local chosen = offer.pick and offer.choices[offer.pick]
-    -- a single choice is handed out without picking
-    if not chosen and #offer.choices == 1 then chosen = offer.choices[1] end
-    if chosen then
-        local c = {} for k, v in pairs(chosen) do c[k] = v end
-        c.pick = true
-        items[#items + 1] = c
-    end
+local function Copy(it, pick)
+    local c = {} for k, v in pairs(it) do c[k] = v end
+    c.pick = pick or nil
+    return c
+end
+
+-- the rewards of the quest just turned in; done(items) gets them (the
+-- chosen one may only show in the bags a moment later)
+local function RewardItems(questID, done)
+    local o = offer
+    if not o or (o.questID and o.questID ~= questID) or GetTime() - o.at > 600 then return done(nil) end
     offer = nil
-    return #items > 0 and items or nil
+    local function Finish(chosen)
+        local items = {}
+        for _, it in ipairs(o.fixed) do items[#items + 1] = Copy(it) end
+        if chosen then items[#items + 1] = Copy(chosen, true) end
+        M:Debug("quest %d rewards: %d item(s)%s", questID, #items, chosen and (", chosen " .. tostring(chosen.n)) or "")
+        done(#items > 0 and items or nil)
+    end
+    local chosen = o.pick and o.choices[o.pick]
+    if chosen or #o.choices == 0 then return Finish(chosen) end
+    if #o.choices == 1 then return Finish(o.choices[1]) end
+    -- no choice seen: the choice item whose count went up in the bags
+    C_Timer.After(1.5, function()
+        local found
+        for _, it in ipairs(o.choices) do
+            if it.id and ItemCount(it.id) > (o.before[it.id] or 0) then found = it break end
+        end
+        if not found and QuestInfoFrame and tonumber(QuestInfoFrame.itemChoice) then
+            found = o.choices[tonumber(QuestInfoFrame.itemChoice)]
+        end
+        Finish(found)
+    end)
 end
 
 -- "Linen Bag x1; Rough Arrow x200" (export, tooltips)
@@ -194,8 +240,11 @@ M:On("QUEST_TURNED_IN", function(questID, xp, money)
     q.cl = Plain(Safe(UnitLevel, "player"))
     q.xp = tonumber(Plain(xp)) or 0
     q.cp = tonumber(Plain(money)) or 0
-    q.items = RewardItems(questID)
     M:Debug("quest completed %d xp=%s copper=%s", questID, tostring(q.xp), tostring(q.cp))
+    RewardItems(questID, function(items)
+        q.items = items
+        if mod.Redraw then mod.Redraw() end
+    end)
     if mod.Redraw then mod.Redraw() end
 end)
 
