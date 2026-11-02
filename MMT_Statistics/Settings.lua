@@ -274,12 +274,18 @@ M.Page = function(_, page)
     -- Kills --------------------------------------------------------------------
     local k = panels.kills
     local kc = UI.Column(k, 0, 0, PAGE_W)
-    kc:Header("NPCs killed per account")
-    local killTable = Table(k, { "Account", "This Character", "Other Characters", "Combined" })
-    kc:Add(killTable, ROW_H * (ROWS + 1) + 14)
-    local kscope = UI.Dropdown(k, 300, "Show", mod.ScopeChoices,
+    local kscope = UI.Dropdown(k, 300, "Show", function() return mod.CharChoices("This account") end,
         function() return M.db.killScope end, function(v) M.db.killScope = v; mod.Redraw() end)
-    kc:Add(kscope, UI.ROW + 10)
+    kc:Add(kscope, UI.ROW + 8)
+    kc:Header("NPCs killed per character (this account)")
+    local KILL_ROWS = 6
+    local killGrid = Grid(k, {
+        { "Character", x = 8, w = 250 },
+        { "NPCs killed", right = 420, w = 120 },
+        { "Deaths", right = 540, w = 100 },
+        { "Share of kills", right = PAGE_W - 8, w = 130 },
+    }, KILL_ROWS)
+    kc:Add(killGrid, ROW_H * (KILL_ROWS + 1) + 14)
     local L = UI.Column(k, 0, kc.y, COL_W)
     L:Header("Top 10 NPCs killed")
     local top = RankList(k, COL_W, 10)
@@ -288,15 +294,13 @@ M.Page = function(_, page)
     R:Header("Top 3 killed by NPC")
     local killers = RankList(k, COL_W, 3)
     R:Add(killers, 3 * 18 + 8)
-    R:Note("Kills count where the game lets MMT see them: NPCs this character fought that died (targeted or with a nameplate) and the experience message. Deaths count the NPC that targeted you.")
+    R:Note("Kills count where the game lets MMT see them: your target dying, the experience message, and NPCs without experience a team member near you killed. Deaths count the NPC that targeted you. Kills stay on this account (not sent to the team).")
 
     -- Quests -------------------------------------------------------------------
     local q = panels.quests
     local qc = UI.Column(q, 0, 0, PAGE_W)
-    local qscope = UI.Dropdown(q, 300, "Show", {
-        { value = "CHAR", text = "This character" },
-        { value = "ACCOUNT", text = "This account" },
-    }, function() return M.db.questScope end, function(v) M.db.questScope = v; mod.Redraw() end)
+    local qscope = UI.Dropdown(q, 300, "Show", function() return mod.CharChoices("This account") end,
+        function() return M.db.questScope end, function(v) M.db.questScope = v; mod.Redraw() end)
     qc:Add(qscope, UI.ROW + 8)
     -- three tiles: large number, small label below
     local TILE_GAP = 12
@@ -410,7 +414,7 @@ M.Page = function(_, page)
         local n = { A = 0, C = 0, X = 0, S = 0, SC = 0 }
         local done = {}
         for key, c in pairs(s.chars) do
-            if M.db.questScope ~= "CHAR" or key == me then
+            if mod.InScope(M.db.questScope, key) then
                 for id, rec in pairs(c.quests or {}) do
                     if rec.scan then
                         n.S = n.S + 1
@@ -456,12 +460,8 @@ M.Page = function(_, page)
     -- Leveling -----------------------------------------------------------------
     local lvp = panels.leveling
     local lc = UI.Column(lvp, 0, 0, PAGE_W)
-    local lscope = UI.Dropdown(lvp, 300, "Show", {
-        { value = "CHAR", text = "This Character" },
-        { value = "ACCOUNT", text = "Average of this Account" },
-        { value = "TEAM", text = "Average of Team" },
-        { value = "ALL", text = "Average of all Accounts" },
-    }, function() return M.db.levelScope end, function(v) M.db.levelScope = v; mod.Redraw() end)
+    local lscope = UI.Dropdown(lvp, 300, "Show", function() return mod.CharChoices("Average of account") end,
+        function() return M.db.levelScope end, function(v) M.db.levelScope = v; mod.Redraw() end)
     lc:Add(lscope, UI.ROW + 8)
     local LEVEL_ROWS = 17
     local levelGrid = Grid(lvp, {
@@ -479,10 +479,14 @@ M.Page = function(_, page)
     local function DrawLeveling()
         lscope.Refresh()
         local scope = M.db.levelScope or "CHAR"
+        if scope ~= "CHAR" and scope ~= "ACCOUNT" and not (scope:sub(1, 5) == "char:" and mod.Store().chars[scope:sub(6)]) then
+            scope = "CHAR"   -- an old choice (team / all accounts) or a character no longer here
+        end
         local rows = {}
-        if scope == "CHAR" then
+        if scope ~= "ACCOUNT" then
             levelGrid.heads[3]:SetText("Date/Time leveled")
-            local c = mod.Store().chars[MMT.PlayerFull() or ""]
+            local key = scope == "CHAR" and (MMT.PlayerFull() or "") or scope:sub(6)
+            local c = mod.Store().chars[key]
             for _, r in ipairs(c and mod.CharLevelRows(c) or {}) do
                 rows[#rows + 1] = {
                     cells = { tostring(r.L), mod.Duration(r.t) .. ((r.partial or r.current) and " *" or ""),
@@ -503,17 +507,15 @@ M.Page = function(_, page)
                     cells = { tostring(r.L), r.t and mod.Duration(r.t) or "-", tostring(r.n), Avg(r.q), Avg(r.k), Avg(r.d), r.z or "" },
                 }
             end
-            levelNote:SetText("Averages per level over the characters that have it; the time only over the ones that finished it (from its start). Other accounts send theirs with the statistics summary.")
+            levelNote:SetText("Averages per level over this account's characters that have it; the time only over the ones that finished it (from its start).")
         end
-        levelGrid:Show_(rows, scope == "CHAR" and "No levels recorded yet for this character." or "No levels recorded yet.")
+        levelGrid:Show_(rows, scope ~= "ACCOUNT" and "No levels recorded yet for this character." or "No levels recorded yet.")
     end
 
     -- Zones / Instances ----------------------------------------------------------
     local zp = panels.zones
-    local zscope = UI.Dropdown(zp, COL_W, "Show", {
-        { value = "CHAR", text = "This Character" },
-        { value = "ACCOUNT", text = "This Account" },
-    }, function() return M.db.zoneScope end, function(v) M.db.zoneScope = v; mod.Redraw() end)
+    local zscope = UI.Dropdown(zp, COL_W, "Show", function() return mod.CharChoices("This account") end,
+        function() return M.db.zoneScope end, function(v) M.db.zoneScope = v; mod.Redraw() end)
     zscope:SetPoint("TOPLEFT", 0, 0)
     local zview = UI.Dropdown(zp, COL_W, "List", {
         { value = "ZONES", text = "Zones" },
@@ -575,7 +577,7 @@ M.Page = function(_, page)
         local me = MMT.PlayerFull()
         local zones, runs = {}, {}
         for key, c in pairs(mod.Store().chars) do
-            if M.db.zoneScope == "ACCOUNT" or key == me then
+            if mod.InScope(M.db.zoneScope, key) then
                 for key0, z in pairs(c.zones or {}) do
                     -- land zones by name (a zone read once without its map ID counts the same)
                     local zk = z.inst and key0 or ("name:" .. tostring(z.n))
@@ -680,7 +682,7 @@ M.Page = function(_, page)
     SL:Check("Track quests", function() return M.db.trackQuests end, function(v) M.db.trackQuests = v end,
         "Records the quests each character accepts, completes (with its level, the experience and the money of the reward) and abandons. For the export (Quests). Not sent to the team.")
     SL:Check("Share with the team", function() return M.db.share end, function(v) M.db.share = v; if v then mod.SendNow() end end,
-        "Sends a summary of this account (characters with gold and kills, daily totals, top kills) to the team and keeps theirs. Needed for the other accounts in the tables and the chart. Never in combat, at most as often as set below, and with the lowest priority.")
+        "Sends this account's gold (per character and per day) to the team and keeps theirs, for the Gold tab. Kills, quests, levels and zones stay on this account. Never in combat, at most as often as set below, and with the lowest priority.")
     SL:Slider("Send at most every (minutes)", 1, 30, 1, function() return M.db.sendEvery or 5 end,
         function(v) M.db.sendEvery = v end)
     SL:Header("Look")
@@ -749,7 +751,7 @@ M.Page = function(_, page)
         end
     end)
     ER:Add(exportButton, UI.ROW + 2)
-    UI.Tooltip(exportButton, "Export", "Addons can't write files: the CSV text goes into the box below to copy. Names follow the privacy setting (Team page). Other accounts only send summaries: their gold per day as account totals, their top 25 kills and top 10 killers.")
+    UI.Tooltip(exportButton, "Export", "Addons can't write files: the CSV text goes into the box below to copy. Names follow the privacy setting (Team page). Other accounts only send their gold (per character, and per day as account totals); kills, quests, levels and zones are this account's only.")
     local backupButton = UI.Button(s, COL_W, "Backup (for import)", function()
         local text = mod.BackupText()
         area.edit:SetText(text)
@@ -785,8 +787,20 @@ M.Page = function(_, page)
             scope.Refresh()
             chart:SetData(mod.GoldSeries(M.db.chartScope), mod.Money)
         elseif current == "kills" then
-            killTable:Show_(MemberRows("k", tostring))
             kscope.Refresh()
+            local rows, total = {}, 0
+            for key, c in pairs(mod.Store().chars) do total = total + (c.killTotal or 0) end
+            local list = {}
+            for key, c in pairs(mod.Store().chars) do
+                if mod.InScope(M.db.killScope, key) then list[#list + 1] = { key = key, c = c } end
+            end
+            table.sort(list, function(a, b) return (a.c.killTotal or 0) > (b.c.killTotal or 0) end)
+            for _, e in ipairs(list) do
+                local n = e.c.killTotal or 0
+                rows[#rows + 1] = { cells = { mod.CharName(e.key, e.c.class), Num(n), Num(e.c.deathTotal or 0),
+                    total > 0 and ("%d%%"):format(math.floor(n / total * 100 + 0.5)) or "-" } }
+            end
+            killGrid:Show_(rows, "No kills recorded yet.")
             top:Show_(mod.TopList(M.db.killScope, "kills", 10), "No kills recorded yet.")
             killers:Show_(mod.TopList(M.db.killScope, "deaths", 3), "Nobody killed you yet.")
         elseif current == "quests" then
@@ -805,7 +819,7 @@ M.Page = function(_, page)
     request:SetHeight(26)
     request:SetPoint("BOTTOMRIGHT", page, "BOTTOMRIGHT", -186, 2)
     request:SetFrameLevel(page:GetFrameLevel() + 10)
-    UI.Tooltip(request, "Request update", "Asks every team member for their gold and kill statistics now (each answers out of combat, within about 20 seconds) and sends this account's too. Needs \"Share with the team\".")
+    UI.Tooltip(request, "Request update", "Asks every team member for their gold statistics now (each answers out of combat, within about 20 seconds) and sends this account's too. Needs \"Share with the team\".")
     Show("gold")
 end
 

@@ -16,7 +16,7 @@ local MMT = MMT
 local M = mod.M
 
 local Safe, IsSecret = MMT.Safe, MMT.IsSecret
-local sources = { threat = 0, target = 0, xp = 0, deaths = 0 }   -- debug report
+local sources = { threat = 0, target = 0, team = 0, xp = 0, deaths = 0 }   -- debug report
 local recent = {}       -- [name] = { t, guid }: the same kill from another source
 local engaged = {}      -- [guid] = name: NPCs in combat with this character
 
@@ -35,7 +35,7 @@ local function Count(name, guid, source)
     guid = Plain(guid)
     local now = GetTime()
     local r = recent[name]
-    if r and now - r.t < 3 and (not guid or not r.guid or guid == r.guid) then return end
+    if r and now - r.t < 3 and (not guid or not r.guid or guid == r.guid) then return false end
     recent[name] = { t = now, guid = guid }
     local c = mod.Char()
     if not c then return end
@@ -44,8 +44,8 @@ local function Count(name, guid, source)
     if mod.OnKill then mod.OnKill(name) end   -- level / zone / instance (Leveling.lua)
     sources[source] = sources[source] + 1
     M:Debug("kill %s (%s)", name, source)
-    mod.SendSoon()
     if mod.Redraw then mod.Redraw() end
+    return true
 end
 
 ---------------------------------------------------------------------------
@@ -91,6 +91,7 @@ end)
 --     threat in combat. Only NPCs this character or its group tapped.
 ---------------------------------------------------------------------------
 local targetName   -- the target's name, read while it was readable
+local TellTeam     -- below (1c)
 local function ReadTarget()
     if not Safe(UnitExists, "target") or Safe(UnitIsPlayer, "target") then targetName = nil return end
     local name = Plain(Safe(UnitName, "target"))
@@ -104,7 +105,39 @@ M:On("PLAYER_TARGET_DIED", function()
     if type(name) ~= "string" or name == "" then return end
     if Safe(UnitIsPlayer, "target") then return end
     if Safe(UnitIsTapDenied, "target") then return end   -- someone else's
-    Count(name, Plain(Safe(UnitGUID, "target")), "target")
+    if Count(name, Plain(Safe(UnitGUID, "target")), "target") then TellTeam(name) end
+end)
+
+---------------------------------------------------------------------------
+-- 1c. Kills the team saw: an NPC that gave no experience (grey) dies as
+--     somebody's target; that client tells the team ("STK:<name>") and every
+--     team member near it counts it too (a healer without that target). Kills
+--     with experience need no message: everybody near gets the XP line.
+---------------------------------------------------------------------------
+local xpSeen = {}   -- [name] = GetTime() of the last experience line
+TellTeam = function(name)
+    if not IsInGroup() then return end
+    C_Timer.After(1.5, function()
+        if xpSeen[name] and GetTime() - xpSeen[name] < 3 then return end   -- it gave experience
+        MMT.SendToTeam("STK:" .. name, true, "NORMAL")
+    end)
+end
+mod.TellTeamKill = TellTeam
+
+local function Near(key)
+    local unit = MMT.UnitForMember and MMT.UnitForMember(key)
+    if not unit then return false end
+    if Safe(UnitInRange, unit) or Safe(CheckInteractDistance, unit, 4) or Safe(UnitIsVisible, unit) then return true end
+    -- in the same instance: near enough
+    local inInstance = Safe(IsInInstance)
+    return inInstance and Safe(UnitIsConnected, unit) and not Safe(UnitIsDeadOrGhost, unit) and true or false
+end
+
+M:Listen("TEAM_MESSAGE", function(key, sender, text)
+    local name = text:match("^STK:(.+)$")
+    if not name or not M.db.trackKills then return end
+    if not Near(key) then M:Debug("team kill %s by %s: too far away", name, MMT.Repr(key)) return end
+    Count(name, nil, "team")
 end)
 
 ---------------------------------------------------------------------------
@@ -126,7 +159,7 @@ M:On("CHAT_MSG_COMBAT_XP_GAIN", function(msg)
     local p = XPPattern()
     if type(msg) ~= "string" or not p then return end
     local name = msg:match(p)
-    if name then Count(name, nil, "xp") end
+    if name then xpSeen[name] = GetTime() Count(name, nil, "xp") end
 end)
 
 ---------------------------------------------------------------------------
@@ -157,19 +190,20 @@ M:On("PLAYER_DEAD", function()
     c.deathTotal = (c.deathTotal or 0) + 1
     sources.deaths = sources.deaths + 1
     M:Debug("killed by %s", name)
-    mod.SendSoon()
     if mod.Redraw then mod.Redraw() end
 end)
 
 ---------------------------------------------------------------------------
 -- Scopes: totals and top lists of the accounts of a scope
 ---------------------------------------------------------------------------
--- field "kills" | "deaths"; top n as { {name, count}, ... }
+-- field "kills" | "deaths"; top n of the characters of a scope (this
+-- account only) as { {name, count}, ... }
 function mod.TopList(scope, field, n)
     local sum = {}
-    for _, id in ipairs(mod.ScopeAccounts(scope)) do
-        local a = mod.Account(id)
-        for name, count in pairs(a and a[field] or {}) do sum[name] = (sum[name] or 0) + count end
+    for key, c in pairs(mod.Store().chars) do
+        if mod.InScope(scope, key) then
+            for name, count in pairs(c[field] or {}) do sum[name] = (sum[name] or 0) + count end
+        end
     end
     local list = {}
     for name, count in pairs(sum) do list[#list + 1] = { name, count } end
@@ -179,6 +213,6 @@ function mod.TopList(scope, field, n)
 end
 
 function mod.KillReport(add)
-    add(("  kill sources: threat %d, target died %d, xp message %d; deaths %d; xp pattern %s"):format(
-        sources.threat, sources.target, sources.xp, sources.deaths, tostring(XPPattern())))
+    add(("  kill sources: threat %d, target died %d, team %d, xp message %d; deaths %d; xp pattern %s"):format(
+        sources.threat, sources.target, sources.team, sources.xp, sources.deaths, tostring(XPPattern())))
 end

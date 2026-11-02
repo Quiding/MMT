@@ -34,14 +34,14 @@ local M = MMT.NewModule({
         share       = true,     -- send and receive account summaries
         money       = "SHORT",  -- SHORT 5g 32s 1c | GOLD 5g | COINS icons
         chartScope  = "TEAM",   -- TEAM | ACCOUNT | ALL | acc:<id>
-        killScope   = "TEAM",
+        killScope   = "CHAR",   -- Kills tab: CHAR | ACCOUNT | char:<key>
         sendEvery   = 5,        -- minutes: at most one summary per this time
-        questScope  = "CHAR",   -- Quests tab: CHAR | ACCOUNT
+        questScope  = "CHAR",   -- Quests tab: CHAR | ACCOUNT | char:<key>
         trackLeveling = true,   -- time per level / zone / instance, xp (Leveling.lua)
         askSameInstance = true, -- re-entered instance: ask whether it is the same copy
         instanceNotes = true,   -- chat: instance new / same, instances in the last hour
-        levelScope  = "CHAR",   -- Leveling tab: CHAR | ACCOUNT | TEAM | ALL
-        zoneScope   = "CHAR",   -- Zones tab: CHAR | ACCOUNT
+        levelScope  = "CHAR",   -- Leveling tab: CHAR | char:<key> | ACCOUNT (average)
+        zoneScope   = "CHAR",   -- Zones tab: CHAR | ACCOUNT | char:<key>
         zoneView    = "ZONES",  -- ZONES | INSTANCES
         exportKind  = "GOLD_CHAR",   -- CSV export (Export.lua)
         exportScope = "ALL",
@@ -296,6 +296,33 @@ function mod.CharName(key, class)
     return MMT.NameFor(key, mode)
 end
 
+---------------------------------------------------------------------------
+-- Character scopes for kills, quests, leveling and zones: this account's
+-- characters only (never sent to the team)
+--   "CHAR" = the character logged in | "ACCOUNT" = all of this account |
+--   "char:<key>" = one character
+---------------------------------------------------------------------------
+function mod.InScope(scope, key)
+    if scope == "ACCOUNT" then return true end
+    if type(scope) == "string" and scope:sub(1, 5) == "char:" then return scope:sub(6) == key end
+    return key == MMT.PlayerFull()
+end
+
+-- dropdown choices: this character, the other characters of this account,
+-- then the account (accountText: "This account" or "Average of account")
+function mod.CharChoices(accountText)
+    local me = MMT.PlayerFull()
+    local l = { { value = "CHAR", text = "This character" } }
+    local others = {}
+    for key, c in pairs(Store().chars) do
+        if key ~= me then others[#others + 1] = { value = "char:" .. key, text = mod.CharName(key, c.class), key = key } end
+    end
+    table.sort(others, function(a, b) return a.text < b.text end)
+    for _, o in ipairs(others) do l[#l + 1] = o end
+    l[#l + 1] = { value = "ACCOUNT", text = accountText or "This account" }
+    return l
+end
+
 function mod.Money(copper)
     if not copper then return "-" end
     copper = math.floor(copper)
@@ -319,10 +346,10 @@ end
 function mod.SendSummary()
     if not (M.enabled and M.db.share) then return end
     local a = mod.OwnAccount()
-    local summary = {
-        id = a.id, chars = a.chars, days = a.days,
-        kills = Top(a.kills, 25), deaths = Top(a.deaths, 10),
-    }
+    -- gold only: kills, quests, levels and zones stay on this account
+    local chars = {}
+    for key, c in pairs(a.chars) do chars[key] = { c = c.c, g = c.g, s = c.s } end
+    local summary = { id = a.id, chars = chars, days = a.days }
     MMT.SendLong("STA:" .. MMT.Pack(MMT.Serialize(summary)))
 end
 
@@ -391,7 +418,7 @@ function mod.RequestUpdate()
     lastRequest = GetTime()
     MMT.SendToTeam("STQ", true, "NORMAL")
     mod.SendNow()
-    MMT.Print("Statistics: asked the team for their gold and kill statistics.")
+    MMT.Print("Statistics: asked the team for their gold statistics.")
 end
 
 -- joining a group: exchange summaries 20 s later
@@ -474,7 +501,7 @@ M.Report = function(_, add)
     local nChars, nAcc = 0, 0
     for _ in pairs(s.chars) do nChars = nChars + 1 end
     for _ in pairs(s.accounts) do nAcc = nAcc + 1 end
-    add(("-- Statistics 1.0.30  account=%s characters=%d otherAccounts=%d gold=%s kills=%s share=%s"):format(
+    add(("-- Statistics 1.0.31  account=%s characters=%d otherAccounts=%d gold=%s kills=%s share=%s"):format(
         s.accountId, nChars, nAcc, tostring(M.db.trackGold), tostring(M.db.trackKills), tostring(M.db.share)))
     for key, c in pairs(s.chars) do
         local n = 0

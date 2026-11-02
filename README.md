@@ -146,74 +146,62 @@ Saved data from MMT 0.1.x is converted automatically.
   Item Bar): with key broadcasting one key press uses the item everywhere.
   Small buttons: refresh (sync the bar to the team) and clear (both can be hidden).
   Shift + drag moves the bar, Shift-right-click opens its settings.
-- **Statistics** (module, on by default; `/mmtstats`):
+- **Statistics** (module, on by default; `/mmtstats`). Tabs Gold, Kills, Quests, Leveling,
+  Zones and Settings. Only gold is shared with the team; kills, quests, levels and zones
+  stay on the account (every character of it that runs MMT, in the team or not).
   - Gold: a table with one row per team member (you first): "This Character", "Other
-    Characters" (every other character on that member's WoW account, in a team or not)
-    and "Combined". The tooltip of a row lists the account's characters. Every character
-    that logs in with MMT records its gold after login and on every change: one
-    record per day, kept for 60 days, saved per account (not per profile).
-  - A line chart of the combined gold over the last 60 days for "Current team",
-    "Current account", "Account of X" (each account the team sent) or "All accounts";
-    hover a day for its value. The axis goes in round whole-gold steps ("10k g", "1.2M g").
+    Characters" (every other character on that member's WoW account) and "Combined"; the
+    row tooltip lists the account's characters. Every character records its gold after
+    login and on every change: one record per day, kept for 60 days, saved per account.
+    A line chart of the combined gold over the last 60 days for "Current team", "Current
+    account", "Account of X" or "All accounts" (round whole-gold steps, hover a day).
   - Accounts: every WoW account keeps its own saved variables, so MMT gives each one a
-    random id. When two clients send the same id (saved variables copied from one account
-    to another), the one with the later name takes a new id and sends again. A character only counts for an
-    account once it logged in there, so characters that came with copied files drop out. Clients send a summary of their account to the team (characters with gold
-    and kills, daily totals, top kills and killers; compressed when possible) and keep the
-    latest of every other account, named after the team member that sent it. Summaries are never
-    sent in real time: a change only marks them as changed; they go out after combat, at
-    most every 5 minutes (Settings tab: 1 to 30), at the lowest priority; answers to a
-    request at most every 20 s. Summaries are exchanged at login, 20 s after joining a
-    group, and on "Request update" (button beside "Sync to team").
-  - Kills: the same table for NPCs killed, the top 10 NPCs killed and the top 3 NPCs that
-    killed you, for the same choice of accounts. Kills count where the game lets addons
-    see them (the target dying, also NPCs that give no experience such as grey ones, as long
-    as this character or its group tapped it; NPCs fought that died with a nameplate; and
-    the experience message; the combat log is reserved for the Blizzard UI on WoW:
-    Forever); a kill seen twice counts once. The killer at death: the hostile target that
-    targeted you, else an NPC nameplate that did.
-  - Settings tab: track gold, track kills and deaths, share with the team, money format
-    (5g 32s 1c, 5g, coin icons), clear this account's statistics, forget other accounts.
-  - Quests ("Track quests", on by default): every quest a character accepts, completes
-    (with the character's level, the experience, the money and the items of the reward,
-    including the chosen one) and abandons.
-    "Scan completed quests" (Settings tab) adds the quests this character completed before
-    (as Questie does on its first login), without date, experience and money; quests MMT
-    already tracked keep their details. Names and levels come from the quest log,
-    Questie's database (QuestieDB) when installed, or the game. Kept for this account
-    only (not sent to the team). The Quests tab shows the number of accepted (active,
-    completed and abandoned together), completed and abandoned quests MMT tracked, scanned quests and scanned completed ones (this
-    character or this account) and the last 10 completed ones
-    (date, character, quest, level, XP, money).
-  - Leveling: per level (1-59, newest first) the time played to reach the next level
-    (dd:hh:mm:ss), when it was reached, quests completed, NPCs killed, deaths and the zone
-    the most time was spent in; for this character, or the averages of this account, the
-    team or all accounts (other accounts send their levels with the summary).
-  - Zones: time (hh:mm:ss), NPC kills, quests and XP gain per main zone (a town counts for its
-    zone), and per instance copy (Instance ID read from the NPCs' GUIDs as
-    NovaInstanceTracker does, when the game shows it; WoW: Forever hides it, so every
-    entry is a new row, and re-entering an instance left within 3 hours without a reset asks
-    whether it is the same one: "Same instance" merges the rows; after a /reload or a relog
-    within 2 minutes in the instance it is the same without asking; visits numbered #1, #2)
-    with the character level on entering and leaving, quests completed (their XP counts
-    for XP and XP/hr) and money gained (loot, quest
-    rewards). Chat notes on entering: new or
-    the same instance, and how many instances the account entered in the last hour (limit 5) with
-    XP per hour; tiles for the favourite zone by time and by kills. Kills and deaths are
-    also kept with the character level and the zone they happened in.
+    random id (two clients with the same id, from copied saved variables: the later name
+    takes a new one; a character only counts for an account once it logged in there).
+    Clients send their account's gold (characters and daily totals, compressed) to the
+    team and keep the latest of every other account, named after the member that sent it.
+    Never in real time: after combat, at most every 5 minutes (Settings: 1 to 30), lowest
+    priority; answers to a request at most every 20 s. Exchanged at login, 20 s after
+    joining a group, and on "Request update" (beside "Sync to team").
+  - Kills (this character, another character of this account, or the whole account):
+    NPCs killed and deaths per character, the top 10 NPCs killed and the top 3 that killed
+    you. Kills count where the game lets addons see them (the combat log is reserved for
+    the Blizzard UI on WoW: Forever): the target dying (also NPCs without experience, if
+    you or your group tapped it), the experience message, and NPCs without experience a
+    team member near you killed (that client tells the team); a kill seen twice counts
+    once. Each kill and death is also kept with the character level and zone.
+  - Quests: every quest a character accepts, completes (character level, experience,
+    money and item rewards incl. the chosen one) and abandons. "Scan completed quests"
+    adds the quests completed before (as Questie does), without date, experience and
+    money; tracked quests keep their details. Names and levels from the quest log,
+    QuestieDB when installed, or the game. The tab shows accepted (active, completed and
+    abandoned together), completed, abandoned, scanned and scanned completed, and the last
+    10 completed quests.
+  - Leveling (a character, or the average of the account): per level 1-59, newest first,
+    the time played to the next level (dd:hh:mm:ss), when it was reached, quests
+    completed, NPCs killed, deaths and the zone with the most time.
+  - Zones (a character or the account): favourite zone by time and by kills; per main zone
+    (a town counts for its zone) time (hh:mm:ss), NPC kills, quests and XP gain; per
+    instance visit Lvl In / Lvl Out, time, kills, quests, XP gain (incl. quest rewards),
+    XP/hr and money (tooltip: zone of the entrance, dates, per-hour values, visits in the
+    last 60 minutes). The instance ID is hidden from addons on WoW: Forever, so every
+    entry is a new row, numbered #1, #2; re-entering an instance left within 3 hours
+    without a reset asks whether it is the same ("Same instance" merges the rows); after
+    a /reload or a relog within 2 minutes inside, it is the same without asking. Chat
+    notes on entering: new or the same instance, and how many instances the account
+    entered in the last hour (the game allows 5).
+  - Settings tab: what to track (gold, kills and deaths, leveling / zones / instances,
+    quests), share with the team, ask about re-entered instances, chat notes about
+    instances, money format, scan completed quests, clear this account's statistics,
+    forget other accounts.
   - Export (Settings tab): CSV text to copy into a spreadsheet or a .csv file (addons can't
-    write files): gold per day and character (this account), gold per day and account,
-    characters (class, gold, kills, deaths, last seen), kills and deaths per NPC, zones,
-    instance visits, or quests
-    (this account: quest ID, name, level, status (active / completed / abandoned), character level, XP, copper, item rewards, dates);
-    for the same choice of accounts; comma or semicolon (decimal comma) as separator.
-    Names follow the privacy setting. Other accounts only send summaries (daily account
-    totals, top 25 kills, top 10 killers).
+    write files): gold per day and character, gold per day and account, characters, kills
+    and deaths per NPC, quests, zones or instance visits; comma or semicolon (decimal
+    comma) as separator; names follow the privacy setting.
   - Backup / import (Settings tab): "Backup (for import)" puts all statistics of this
-    account (real names, gold per day, kills, deaths, quests) into the box as one text;
-    "Import backup" merges such a text on another computer or after a reinstall (data
-    recorded there is kept, missing days and quests are added, kill counts take the higher
-    number).
+    account (real names, gold per day, kills, quests, levels, zones, instances) into the
+    box as one text; "Import backup" merges it on another computer or after a reinstall
+    (data recorded there is kept, missing records are added, counts take the higher one).
 - **Item Compare** (module): set a key, hover an item and press it to see what every team
   member wears in that slot (both slots for rings, trinkets and one-hand weapons),
   with the stat and item level changes if they equipped the hovered item.

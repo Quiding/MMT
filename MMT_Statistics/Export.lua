@@ -6,8 +6,7 @@
 --                    only send their daily totals)
 --         GOLD_ACC   gold per day and account
 --         CHARS      one row per character: class, gold, kills, deaths, last seen
---         KILLS      NPCs killed and killed by (this account per character,
---                    other accounts: their top 25 kills / top 10 killers)
+--         KILLS      NPCs killed and killed by (this account, per character)
 --   scope TEAM | ACCOUNT | ALL | acc:<id> (as the tables)
 --   sep   "," (decimal point) | ";" (decimal comma, e.g. German Excel)
 --         QUESTS     quests of this account's characters (Quests.lua)
@@ -22,7 +21,7 @@ mod.EXPORT_KINDS = {
     { value = "GOLD_CHAR", text = "Gold per day and character" },
     { value = "GOLD_ACC", text = "Gold per day and account" },
     { value = "CHARS", text = "Characters" },
-    { value = "KILLS", text = "Kills and deaths" },
+    { value = "KILLS", text = "Kills and deaths (this account)" },
     { value = "QUESTS", text = "Quests (this account)" },
     { value = "ZONES", text = "Zones (this account)" },
     { value = "INSTANCES", text = "Instances (this account)" },
@@ -106,7 +105,7 @@ function mod.ExportCSV(kind, scope, sep)
             for _, e in ipairs(Sorted(a and a.chars)) do
                 local key, c = e[1], e[2]
                 Row(mod.AccountLabel(id), mod.CharName(key, c.c), ClassName(c.c), Gold(c.g, sep),
-                    c.g and math.floor(c.g) or "", c.k or 0, c.d or 0, c.s and date("%Y-%m-%d %H:%M", c.s) or "")
+                    c.g and math.floor(c.g) or "", c.k or "", c.d or "", c.s and date("%Y-%m-%d %H:%M", c.s) or "")
             end
         end
     elseif kind == "QUESTS" then
@@ -190,11 +189,7 @@ function mod.ExportCSV(kind, scope, sep)
                     for _, k in ipairs(Sorted(c.kills, true)) do Row(label, name, "Killed", k[1], k[2]) end
                     for _, k in ipairs(Sorted(c.deaths, true)) do Row(label, name, "Killed by", k[1], k[2]) end
                 end
-            else
-                local a = mod.Account(id)
-                for _, k in ipairs(Sorted(a and a.kills, true)) do Row(label, "(top 25 of the account)", "Killed", k[1], k[2]) end
-                for _, k in ipairs(Sorted(a and a.deaths, true)) do Row(label, "(top 10 of the account)", "Killed by", k[1], k[2]) end
-            end
+            end   -- other accounts keep their kills (not sent to the team)
         end
     end
     return table.concat(lines, "\n"), #lines - 1
