@@ -223,9 +223,10 @@ M.Page = function(_, page)
     qc:Add(qscope, UI.ROW + 8)
     -- three tiles: large number, small label below
     local TILE_GAP = 12
-    local tileW = math.floor((PAGE_W - 2 * TILE_GAP) / 3)
+    local tileW = math.floor((PAGE_W - 4 * TILE_GAP) / 5)
     local tiles = {}
-    for i, t in ipairs({ { "A", "accepted" }, { "C", "completed" }, { "X", "abandoned" } }) do
+    for i, t in ipairs({ { "A", "accepted" }, { "C", "completed" }, { "X", "abandoned" },
+                         { "S", "scanned quests" }, { "SC", "scanned completed" } }) do
         local tile = CreateFrame("Frame", nil, q)
         tile:SetSize(tileW, 84)
         tile:SetPoint("TOPLEFT", q, "TOPLEFT", (i - 1) * (tileW + TILE_GAP), qc.y)
@@ -251,6 +252,8 @@ M.Page = function(_, page)
     tiles.A.number:SetTextColor(1, 0.82, 0)
     tiles.C.number:SetTextColor(0.4, 1, 0.4)
     tiles.X.number:SetTextColor(1, 0.4, 0.4)
+    tiles.S.number:SetTextColor(0.6, 0.6, 0.6)
+    tiles.SC.number:SetTextColor(0.6, 0.8, 0.6)
     qc:Space(84 + 16)
     qc:Header("Last 10 completed quests")
     -- small table: completed | character | quest | level | XP | money
@@ -311,34 +314,36 @@ M.Page = function(_, page)
     local qempty = UI.Label(recent, "No completed quests recorded yet.")
     qempty:SetPoint("TOPLEFT", 8, -ROW_H - 8)
     qempty:SetTextColor(0.5, 0.5, 0.5)
-    qc:Note("Scanned quests (Settings tab) count as completed, but have no date, so they don't show here.")
+    qc:Note("Scanned quests (Settings tab) have no completion date, so they don't show here.")
 
     local function DrawQuests()
         qscope.Refresh()
         local s = mod.Store()
         local me = MMT.PlayerFull()
-        local n = { A = 0, C = 0, X = 0 }
-        local scanned = 0
+        -- accepted / completed / abandoned: tracked by MMT; scanned: found by the scan
+        local n = { A = 0, C = 0, X = 0, S = 0, SC = 0 }
         local done = {}
         for key, c in pairs(s.chars) do
             if M.db.questScope ~= "CHAR" or key == me then
                 for id, rec in pairs(c.quests or {}) do
-                    if n[rec.st] then n[rec.st] = n[rec.st] + 1 end
-                    if rec.st == "C" then
-                        if rec.tc then
-                            done[#done + 1] = { id = id, rec = rec, key = key, class = c.class }
-                        else
-                            scanned = scanned + 1
-                        end
+                    if rec.scan then
+                        n.S = n.S + 1
+                        if rec.st == "C" then n.SC = n.SC + 1 end
+                    elseif n[rec.st] then
+                        n[rec.st] = n[rec.st] + 1
+                    end
+                    if rec.st == "C" and rec.tc then
+                        done[#done + 1] = { id = id, rec = rec, key = key, class = c.class }
                     end
                 end
             end
         end
         for k, tile in pairs(tiles) do tile.number:SetText(BreakUpLargeNumbers and BreakUpLargeNumbers(n[k]) or tostring(n[k])) end
-        tiles.A.tip = "Quests accepted and still in the quest log (or not completed yet)."
-        tiles.C.tip = scanned > 0 and ("%d of them found by the scan (no date, experience or money)."):format(scanned)
-            or "Quests turned in."
-        tiles.X.tip = "Quests abandoned (and not accepted again since)."
+        tiles.A.tip = "Quests MMT saw being accepted that are still open."
+        tiles.C.tip = "Quests MMT saw being turned in (with date, experience and money)."
+        tiles.X.tip = "Quests MMT saw being abandoned (and not accepted again since)."
+        tiles.S.tip = "Quests found by \"Scan completed quests\" (Settings tab): the completed ones plus the quest log at the time of the scan. Not counted in the three tiles on the left."
+        tiles.SC.tip = "Scanned quests the game reports as completed: no date, experience or money."
         table.sort(done, function(a, b) if a.rec.tc ~= b.rec.tc then return a.rec.tc > b.rec.tc end return a.id > b.id end)
         for i, row in ipairs(qrows) do
             local e = done[i]

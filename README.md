@@ -180,7 +180,8 @@ Saved data from MMT 0.1.x is converted automatically.
     already tracked keep their details. Names and levels come from the quest log,
     Questie's database (QuestieDB) when installed, or the game. Kept for this account
     only (not sent to the team). The Quests tab shows the number of accepted, completed
-    and abandoned quests (this character or this account) and the last 10 completed ones
+    and abandoned quests MMT tracked, scanned quests and scanned completed ones (this
+    character or this account) and the last 10 completed ones
     (date, character, quest, level, XP, money).
   - Export (Settings tab): CSV text to copy into a spreadsheet or a .csv file (addons can't
     write files): gold per day and character (this account), gold per day and account,
