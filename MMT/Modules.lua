@@ -195,6 +195,13 @@ function ns.AddOnInfo(addon)
     return version, author, repo
 end
 
+-- an official module: its repository (TOC "X-Repository", else by author) is MMT's own,
+-- github.com/bnetworking (the settings window lists Official and Community modules apart)
+function ns.IsOfficialModule(addon)
+    local _, _, repo = ns.AddOnInfo(addon)
+    return type(repo) == "string" and repo:lower():find("github%.com/bnetworking/") ~= nil
+end
+
 -- returns a list of { addon, title, notes, loaded, enabled (AddOns list), module, reason,
 --                     version, author, repo }
 function ns.InstalledModules()
