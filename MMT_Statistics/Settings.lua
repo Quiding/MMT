@@ -619,10 +619,20 @@ M.Page = function(_, page)
                         mod.Clock(r.t),
                         Num(r.k), Num(r.q or 0), Num(r.xp), perHour and Num(perHour) or "-", mod.Money(r.cp or 0) },
                     tip = function(t)
-                        t:SetText(r.n or "Instance")
-                        t:AddLine(("Entered %s"):format(date("%Y-%m-%d %H:%M", r.enter or 0)), 1, 1, 1)
-                        if r.leave then t:AddLine(("Left %s"):format(date("%Y-%m-%d %H:%M", r.leave)), 1, 1, 1)
-                        else t:AddLine("Still inside (* = level now).", 1, 1, 1) end
+                        t:SetText((r.n or "Instance") .. (r.zn and (" (" .. r.zn .. ")") or ""), 1, 1, 1)
+                        local lvOut = r.lvOut
+                        if r.leave == nil and e.key == me then lvOut = mod.LevelNow() end
+                        t:AddDoubleLine("Entered:", date("%Y-%m-%d %H:%M", r.enter or 0) .. (r.lvIn and ("  (Level: %d)"):format(r.lvIn) or ""), 0.7, 0.7, 0.7, 1, 1, 1)
+                        t:AddDoubleLine("Exit:", (r.leave and date("%Y-%m-%d %H:%M", r.leave) or "still inside")
+                            .. (lvOut and ("  (Level: %d)"):format(lvOut) or ""), 0.7, 0.7, 0.7, 1, 1, 1)
+                        local hours = (r.t or 0) / 3600
+                        local function PerHour(v) return hours > 0 and v / hours or nil end
+                        local xpH, cpH = PerHour(r.xp or 0), PerHour(r.cp or 0)
+                        t:AddDoubleLine("XP gained:", Num(r.xp or 0) .. (xpH and ("  (%s / hr)"):format(Num(xpH)) or ""), 0.7, 0.7, 0.7, 1, 1, 1)
+                        t:AddDoubleLine("Money gained:", mod.Money(r.cp or 0) .. (cpH and ("  (%s / hr)"):format(mod.Money(cpH)) or ""), 0.7, 0.7, 0.7, 1, 1, 1)
+                        t:AddDoubleLine("Kills:", Num(r.k or 0), 0.7, 0.7, 0.7, 1, 1, 1)
+                        t:AddDoubleLine("Quests completed:", Num(r.q or 0), 0.7, 0.7, 0.7, 1, 1, 1)
+                        t:AddLine(" ")
                         t:AddLine(mod.CharName(e.key, e.class), 0.7, 0.7, 0.7)
                         if (r.again or 0) > 0 then t:AddLine(("Entered %d more %s (the same copy)."):format(r.again, r.again == 1 and "time" or "times"), 1, 1, 1) end
                         if not r.uid then t:AddLine(("#%d: this character's %d. visit of this instance. The game hides the real instance ID inside instances; re-entering it, MMT asks whether it is the same instance."):format(e.nr, e.nr), 0.7, 0.7, 0.7, true) end

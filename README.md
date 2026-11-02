@@ -202,7 +202,8 @@ Saved data from MMT 0.1.x is converted automatically.
     also kept with the character level and the zone they happened in.
   - Export (Settings tab): CSV text to copy into a spreadsheet or a .csv file (addons can't
     write files): gold per day and character (this account), gold per day and account,
-    characters (class, gold, kills, deaths, last seen), kills and deaths per NPC, or quests
+    characters (class, gold, kills, deaths, last seen), kills and deaths per NPC, zones,
+    instance visits, or quests
     (this account: quest ID, name, level, status (active / completed / abandoned), character level, XP, copper, item rewards, dates);
     for the same choice of accounts; comma or semicolon (decimal comma) as separator.
     Names follow the privacy setting. Other accounts only send summaries (daily account

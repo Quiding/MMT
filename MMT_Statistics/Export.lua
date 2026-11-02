@@ -11,6 +11,7 @@
 --   scope TEAM | ACCOUNT | ALL | acc:<id> (as the tables)
 --   sep   "," (decimal point) | ";" (decimal comma, e.g. German Excel)
 --         QUESTS     quests of this account's characters (Quests.lua)
+--         ZONES / INSTANCES  zones and instance visits of this account's characters (Leveling.lua)
 -- Names follow the privacy setting, like everything MMT shows.
 
 local _, mod = ...
@@ -23,6 +24,8 @@ mod.EXPORT_KINDS = {
     { value = "CHARS", text = "Characters" },
     { value = "KILLS", text = "Kills and deaths" },
     { value = "QUESTS", text = "Quests (this account)" },
+    { value = "ZONES", text = "Zones (this account)" },
+    { value = "INSTANCES", text = "Instances (this account)" },
 }
 
 local function Field(v, sep)
@@ -123,6 +126,55 @@ function mod.ExportCSV(kind, scope, sep)
                         Row(mod.AccountLabel(id), name, qid, q.n or "", q.l or "", mod.QUEST_STATUS[q.st] or "",
                             q.cl or "", q.xp or "", q.cp or "", mod.QuestItemsText(q.items, true),
                             When(q.ta), When(q.tc or q.tx), q.scan and "scan" or "tracked")
+                    end
+                end
+            end
+        end
+    elseif kind == "ZONES" then
+        Row("Account", "Character", "Zone", "Instance", "Time spent", "Seconds", "NPC kills", "Deaths",
+            "Quests completed", "XP gain")
+        for _, id in ipairs(ids) do
+            if id == own then
+                for _, e in ipairs(Sorted(s.chars)) do
+                    local key, c = e[1], e[2]
+                    local name = mod.CharName(key, c.class)
+                    -- land zones by name (as the Zones tab), instances by key
+                    local byKey, zs = {}, {}
+                    for zk, z in pairs(c.zones or {}) do
+                        local k = z.inst and zk or ("name:" .. tostring(z.n))
+                        local sum = byKey[k]
+                        if not sum then
+                            sum = { n = z.n, inst = z.inst, t = 0, k = 0, d = 0, q = 0, xp = 0 }
+                            byKey[k] = sum
+                            zs[#zs + 1] = sum
+                        end
+                        for _, f in ipairs({ "t", "k", "d", "q", "xp" }) do sum[f] = sum[f] + (z[f] or 0) end
+                    end
+                    table.sort(zs, function(a, b) return (a.t or 0) > (b.t or 0) end)
+                    for _, z in ipairs(zs) do
+                        Row(mod.AccountLabel(id), name, z.n or "", z.inst and "yes" or "no", mod.Clock(z.t or 0),
+                            math.floor(z.t or 0), z.k or 0, z.d or 0, z.q or 0, z.xp or 0)
+                    end
+                end
+            end
+        end
+    elseif kind == "INSTANCES" then
+        Row("Account", "Character", "Instance", "Zone", "Instance ID / visit", "Entered", "Exit", "Lvl In", "Lvl Out",
+            "Time spent", "Seconds", "Kills", "Deaths", "Quests completed", "XP gain", "XP/hr", "Copper", "Copper/hr",
+            "Entered again")
+        local function When(t) return t and date("%Y-%m-%d %H:%M", t) or "" end
+        local function Rate(v, t) if (t or 0) < 60 then return "" end return math.floor((v or 0) / (t / 3600) + 0.5) end
+        for _, id in ipairs(ids) do
+            if id == own then
+                for _, e in ipairs(Sorted(s.chars)) do
+                    local key, c = e[1], e[2]
+                    local name = mod.CharName(key, c.class)
+                    local nr = {}
+                    for _, r in ipairs(c.runs or {}) do
+                        nr[r.map or 0] = (nr[r.map or 0] or 0) + 1
+                        Row(mod.AccountLabel(id), name, r.n or "", r.zn or "", r.uid or ("#" .. nr[r.map or 0]),
+                            When(r.enter), When(r.leave), r.lvIn or "", r.lvOut or "", mod.Clock(r.t or 0), math.floor(r.t or 0),
+                            r.k or 0, r.d or 0, r.q or 0, r.xp or 0, Rate(r.xp, r.t), r.cp or 0, Rate(r.cp, r.t), r.again or 0)
                     end
                 end
             end

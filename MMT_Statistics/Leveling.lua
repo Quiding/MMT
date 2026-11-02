@@ -7,7 +7,8 @@
 --   zones[zoneKey] = { n = name, inst = true for instances, t, k, d, q, xp }
 --   runs = { { map = instance map ID, n = name, uid = instance copy ID,
 --              enter, leave, t, k, d, q, xp, cp = money gained,
---              lvIn / lvOut = character level on entering / leaving }, ... }   newest last, at most 300
+--              lvIn / lvOut = character level on entering / leaving,
+--              zn = the zone the character came from (the entrance) }, ... }   newest last, at most 300
 --   killDetail[npc] = { ["<level>|<zoneKey>"] = count }   (also deathDetail)
 -- Zone keys: "z:<uiMapID>" (the main zone: Goldshire counts as Elwynn Forest),
 -- "i:<instanceMapID>" (every dungeon / raid / battleground its own zone),
@@ -85,6 +86,7 @@ local function ReadZone()
 end
 
 local run   -- the instance run this character is in now
+local lastLand   -- the last zone outside instances (where the entrance is)
 local reloading         -- PLAYER_ENTERING_WORLD said: UI reload
 local sessionZoneRead   -- the zone was read once since this UI loaded
 local said = {}   -- debug: each instance-copy reason once per instance entry
@@ -94,6 +96,7 @@ local function UpdateZone()
     if not c then return end
     local key, name, inst, map = ReadZone()
     zoneKey, zoneName, zoneInst, instMap = key, name, inst, map
+    if key and not inst then lastLand = name end
     if key then
         c.zones = c.zones or {}
         local z = c.zones[key] or { t = 0, k = 0, d = 0, q = 0, xp = 0 }
@@ -121,7 +124,7 @@ local function UpdateZone()
                 M:Debug("instance: back in %s after a reload: same instance", tostring(name))
                 mod.InstanceNote(("Back in %s after a reload: same instance (%s)."):format(tostring(name), mod.RunLabel(run)))
             else
-                run = { map = map, n = name, enter = time(), t = 0, k = 0, d = 0, q = 0, xp = 0, lvIn = Level() }
+                run = { map = map, n = name, enter = time(), t = 0, k = 0, d = 0, q = 0, xp = 0, lvIn = Level(), zn = lastLand }
                 table.insert(c.runs, run)
                 while #c.runs > MAX_RUNS do table.remove(c.runs, 1) end
                 M:Debug("instance entered: %s (%d)", tostring(name), map)
@@ -216,6 +219,7 @@ local function MergeRuns(target, src)
     target.again = (target.again or 0) + 1 + (src.again or 0)
     target.leave = src.leave
     target.lvIn = target.lvIn or src.lvIn
+    target.zn = target.zn or src.zn
     target.lvOut = src.lvOut or target.lvOut
     target.uid = target.uid or src.uid
     for j = #c.runs, 1, -1 do if c.runs[j] == src then table.remove(c.runs, j) end end
