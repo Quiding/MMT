@@ -248,8 +248,6 @@ local function RowClick(row, button)
     end
 end
 
--- mouseover on a row: full name and all details of that member
-
 -- gold / silver / copper for the tooltip. The game's coin string (GetCoinTextureString) shifts each
 -- icon 2 px right of where its width is measured, so in a right-aligned tooltip line the last coin
 -- ran past the edge and was cut off: these icons have no offset, so drawn = measured
@@ -264,6 +262,7 @@ local function TipCoins(copper)
     return table.concat(parts, " ")
 end
 
+-- mouseover on a row: full name and all details of that member
 local function RowTooltip(row)
     local key, s = row.key, row.status
     if not key or not s then return end
