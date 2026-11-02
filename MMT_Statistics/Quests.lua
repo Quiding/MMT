@@ -2,7 +2,7 @@
 --
 -- Per character: c.quests[questID] = {
 --   n  = name, l = quest level,
---   st = "A" accepted | "C" completed | "X" abandoned,
+--   st = "A" active (accepted, still in the log) | "C" completed | "X" abandoned,
 --   cl = character level at completion, xp = experience, cp = money (copper),
 --   items = item rewards (fixed ones and the chosen one, see below),
 --   ta = accepted at, tc = completed at, tx = abandoned at (time()),
@@ -22,7 +22,7 @@ local M = mod.M
 local Safe, IsSecret = MMT.Safe, MMT.IsSecret
 local function Plain(v) if v == nil or IsSecret(v) then return nil end return v end
 
-mod.QUEST_STATUS = { A = "accepted", C = "completed", X = "abandoned" }
+mod.QUEST_STATUS = { A = "active", C = "completed", X = "abandoned" }
 
 local function Quests(c)
     c = c or mod.Char()
@@ -326,6 +326,6 @@ end
 M.QuestReport = function(add)
     local c = mod.Char()
     local n = mod.QuestCounts(c)
-    add(("  quests (this character): accepted=%d completed=%d abandoned=%d questieDB=%s"):format(
+    add(("  quests (this character): active=%d completed=%d abandoned=%d questieDB=%s"):format(
         n.A, n.C, n.X, tostring(type(_G.QuestDB) == "table")))
 end

@@ -180,8 +180,8 @@ Saved data from MMT 0.1.x is converted automatically.
     (as Questie does on its first login), without date, experience and money; quests MMT
     already tracked keep their details. Names and levels come from the quest log,
     Questie's database (QuestieDB) when installed, or the game. Kept for this account
-    only (not sent to the team). The Quests tab shows the number of accepted, completed
-    and abandoned quests MMT tracked, scanned quests and scanned completed ones (this
+    only (not sent to the team). The Quests tab shows the number of accepted (active,
+    completed and abandoned together), completed and abandoned quests MMT tracked, scanned quests and scanned completed ones (this
     character or this account) and the last 10 completed ones
     (date, character, quest, level, XP, money).
   - Leveling: per level (1-59, newest first) the time played to reach the next level
@@ -196,7 +196,7 @@ Saved data from MMT 0.1.x is converted automatically.
   - Export (Settings tab): CSV text to copy into a spreadsheet or a .csv file (addons can't
     write files): gold per day and character (this account), gold per day and account,
     characters (class, gold, kills, deaths, last seen), kills and deaths per NPC, or quests
-    (this account: quest ID, name, level, status, character level, XP, copper, item rewards, dates);
+    (this account: quest ID, name, level, status (active / completed / abandoned), character level, XP, copper, item rewards, dates);
     for the same choice of accounts; comma or semicolon (decimal comma) as separator.
     Names follow the privacy setting. Other accounts only send summaries (daily account
     totals, top 25 kills, top 10 killers).

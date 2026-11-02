@@ -415,8 +415,10 @@ M.Page = function(_, page)
                     if rec.scan then
                         n.S = n.S + 1
                         if rec.st == "C" then n.SC = n.SC + 1 end
-                    elseif n[rec.st] then
-                        n[rec.st] = n[rec.st] + 1
+                    else
+                        -- accepted = every quest taken: active, completed and abandoned ones
+                        n.A = n.A + 1
+                        if rec.st == "C" or rec.st == "X" then n[rec.st] = n[rec.st] + 1 end
                     end
                     if rec.st == "C" and rec.tc then
                         done[#done + 1] = { id = id, rec = rec, key = key, class = c.class }
@@ -425,7 +427,7 @@ M.Page = function(_, page)
             end
         end
         for k, tile in pairs(tiles) do tile.number:SetText(BreakUpLargeNumbers and BreakUpLargeNumbers(n[k]) or tostring(n[k])) end
-        tiles.A.tip = "Quests MMT saw being accepted that are still open."
+        tiles.A.tip = "Quests this character took while MMT tracked them: the ones still active in the quest log plus the completed and abandoned ones."
         tiles.C.tip = "Quests MMT saw being turned in (with date, experience and money)."
         tiles.X.tip = "Quests MMT saw being abandoned (and not accepted again since)."
         tiles.S.tip = "Quests found by \"Scan completed quests\" (Settings tab): the completed ones plus the quest log at the time of the scan. Not counted in the three tiles on the left."
