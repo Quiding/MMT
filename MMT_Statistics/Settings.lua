@@ -248,6 +248,45 @@ M.Page = function(_, page)
         MMT.Print("Statistics of other accounts forgotten. They come back when the team sends them again.")
     end), UI.ROW + 4)
 
+    -- Export (CSV) ---------------------------------------------------------------
+    local EX = UI.Column(s, 0, math.min(SL.y, SR.y) - 4, PAGE_W)
+    EX:Header("Export (CSV)")
+    local ey = EX.y
+    local EL = UI.Column(s, 0, ey, COL_W)
+    EL:Cycle("Data", mod.EXPORT_KINDS, function() return M.db.exportKind end, function(v) M.db.exportKind = v end)
+    local escope = UI.Dropdown(s, COL_W, "Accounts", mod.ScopeChoices,
+        function() return M.db.exportScope end, function(v) M.db.exportScope = v end)
+    EL:Add(escope, UI.ROW + 2)
+    local ER = UI.Column(s, COL2_X, ey, COL_W)
+    ER:Cycle("Separator", {
+        { value = ",", text = "Comma (1234.56)" },
+        { value = ";", text = "Semicolon (1234,56)" },
+    }, function() return M.db.exportSep end, function(v) M.db.exportSep = v end)
+    local area = UI.TextArea(s, PAGE_W, 120)
+    local estatus = UI.Label(s, "")
+    estatus:SetTextColor(0.6, 0.6, 0.6)
+    local exportButton = UI.Button(s, COL_W, "Export", function()
+        local text, rows = mod.ExportCSV(M.db.exportKind, M.db.exportScope, M.db.exportSep)
+        area.edit:SetText(text)
+        area.edit:SetFocus()
+        area.edit:HighlightText()
+        if rows == 0 then
+            estatus:SetText(M.db.exportKind == "GOLD_CHAR"
+                and "No rows: gold per character is only kept for this account (others send daily totals)."
+                or "No rows: nothing recorded for these accounts yet.")
+        else
+            estatus:SetText(("%d %s. Copy with Ctrl+A, Ctrl+C and paste into a spreadsheet or a .csv file."):format(
+                rows, rows == 1 and "row" or "rows"))
+        end
+    end)
+    ER:Add(exportButton, UI.ROW + 2)
+    UI.Tooltip(exportButton, "Export", "Addons can't write files: the CSV text goes into the box below to copy. Names follow the privacy setting (Team page). Other accounts only send summaries: their gold per day as account totals, their top 25 kills and top 10 killers.")
+    local ay = math.min(EL.y, ER.y)
+    mod.exportAreaY = ay   -- debug / harness
+    area:SetPoint("TOPLEFT", s, "TOPLEFT", 0, ay)
+    estatus:SetPoint("TOPLEFT", area, "BOTTOMLEFT", 0, -4)
+    s:HookScript("OnShow", function() escope.Refresh() end)
+
     -- drawing --------------------------------------------------------------------
     function mod.Redraw()
         if not page:IsVisible() then return end

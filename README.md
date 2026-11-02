@@ -173,6 +173,12 @@ Saved data from MMT 0.1.x is converted automatically.
     targeted you, else an NPC nameplate that did.
   - Settings tab: track gold, track kills and deaths, share with the team, money format
     (5g 32s 1c, 5g, coin icons), clear this account's statistics, forget other accounts.
+  - Export (Settings tab): CSV text to copy into a spreadsheet or a .csv file (addons can't
+    write files): gold per day and character (this account), gold per day and account,
+    characters (class, gold, kills, deaths, last seen), or kills and deaths per NPC; for the
+    same choice of accounts; comma or semicolon (decimal comma) as separator. Names follow
+    the privacy setting. Other accounts only send summaries (daily account totals, top 25
+    kills, top 10 killers).
 - **Item Compare** (module): set a key, hover an item and press it to see what every team
   member wears in that slot (both slots for rings, trinkets and one-hand weapons),
   with the stat and item level changes if they equipped the hovered item.
