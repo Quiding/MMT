@@ -174,7 +174,8 @@ Saved data from MMT 0.1.x is converted automatically.
   - Settings tab: track gold, track kills and deaths, share with the team, money format
     (5g 32s 1c, 5g, coin icons), clear this account's statistics, forget other accounts.
   - Quests ("Track quests", on by default): every quest a character accepts, completes
-    (with the character's level, the experience and the money of the reward) and abandons.
+    (with the character's level, the experience, the money and the items of the reward,
+    including the chosen one) and abandons.
     "Scan completed quests" (Settings tab) adds the quests this character completed before
     (as Questie does on its first login), without date, experience and money; quests MMT
     already tracked keep their details. Names and levels come from the quest log,
@@ -186,7 +187,7 @@ Saved data from MMT 0.1.x is converted automatically.
   - Export (Settings tab): CSV text to copy into a spreadsheet or a .csv file (addons can't
     write files): gold per day and character (this account), gold per day and account,
     characters (class, gold, kills, deaths, last seen), kills and deaths per NPC, or quests
-    (this account: quest ID, name, level, status, character level, XP, copper, dates);
+    (this account: quest ID, name, level, status, character level, XP, copper, item rewards, dates);
     for the same choice of accounts; comma or semicolon (decimal comma) as separator.
     Names follow the privacy setting. Other accounts only send summaries (daily account
     totals, top 25 kills, top 10 killers).

@@ -308,6 +308,13 @@ M.Page = function(_, page)
             GameTooltip:SetText(self.quest.name)
             GameTooltip:AddLine(("Quest ID %d"):format(self.quest.id), 1, 1, 1)
             if self.quest.cl then GameTooltip:AddLine(("Completed at character level %d"):format(self.quest.cl), 1, 1, 1) end
+            for _, it in ipairs(self.quest.items or {}) do
+                local colour = it.q and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[it.q]
+                local r, g, b = 1, 1, 1
+                if colour then r, g, b = colour.r, colour.g, colour.b end
+                GameTooltip:AddDoubleLine((it.n or ("item " .. tostring(it.id))) .. (it.pick and " |cff888888(chosen)|r" or ""),
+                    "x" .. (it.c or 1), r, g, b, 1, 1, 1)
+            end
             GameTooltip:Show()
         end)
         row:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -353,7 +360,7 @@ M.Page = function(_, page)
             if e then
                 local r = e.rec
                 local name = r.n or ("Quest " .. e.id)
-                row.quest = { id = e.id, name = name, cl = r.cl }
+                row.quest = { id = e.id, name = name, cl = r.cl, items = r.items }
                 row.cells[1]:SetText(date("%Y-%m-%d %H:%M", r.tc))
                 row.cells[2]:SetText(mod.CharName(e.key, e.class))
                 row.cells[3]:SetText(name)

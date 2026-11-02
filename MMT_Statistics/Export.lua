@@ -108,7 +108,7 @@ function mod.ExportCSV(kind, scope, sep)
         end
     elseif kind == "QUESTS" then
         Row("Account", "Character", "Quest ID", "Quest name", "Quest level", "Status",
-            "Character level", "XP gained", "Copper gained", "Accepted", "Completed / abandoned", "Source")
+            "Character level", "XP gained", "Copper gained", "Item rewards", "Accepted", "Completed / abandoned", "Source")
         local function When(t) return t and date("%Y-%m-%d %H:%M", t) or "" end
         for _, id in ipairs(ids) do
             if id == own then
@@ -121,7 +121,8 @@ function mod.ExportCSV(kind, scope, sep)
                     for _, qe in ipairs(qs) do
                         local qid, q = qe[1], qe[2]
                         Row(mod.AccountLabel(id), name, qid, q.n or "", q.l or "", mod.QUEST_STATUS[q.st] or "",
-                            q.cl or "", q.xp or "", q.cp or "", When(q.ta), When(q.tc or q.tx), q.scan and "scan" or "tracked")
+                            q.cl or "", q.xp or "", q.cp or "", mod.QuestItemsText(q.items, true),
+                            When(q.ta), When(q.tc or q.tx), q.scan and "scan" or "tracked")
                     end
                 end
             end

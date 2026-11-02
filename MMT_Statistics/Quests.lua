@@ -4,6 +4,7 @@
 --   n  = name, l = quest level,
 --   st = "A" accepted | "C" completed | "X" abandoned,
 --   cl = character level at completion, xp = experience, cp = money (copper),
+--   items = item rewards (fixed ones and the chosen one, see below),
 --   ta = accepted at, tc = completed at, tx = abandoned at (time()),
 --   scan = true   -- found by "Scan completed quests": no date, xp or money
 -- }
@@ -116,6 +117,70 @@ M:On("QUEST_ACCEPTED", function(a, b)
     if mod.Redraw then mod.Redraw() end
 end)
 
+---------------------------------------------------------------------------
+-- Item rewards: read from the reward window (QUEST_COMPLETE); the choice is
+-- the index passed to GetQuestReward (by the player's click or MMT's turn-in)
+--   q.items = { { id = itemID, n = name, c = count, q = quality, pick = true|nil }, ... }
+---------------------------------------------------------------------------
+local offer   -- { questID, fixed = {...}, choices = {...}, pick = index }
+
+local function ReadItems(kind, n)
+    local list = {}
+    for i = 1, n do
+        local name, _, count, quality, _, itemID = GetQuestItemInfo(kind, i)
+        local link = GetQuestItemLink and GetQuestItemLink(kind, i)
+        itemID = Plain(itemID) or (link and tonumber(link:match("item:(%d+)")))
+        name = Plain(name)
+        if name or itemID then
+            list[#list + 1] = { id = itemID, n = name, c = math.max(1, tonumber(Plain(count)) or 1), q = Plain(quality) }
+        end
+    end
+    return list
+end
+
+M:On("QUEST_COMPLETE", function()
+    if not M.db.trackQuests or not GetQuestItemInfo then return end
+    local questID = GetQuestID and Plain(GetQuestID())
+    if type(questID) ~= "number" or questID == 0 then offer = nil return end
+    offer = {
+        questID = questID,
+        fixed = ReadItems("reward", GetNumQuestRewards and GetNumQuestRewards() or 0),
+        choices = ReadItems("choice", GetNumQuestChoices and GetNumQuestChoices() or 0),
+    }
+end)
+if hooksecurefunc and GetQuestReward then
+    hooksecurefunc("GetQuestReward", function(choice)
+        if offer then offer.pick = tonumber(choice) end
+    end)
+end
+
+local function RewardItems(questID)
+    if not offer or offer.questID ~= questID then return nil end
+    local items = {}
+    for _, it in ipairs(offer.fixed) do items[#items + 1] = it end
+    local chosen = offer.pick and offer.choices[offer.pick]
+    -- a single choice is handed out without picking
+    if not chosen and #offer.choices == 1 then chosen = offer.choices[1] end
+    if chosen then
+        local c = {} for k, v in pairs(chosen) do c[k] = v end
+        c.pick = true
+        items[#items + 1] = c
+    end
+    offer = nil
+    return #items > 0 and items or nil
+end
+
+-- "Linen Bag x1; Rough Arrow x200" (export, tooltips)
+function mod.QuestItemsText(items, withIds)
+    local out = {}
+    for _, it in ipairs(items or {}) do
+        local name = it.n or ("item " .. tostring(it.id))
+        if withIds and it.id then name = ("%s (%d)"):format(name, it.id) end
+        out[#out + 1] = ("%s x%d"):format(name, it.c or 1)
+    end
+    return table.concat(out, "; ")
+end
+
 M:On("QUEST_TURNED_IN", function(questID, xp, money)
     questID = Plain(questID)
     if not M.db.trackQuests or type(questID) ~= "number" then return end
@@ -129,6 +194,7 @@ M:On("QUEST_TURNED_IN", function(questID, xp, money)
     q.cl = Plain(Safe(UnitLevel, "player"))
     q.xp = tonumber(Plain(xp)) or 0
     q.cp = tonumber(Plain(money)) or 0
+    q.items = RewardItems(questID)
     M:Debug("quest completed %d xp=%s copper=%s", questID, tostring(q.xp), tostring(q.cp))
     if mod.Redraw then mod.Redraw() end
 end)
