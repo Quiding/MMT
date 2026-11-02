@@ -593,13 +593,22 @@ M.Page = function(_, page)
         zoneGrid:SetShown(not instances)
         instGrid:SetShown(instances)
         if instances then
+            -- without a readable copy ID (hidden inside instances on WoW: Forever)
+            -- the runs of an instance are numbered in order: #1, #2, ...
+            table.sort(runs, function(a, b) return (a.r.enter or 0) < (b.r.enter or 0) end)
+            local count = {}
+            for _, e in ipairs(runs) do
+                local k = e.key .. ":" .. tostring(e.r.map)
+                count[k] = (count[k] or 0) + 1
+                e.nr = count[k]
+            end
             table.sort(runs, function(a, b) return (a.r.enter or 0) > (b.r.enter or 0) end)
             local rows = {}
             for _, e in ipairs(runs) do
                 local r = e.r
                 local perHour = (r.t or 0) >= 60 and (r.xp or 0) / (r.t / 3600) or nil
                 rows[#rows + 1] = {
-                    cells = { r.n or ("Instance " .. tostring(r.map)), r.uid and tostring(r.uid) or "?", mod.Duration(r.t),
+                    cells = { r.n or ("Instance " .. tostring(r.map)), r.uid and tostring(r.uid) or ("#" .. e.nr), mod.Duration(r.t),
                         Num(r.k), Num(r.xp), perHour and Num(perHour) or "-" },
                     tip = function(t)
                         t:SetText(r.n or "Instance")
@@ -607,7 +616,7 @@ M.Page = function(_, page)
                         if r.leave then t:AddLine(("Left %s"):format(date("%Y-%m-%d %H:%M", r.leave)), 1, 1, 1) end
                         t:AddLine(mod.CharName(e.key, e.class), 0.7, 0.7, 0.7)
                         if (r.again or 0) > 0 then t:AddLine(("Entered %d more %s (the same copy)."):format(r.again, r.again == 1 and "time" or "times"), 1, 1, 1) end
-                        if not r.uid then t:AddLine("Instance ID unknown: the game didn't show it (no NPC seen, or hidden there). Re-entering within 30 minutes without a reset counts as the same copy.", 0.7, 0.7, 0.7, true) end
+                        if not r.uid then t:AddLine(("#%d: this character's %d. visit of this instance. The game hides the real instance ID inside instances; re-entering within 30 minutes without a reset counts as the same visit."):format(e.nr, e.nr), 0.7, 0.7, 0.7, true) end
                     end,
                 }
             end
