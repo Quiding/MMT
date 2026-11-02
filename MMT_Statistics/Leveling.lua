@@ -84,6 +84,8 @@ local function ReadZone()
 end
 
 local run   -- the instance run this character is in now
+local reloading         -- PLAYER_ENTERING_WORLD said: UI reload
+local sessionZoneRead   -- the zone was read once since this UI loaded
 local said = {}   -- debug: each instance-copy reason once per instance entry
 
 local function UpdateZone()
@@ -105,16 +107,31 @@ local function UpdateZone()
             -- every entry starts a new row (WoW: Forever hides the instance copy ID);
             -- when the last row is the same instance, left within 3 hours and not
             -- reset since, the player is asked whether it is the same copy (as
-            -- NovaInstanceTracker does) and the rows are merged on "Same instance"
+            -- NovaInstanceTracker does) and the rows are merged on "Same instance".
+            -- After a /reload (or a relog within 2 minutes) in the instance it is
+            -- the same one without asking, unless it was left over an hour ago.
             local last = c.runs[#c.runs]
-            run = { map = map, n = name, enter = time(), t = 0, k = 0, d = 0, xp = 0 }
-            table.insert(c.runs, run)
-            while #c.runs > MAX_RUNS do table.remove(c.runs, 1) end
-            M:Debug("instance entered: %s (%d)", tostring(name), map)
-            if last and last.map == map and last.leave and not last.reset
-                and time() - last.leave < ASK_GAP and M.db.askSameInstance ~= false then
-                local new = run
-                C_Timer.After(2, function() mod.AskSameInstance(last, new) end)
+            local sameMap = last and last.map == map and last.leave and not last.reset
+            local firstRead = not sessionZoneRead
+            if sameMap and firstRead and (time() - last.leave) < 3600
+                and (reloading or (time() - last.leave) < 120) then
+                run = last
+                run.leave = nil
+                M:Debug("instance: back in %s after a reload: same instance", tostring(name))
+                mod.InstanceNote(("Back in %s after a reload: same instance (%s)."):format(tostring(name), mod.RunLabel(run)))
+            else
+                run = { map = map, n = name, enter = time(), t = 0, k = 0, d = 0, q = 0, xp = 0 }
+                table.insert(c.runs, run)
+                while #c.runs > MAX_RUNS do table.remove(c.runs, 1) end
+                M:Debug("instance entered: %s (%d)", tostring(name), map)
+                local ask = sameMap and time() - last.leave < ASK_GAP and M.db.askSameInstance ~= false
+                mod.InstanceNote(("Entered %s: %s (%s). %s"):format(tostring(name),
+                    ask and "a new instance unless you answer \"Same instance\"" or "new instance",
+                    mod.RunLabel(run), mod.HourText()))
+                if ask then
+                    local new = run
+                    C_Timer.After(2, function() mod.AskSameInstance(last, new) end)
+                end
             end
             run.seenAt = time()   -- the copy ID is checked again after each entry
             run.checked = nil
@@ -124,8 +141,11 @@ local function UpdateZone()
         run.leave = time()
         run = nil
     end
+    if key then sessionZoneRead = true end
 end
 mod.UpdateZone = UpdateZone
+-- as after a UI reload (test harness)
+function mod.ForgetSession() run, sessionZoneRead = nil, nil end
 
 function mod.CurrentZone() return zoneKey, zoneName, zoneInst end
 
@@ -136,12 +156,60 @@ local function Why(reason, ...)
     said[reason] = true
     M:Debug("instance copy: " .. reason, ...)
 end
+---------------------------------------------------------------------------
+-- The hourly instance limit (5 per hour, every instance, the whole account)
+---------------------------------------------------------------------------
+mod.INSTANCES_PER_HOUR = 5
+
+-- first entries of instance copies within the last hour, all characters of
+-- this account, oldest first
+function mod.InstancesLastHour()
+    local list, since = {}, time() - 3600
+    for _, c in pairs(mod.Store().chars) do
+        for _, r in ipairs(c.runs or {}) do
+            if (r.enter or 0) > since then list[#list + 1] = r.enter end
+        end
+    end
+    table.sort(list)
+    return list
+end
+
+function mod.HourText()
+    local list = mod.InstancesLastHour()
+    local n, cap = #list, mod.INSTANCES_PER_HOUR
+    local text = ("Instances entered in the last hour: %d of %d."):format(n, cap)
+    if n >= cap then
+        text = text .. (" |cffff6666Limit reached:|r the next one can be entered at %s."):format(date("%H:%M", list[n - cap + 1] + 3600))
+    elseif n == cap - 1 then
+        text = text .. (" |cffffcc00One left;|r the next one frees up at %s."):format(date("%H:%M", list[1] + 3600))
+    end
+    return text
+end
+
+-- "#3": the character's visit number of that instance
+function mod.RunLabel(r)
+    if r.uid then return "ID " .. r.uid end
+    local c = mod.Char()
+    local n = 0
+    for _, x in ipairs(c and c.runs or {}) do
+        if x.map == r.map then n = n + 1 end
+        if x == r then break end
+    end
+    return "#" .. n
+end
+
+function mod.InstanceNote(text)
+    if M.db.instanceNotes == false then return end
+    MMT.Print("Statistics: %s", text)
+end
+
 -- adds src's numbers to target and drops src; the current run follows
 local function MergeRuns(target, src)
     local c = mod.Char()
     if not c or target == src then return end
     target.t, target.k = (target.t or 0) + (src.t or 0), (target.k or 0) + (src.k or 0)
     target.d, target.xp = (target.d or 0) + (src.d or 0), (target.xp or 0) + (src.xp or 0)
+    target.q = (target.q or 0) + (src.q or 0)
     target.again = (target.again or 0) + 1 + (src.again or 0)
     target.leave = src.leave
     target.uid = target.uid or src.uid
@@ -162,6 +230,8 @@ function mod.AskSameInstance(last, new)
         "Same instance", function()
             MergeRuns(last, new)
             M:Debug("instance: merged with the visit from %s (player)", date("%H:%M", last.enter or 0))
+            mod.InstanceNote(("%s: same instance as the visit from %s (%s). %s"):format(tostring(last.n),
+                date("%H:%M", last.enter or 0), mod.RunLabel(last), mod.HourText()))
         end,
         "New instance")
 end
@@ -313,6 +383,7 @@ function mod.OnQuestDone()
     if L >= 1 then local lv = LevelRec(c, L) lv.q = (lv.q or 0) + 1 end
     local z = zoneKey and c.zones and c.zones[zoneKey]
     if z then z.q = (z.q or 0) + 1 end
+    if run then run.q = (run.q or 0) + 1 end   -- its XP comes with PLAYER_XP_UPDATE
     return zoneKey
 end
 
@@ -335,8 +406,9 @@ M:On("PLAYER_XP_UPDATE", function(unit) if unit == nil or unit == "player" then 
 for _, e in ipairs({ "ZONE_CHANGED_NEW_AREA", "ZONE_CHANGED", "ZONE_CHANGED_INDOORS" }) do
     M:On(e, function() Tick() UpdateZone() end)
 end
-M:On("PLAYER_ENTERING_WORLD", function()
-    C_Timer.After(1, function() Tick() UpdateZone() end)
+M:On("PLAYER_ENTERING_WORLD", function(initialLogin, reloadingUi)
+    if reloadingUi == true then reloading = true end
+    C_Timer.After(1, function() Tick() UpdateZone() reloading = nil end)
 end)
 M:On("PLAYER_TARGET_CHANGED", function() SeeGUID("target") end)
 M:On("PLAYER_SOFT_ENEMY_CHANGED", function() SeeGUID("softenemy") end)

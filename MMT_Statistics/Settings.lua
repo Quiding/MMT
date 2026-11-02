@@ -551,12 +551,13 @@ M.Page = function(_, page)
     }, ZONE_ROWS)
     zoneGrid:SetPoint("TOPLEFT", 0, zy)
     local instGrid = Grid(zp, {
-        { "Instance Name", x = 8, w = 200 },
-        { "Instance ID", right = 300, w = 84 },
-        { "Time Spent", right = 410, w = 100 },
-        { "NPC kills", right = 480, w = 64 },
-        { "XP Gathered", right = 580, w = 90 },
-        { "XP/hr", right = PAGE_W - 8, w = 100 },
+        { "Instance Name", x = 8, w = 180 },
+        { "Instance ID", right = 270, w = 76 },
+        { "Time Spent", right = 370, w = 96 },
+        { "NPC kills", right = 440, w = 64 },
+        { "Quests", right = 500, w = 54 },
+        { "XP Gathered", right = 600, w = 94 },
+        { "XP/hr", right = PAGE_W - 8, w = 84 },
     }, ZONE_ROWS)
     instGrid:SetPoint("TOPLEFT", 0, zy)
     local zoneNote = UI.Label(zp, "")
@@ -609,7 +610,7 @@ M.Page = function(_, page)
                 local perHour = (r.t or 0) >= 60 and (r.xp or 0) / (r.t / 3600) or nil
                 rows[#rows + 1] = {
                     cells = { r.n or ("Instance " .. tostring(r.map)), r.uid and tostring(r.uid) or ("#" .. e.nr), mod.Duration(r.t),
-                        Num(r.k), Num(r.xp), perHour and Num(perHour) or "-" },
+                        Num(r.k), Num(r.q or 0), Num(r.xp), perHour and Num(perHour) or "-" },
                     tip = function(t)
                         t:SetText(r.n or "Instance")
                         t:AddLine(("Entered %s"):format(date("%Y-%m-%d %H:%M", r.enter or 0)), 1, 1, 1)
@@ -621,7 +622,7 @@ M.Page = function(_, page)
                 }
             end
             instGrid:Show_(rows, "No instance visits recorded yet.")
-            zoneNote:SetText("One row per visit; re-entering an instance asks whether it is the same one (\"Same instance\" adds it to the earlier row). #1, #2: this character's visits of that instance.")
+            zoneNote:SetText(("One row per visit; re-entering an instance asks whether it is the same one. XP includes quest rewards. %s"):format(mod.HourText()))
         else
             local list = {}
             for _, z in pairs(zones) do if not z.inst then list[#list + 1] = z end end
@@ -647,6 +648,9 @@ M.Page = function(_, page)
     SL:Check("Ask if a re-entered instance is the same", function() return M.db.askSameInstance ~= false end,
         function(v) M.db.askSameInstance = v end,
         "Entering an instance you left within the last 3 hours (no reset since) asks whether it is the same instance as before; \"Same instance\" adds the visit to the earlier row. Off: every entry is a new row. (The game hides the instance ID from addons.)")
+    SL:Check("Chat notes about instances", function() return M.db.instanceNotes ~= false end,
+        function(v) M.db.instanceNotes = v end,
+        "On entering an instance: new or the same one, its visit number, and how many instances this account entered in the last hour (the game allows 5 per hour).")
     SL:Check("Track quests", function() return M.db.trackQuests end, function(v) M.db.trackQuests = v end,
         "Records the quests each character accepts, completes (with its level, the experience and the money of the reward) and abandons. For the export (Quests). Not sent to the team.")
     SL:Check("Share with the team", function() return M.db.share end, function(v) M.db.share = v; if v then mod.SendNow() end end,
