@@ -634,8 +634,16 @@ M.Page = function(_, page)
                         t:AddDoubleLine("Quests completed:", Num(r.q or 0), 0.7, 0.7, 0.7, 1, 1, 1)
                         t:AddLine(" ")
                         t:AddLine(mod.CharName(e.key, e.class), 0.7, 0.7, 0.7)
-                        if (r.again or 0) > 0 then t:AddLine(("Entered %d more %s (the same copy)."):format(r.again, r.again == 1 and "time" or "times"), 1, 1, 1) end
-                        if not r.uid then t:AddLine(("#%d: this character's %d. visit of this instance. The game hides the real instance ID inside instances; re-entering it, MMT asks whether it is the same instance."):format(e.nr, e.nr), 0.7, 0.7, 0.7, true) end
+                        -- this character's visits of this instance (all / in the last 60 minutes)
+                        local all, hour = 0, 0
+                        for _, x in ipairs(mod.Store().chars[e.key] and mod.Store().chars[e.key].runs or {}) do
+                            if x.map == r.map then
+                                all = all + 1
+                                if (x.enter or 0) > time() - 3600 then hour = hour + 1 end
+                            end
+                        end
+                        t:AddLine(("This character entered this instance %d %s (%d in last 60 minutes)."):format(
+                            all, all == 1 and "time" or "times", hour), 0.7, 0.7, 0.7, true)
                     end,
                 }
             end
