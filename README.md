@@ -171,7 +171,8 @@ Saved data from MMT 0.1.x is converted automatically.
     (all, rares, dungeon bosses, big baddies, critters) and zone or instance, and the top 3
     that killed you. Right: the Dungeon Journal (a box of its own): total unique instances
     visited, an instance with kills (the current one, else the last visited), how often and
-    when last visited, and its bosses with kills and deaths. The kind of an NPC is read when it is targeted, moused over, has a nameplate or
+    when last visited, NPCs and dungeon bosses killed there, and its bosses with kills and
+    deaths. The kind of an NPC is read when it is targeted, moused over, has a nameplate or
     is an encounter's boss, and remembered by name for the account. Kills count where the
     game lets addons see them (the combat log is reserved for the Blizzard UI on WoW:
     Forever): the target dying, NPCs with a nameplate dying tapped by you or your group

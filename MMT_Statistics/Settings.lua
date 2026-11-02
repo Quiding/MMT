@@ -418,7 +418,7 @@ M.Page = function(_, page)
     local JROWS = 7
     local jbox = CreateFrame("Frame", nil, k)
     jbox:SetPoint("TOPLEFT", k, "TOPLEFT", COL2_X - 8, below)
-    jbox:SetSize(COL_W + 16, 34 + (UI.ROW + 4) + 40 + ROW_H * (JROWS + 1) + 16)
+    jbox:SetSize(COL_W + 16, 34 + (UI.ROW + 4) + 56 + ROW_H * (JROWS + 1) + 16)
     UI.Fill(jbox, A[1], A[2], A[3], 0.04)
     UI.Border(jbox, A[1], A[2], A[3], 0.30)
     local jicon = jbox:CreateTexture(nil, "ARTWORK")
@@ -442,7 +442,10 @@ M.Page = function(_, page)
     KR:Add(junique, 16)
     local jvisits = UI.Label(jbox, "")
     jvisits:SetTextColor(0.6, 0.6, 0.6)
-    KR:Add(jvisits, 20)
+    KR:Add(jvisits, 16)
+    local jkills = UI.Label(jbox, "")
+    jkills:SetTextColor(0.6, 0.6, 0.6)
+    KR:Add(jkills, 20)
     local journal = Grid(jbox, {
         { "Boss", x = 8, w = 180 },
         { "Killed", right = 262, w = 64 },
@@ -464,11 +467,13 @@ M.Page = function(_, page)
         if j then
             jvisits:SetText(j.visits > 0 and ("Visited %d %s, last on %s."):format(j.visits, j.visits == 1 and "time" or "times",
                 date("%Y-%m-%d %H:%M", j.last)) or "No visits recorded.")
+            jkills:SetText(("NPCs killed: |cffffffff%s|r   Dungeon bosses killed: |cffffffff%s|r"):format(Num(j.npcs), Num(j.bossKills)))
             local rows = {}
             for _, b in ipairs(j.bosses) do rows[#rows + 1] = { cells = { b.name, Num(b.kills), Num(b.deaths) } } end
             journal:Show_(rows, "No dungeon bosses recorded here yet.")
         else
             jvisits:SetText("No instance with kills recorded yet.")
+            jkills:SetText("")
             journal:Show_({}, "")
         end
     end

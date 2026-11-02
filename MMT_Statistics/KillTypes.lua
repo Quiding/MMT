@@ -128,9 +128,14 @@ local function PlateCheck(unit)
             -- other one (AoE, a pet, cleave) counts as an unknown NPC if ours
             if D then D.plateHidden = D.plateHidden + 1 end
             if not plateHiddenSaid then plateHiddenSaid = true M:Debug("nameplate death: the game hides the NPC's name") end
-            local isTarget = Safe(UnitIsUnit, unit, "target")
-            if isTarget == false and Safe(UnitIsTapDenied, unit) == false and M.db.trackKills and mod.CountKill then
-                mod.CountKill(mod.UNKNOWN_NPC, "nameplate")
+            -- the target's nameplate dies too (and the target may already be
+            -- cleared): a target death within 1.5 s of it is the same kill
+            if Safe(UnitIsTapDenied, unit) == false and M.db.trackKills and mod.CountKill then
+                local at = GetTime()
+                C_Timer.After(2, function()
+                    if mod.ClaimTargetDeath and mod.ClaimTargetDeath(at) then return end
+                    mod.CountKill(mod.UNKNOWN_NPC, "nameplate")
+                end)
             end
             return
         end
@@ -219,9 +224,19 @@ M:On("ENCOUNTER_END", function(id, name, difficulty, size, success)
 end)
 
 -- a target with a hidden name died at this GetTime() (from Kills.lua)
+local targetDeaths = {}   -- times not yet matched with a nameplate death
 function mod.TargetDiedAt(t)
     lastTargetDied = t
-    -- the end may come a moment after the death: remember for EncounterBossAt
+    targetDeaths[#targetDeaths + 1] = t
+    while #targetDeaths > 20 do table.remove(targetDeaths, 1) end
+end
+
+-- a nameplate death at time t that is the target's death: true (and used up)
+function mod.ClaimTargetDeath(t)
+    for i, td in ipairs(targetDeaths) do
+        if math.abs(td - t) <= 1.5 then table.remove(targetDeaths, i) return true end
+    end
+    return false
 end
 
 -- the encounter's boss name if a target that died at time t died with the
@@ -398,10 +413,11 @@ function mod.JournalInstance(scope)
     return choices[1] and choices[1].value or nil
 end
 
--- visits and bosses of an instance: { visits, last, bosses = { {name, kills, deaths} } }
+-- visits and bosses of an instance: { visits, last, npcs = NPCs killed there,
+-- bossKills, bosses = { {name, kills, deaths} } }
 function mod.Journal(scope, inst)
     local map = tonumber(inst:match("^i:(%d+)$"))
-    local j = { visits = 0, last = 0, bosses = {} }
+    local j = { visits = 0, last = 0, bosses = {}, npcs = 0, bossKills = 0 }
     local byName = {}
     local function Boss(name)
         local b = byName[name]
@@ -416,6 +432,15 @@ function mod.Journal(scope, inst)
             if r.map == map then
                 j.visits = j.visits + 1
                 j.last = math.max(j.last, r.enter or 0)
+            end
+        end
+        for name, m in pairs(c.killDetail or {}) do
+            local nk = Npcs()[name]
+            for lk, count in pairs(m) do
+                if lk:match("|(.+)$") == inst then
+                    j.npcs = j.npcs + count
+                    if nk and (nk.d or nk.rb) then j.bossKills = j.bossKills + count end
+                end
             end
         end
         for field, key in pairs({ killDetail = "kills", deathDetail = "deaths" }) do

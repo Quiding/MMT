@@ -216,7 +216,7 @@ function mod.ExportCSV(kind, scope, sep)
             end
         end
     elseif kind == "JOURNAL" then
-        Row("Account", "Instance", "Unique instances visited", "Visits", "Last visit", "Boss", "Kind", "Killed", "Killed me")
+        Row("Account", "Instance", "Unique instances visited", "Visits", "Last visit", "NPCs killed", "Boss kills", "Boss", "Kind", "Killed", "Killed me")
         -- the whole account (or the scope's characters: all of this account)
         if mod.AccountId() and (function() for _, id in ipairs(ids) do if id == own then return true end end end)() then
             local uniq = mod.UniqueInstances("ACCOUNT")
@@ -224,10 +224,10 @@ function mod.ExportCSV(kind, scope, sep)
                 local j = mod.Journal("ACCOUNT", inst.value)
                 local last = j.last > 0 and date("%Y-%m-%d %H:%M", j.last) or ""
                 if #j.bosses == 0 then
-                    Row(mod.AccountLabel(own), inst.text, uniq, j.visits, last, "", "", "", "")
+                    Row(mod.AccountLabel(own), inst.text, uniq, j.visits, last, j.npcs, j.bossKills, "", "", "", "")
                 end
                 for _, b in ipairs(j.bosses) do
-                    Row(mod.AccountLabel(own), inst.text, uniq, j.visits, last, b.name, mod.NpcKindText(b.name), b.kills, b.deaths)
+                    Row(mod.AccountLabel(own), inst.text, uniq, j.visits, last, j.npcs, j.bossKills, b.name, mod.NpcKindText(b.name), b.kills, b.deaths)
                 end
             end
         end
