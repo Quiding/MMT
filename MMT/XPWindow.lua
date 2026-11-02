@@ -655,8 +655,18 @@ local function RowPieces(key, s, arranging)
 end
 
 -- lining up the pieces: a column per piece (in the pieces' order, notes like "offline" last),
--- as wide as its widest value; within it left / centred / right (x.pieceAlign)
+-- as wide as its widest value; within it left / centred / right (x.pieceAlign), or ICONS:
+-- each column by where its piece's icon sits (def.icon) - gold right (the coin icons line up),
+-- bags and durability left (their icons line up), the rest centred
 local SHIFT = { LEFT = 0, CENTER = 0.5, RIGHT = 1 }
+local ICON_SHIFT = { START = 0, END = 1 }
+
+-- how far into its column a piece is pushed (0 = left, 1 = right)
+local function ShiftOf(p, shift)
+    if shift ~= "ICONS" then return shift end
+    local def = p.id and ns.xpPieces[p.id]
+    return def and ICON_SHIFT[def.icon] or 0.5
+end
 
 local function ColumnKey(p, n) return p.id or ("_" .. n) end
 
@@ -705,7 +715,7 @@ local function Place(row, cols, total, nameIndex, shift)
         if x.align == "SPLIT" and c == nameIndex then cw = cw + free end
         local p = col[1]
         if p then
-            local s = (c == nameIndex) and 0 or shift
+            local s = (c == nameIndex) and 0 or ShiftOf(p, shift)
             p:SetPoint("LEFT", row, "LEFT", px + math.floor((cw - p:GetWidth()) * s), 0)
         end
         px = px + cw + gap
@@ -721,7 +731,7 @@ local function Update()
     local arranging = ns.xpArrange and true or false
     local h = math.max(x.barHeight, x.size + 4)
     local lined = x.pieceAlign ~= "OFF"
-    local shift = SHIFT[x.pieceAlign] or 0.5
+    local shift = (x.pieceAlign == "ICONS") and "ICONS" or SHIFT[x.pieceAlign] or 0.5
 
     -- first pass: set up the pieces of every row, the name with its crown, notes and Layer Hop
     local rows = {}

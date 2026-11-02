@@ -704,6 +704,7 @@ ns.RegisterPage("xp", "XP Window", function(page)
     local gpa, spa = Opt("xp", "pieceAlign")
     R:Cycle("Line up pieces", {
         { value = "CENTER", text = "In columns, centred" },
+        { value = "ICONS", text = "In columns, icons lined up" },
         { value = "LEFT", text = "In columns, left" },
         { value = "RIGHT", text = "In columns, right" },
         { value = "OFF", text = "Off (each row on its own)" },

@@ -14,7 +14,8 @@ ns.xpPieceIds = {}    -- registration order
 -- def = { id, title, text = function(key, status) -> string | nil, on = shown by default
 --         (modules: off unless set), sample = text while arranging when text() has nothing,
 --         tip = settings tooltip, side = "LEFT": placed before the name when first added
---         (else after it), fixed = always shown (the name) }
+--         (else after it), fixed = always shown (the name), icon = "START" | "END": where its
+--         icon sits in the text (the "Line up the icons" choice aligns the column by it) }
 function ns.RegisterXPPiece(def)
     assert(type(def) == "table" and type(def.id) == "string" and type(def.text) == "function",
         "MMT.RegisterXPPiece{ id = \"...\", title = \"...\", text = function(key, status) ... end }")
@@ -89,20 +90,20 @@ local DUR_ICON = "|TInterface\\Icons\\Trade_BlackSmithing:0:0:0:0:64:64:6:58:6:5
 ---------------------------------------------------------------------------
 -- Built-in pieces
 ---------------------------------------------------------------------------
-ns.RegisterXPPiece{ id = "gold", title = "Gold", side = "LEFT", on = true, sample = "123" .. GOLD_ICON,
+ns.RegisterXPPiece{ id = "gold", title = "Gold", side = "LEFT", on = true, sample = "123" .. GOLD_ICON, icon = "END",
     tip = "Gold of the character (format: Gold below).",
     text = function(_, s)
         if not s.money then return nil end
         if ns.db.xp.goldFormat == "FULL" then return FullCoins(math.floor(s.money)) end
         return Thousands(math.floor(s.money / 10000)) .. GOLD_ICON
     end }
-ns.RegisterXPPiece{ id = "bags", title = "Free bag slots", side = "LEFT", on = true, sample = BAG_ICON .. " 12",
+ns.RegisterXPPiece{ id = "bags", title = "Free bag slots", side = "LEFT", on = true, sample = BAG_ICON .. " 12", icon = "START",
     text = function(_, s)
         if not s.free then return nil end
         local colour = (s.free == 0 and Hex(1, 0.3, 0.3)) or (s.free <= 4 and Hex(1, 0.85, 0.2)) or ""
         return BAG_ICON .. " " .. colour .. s.free .. (colour ~= "" and "|r" or "")
     end }
-ns.RegisterXPPiece{ id = "durability", title = "Durability", side = "LEFT", on = true, sample = DUR_ICON .. " 100%",
+ns.RegisterXPPiece{ id = "durability", title = "Durability", side = "LEFT", on = true, sample = DUR_ICON .. " 100%", icon = "START",
     tip = "Lowest item or the average (Durability below).",
     text = function(_, s)
         local pct = (ns.db.xp.durability == "AVERAGE") and s.durAvg or s.durMin

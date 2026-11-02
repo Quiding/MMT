@@ -41,7 +41,8 @@ ns.defaults = {
         size        = 12,
         outline     = "OUTLINE",
         align       = "SPLIT",   -- SPLIT (name left, values right) | LEFT | CENTER | RIGHT
-        pieceAlign  = "CENTER",  -- pieces lined up in columns, inside them LEFT | CENTER | RIGHT; OFF: each row flows
+        pieceAlign  = "CENTER",  -- pieces lined up in columns, inside them LEFT | CENTER | RIGHT | ICONS (by the
+                                 -- piece's icon: gold right, bags / durability left); OFF: each row flows
         width       = 325,
         barMode     = "XP",      -- XP | REP: what the bar (and its % value) shows
         barHeight   = 18,
