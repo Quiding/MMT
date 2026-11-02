@@ -13,7 +13,9 @@
 -- "n:<name>" when the map API has nothing.
 -- Instance copies: the 5th part of a creature GUID inside an instance (as
 -- NovaInstanceTracker reads it: Creature-0-server-map-copyID-npcID-spawn);
--- entering the same copy again continues its run.
+-- entering the same copy again continues its run. WoW: Forever may hide those
+-- GUIDs inside instances: then re-entering the same instance within 30 min
+-- without a reset message counts as the same copy.
 -- Time counts every 5 s while logged in (gaps over 30 s, e.g. a frozen
 -- client, count as 30 s).
 
@@ -27,6 +29,7 @@ local function Plain(v) if v == nil or IsSecret(v) then return nil end return v 
 mod.MAX_TRACKED_LEVEL = 59
 local MAX_RUNS = 300
 local MERGE_GAP = 3 * 3600   -- the same instance copy within 3 hours: one run
+local SAME_COPY_GAP = 30 * 60   -- re-entered within 30 min, no reset: the same copy
 
 ---------------------------------------------------------------------------
 -- Records
@@ -97,10 +100,25 @@ local function UpdateZone()
     if inst then
         if not run or run.map ~= map then
             if run then run.leave = time() end
-            run = { map = map, n = name, enter = time(), t = 0, k = 0, d = 0, xp = 0 }
-            table.insert(c.runs, run)
-            while #c.runs > MAX_RUNS do table.remove(c.runs, 1) end
-            M:Debug("instance entered: %s (%d)", tostring(name), map)
+            -- the same instance re-entered soon after leaving it, without a reset in
+            -- between, is the same copy (WoW: Forever hides creature GUIDs inside
+            -- instances, so the copy ID often can't be read); a different copy ID
+            -- seen later splits it again (SeeGUID)
+            local last = c.runs[#c.runs]
+            if last and last.map == map and last.leave and not last.reset
+                and time() - last.leave < SAME_COPY_GAP then
+                run = last
+                run.leave = nil
+                run.again = (run.again or 0) + 1
+                M:Debug("instance entered again: %s (%d), same copy assumed", tostring(name), map)
+            else
+                run = { map = map, n = name, enter = time(), t = 0, k = 0, d = 0, xp = 0 }
+                table.insert(c.runs, run)
+                while #c.runs > MAX_RUNS do table.remove(c.runs, 1) end
+                M:Debug("instance entered: %s (%d)", tostring(name), map)
+            end
+            run.seenAt = time()   -- the copy ID is checked again after each entry
+            run.checked = nil
         end
     elseif run then
         run.leave = time()
@@ -113,21 +131,38 @@ function mod.CurrentZone() return zoneKey, zoneName, zoneInst end
 
 -- the instance copy from a creature GUID; the same copy as an earlier run
 -- (re-entered, relogged) continues that run
+local hiddenSaid
 local function SeeGUID(unit)
-    if not run or run.uid then return end
-    local guid = Plain(Safe(UnitGUID, unit))
+    if not run or run.checked then return end
+    local raw = Safe(UnitGUID, unit)
+    if raw == nil and Safe(UnitExists, unit) and not hiddenSaid then
+        hiddenSaid = true
+        M:Debug("instance copy: the game hides the GUID of %s here", unit)
+    end
+    local guid = Plain(raw)
     if type(guid) ~= "string" then return end
     local kind, _, _, map, uid = strsplit("-", guid)
     if kind ~= "Creature" and kind ~= "Vehicle" then return end
     uid, map = tonumber(uid), tonumber(map)
     if not uid or uid <= 0 or (map and map > 0 and map ~= run.map) then return end
-    run.uid = uid
+    run.checked = true
     local c = mod.Char()
+    if run.uid and run.uid ~= uid then
+        -- assumed the same copy, but it is a new one: a new run from this entry
+        run.leave = run.seenAt
+        run.again = math.max(0, (run.again or 1) - 1)
+        run = { map = run.map, n = run.n, enter = run.seenAt or time(), t = 0, k = 0, d = 0, xp = 0, uid = uid, checked = true }
+        table.insert(c.runs, run)
+        M:Debug("instance copy %d is new: new run", uid)
+        return
+    end
+    run.uid = uid
     for i = #c.runs, 1, -1 do
         local r = c.runs[i]
-        if r ~= run and r.map == run.map and r.uid == uid and (time() - (r.leave or r.enter)) < MERGE_GAP then
+        if r ~= run and r.map == run.map and r.uid == uid and not r.reset and (time() - (r.leave or r.enter)) < MERGE_GAP then
             r.t, r.k, r.d, r.xp = (r.t or 0) + run.t, (r.k or 0) + run.k, (r.d or 0) + run.d, (r.xp or 0) + run.xp
             r.leave = nil
+            r.again = (r.again or 0) + 1
             for j = #c.runs, 1, -1 do if c.runs[j] == run then table.remove(c.runs, j) end end
             run = r
             M:Debug("instance copy %d again: run continued", uid)
@@ -136,6 +171,29 @@ local function SeeGUID(unit)
     end
     M:Debug("instance copy %d", uid)
 end
+
+-- "Deadmines has been reset.": the next entry is a new copy
+local resetPattern
+local function ResetPattern()
+    if resetPattern == nil then
+        local fmt = Plain(INSTANCE_RESET_SUCCESS)
+        resetPattern = type(fmt) == "string"
+            and ("^" .. fmt:gsub("([%^%$%(%)%.%[%]%*%+%-%?])", "%%%1"):gsub("%%s", "(.+)") .. "$") or false
+    end
+    return resetPattern
+end
+M:On("CHAT_MSG_SYSTEM", function(msg)
+    msg = Plain(msg)
+    local p = ResetPattern()
+    if type(msg) ~= "string" or not p then return end
+    local name = msg:match(p)
+    if not name then return end
+    local c = mod.Char()
+    for _, r in ipairs(c and c.runs or {}) do
+        if r ~= run and r.n == name then r.reset = true end
+    end
+    M:Debug("instance reset: %s", name)
+end)
 
 ---------------------------------------------------------------------------
 -- Time
@@ -257,6 +315,13 @@ end)
 M:On("PLAYER_TARGET_CHANGED", function() SeeGUID("target") end)
 M:On("UPDATE_MOUSEOVER_UNIT", function() SeeGUID("mouseover") end)
 M:On("NAME_PLATE_UNIT_ADDED", function(unit) if type(unit) == "string" then SeeGUID(unit) end end)
+-- secret GUIDs can be readable out of combat: look again then
+M:On("PLAYER_REGEN_ENABLED", function()
+    C_Timer.After(1, function()
+        SeeGUID("target")
+        for i = 1, 40 do if run and not run.checked then SeeGUID("nameplate" .. i) end end
+    end)
+end)
 M:On("PLAYER_LOGOUT", function() Tick() if run then run.leave = time() end end)
 
 local started

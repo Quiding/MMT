@@ -190,7 +190,8 @@ Saved data from MMT 0.1.x is converted automatically.
     team or all accounts (other accounts send their levels with the summary).
   - Zones: time, NPC kills, quests and experience per main zone (a town counts for its
     zone), and per instance copy (Instance ID read from the NPCs' GUIDs as
-    NovaInstanceTracker does; re-entering the same copy within 3 hours continues it) with
+    NovaInstanceTracker does, when the game shows it; re-entering the same instance within
+    30 minutes without a reset message continues its row) with
     XP per hour; tiles for the favourite zone by time and by kills. Kills and deaths are
     also kept with the character level and the zone they happened in.
   - Export (Settings tab): CSV text to copy into a spreadsheet or a .csv file (addons can't

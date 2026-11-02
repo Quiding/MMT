@@ -606,12 +606,13 @@ M.Page = function(_, page)
                         t:AddLine(("Entered %s"):format(date("%Y-%m-%d %H:%M", r.enter or 0)), 1, 1, 1)
                         if r.leave then t:AddLine(("Left %s"):format(date("%Y-%m-%d %H:%M", r.leave)), 1, 1, 1) end
                         t:AddLine(mod.CharName(e.key, e.class), 0.7, 0.7, 0.7)
-                        if not r.uid then t:AddLine("Instance ID unknown: no NPC targeted or seen there.", 0.7, 0.7, 0.7, true) end
+                        if (r.again or 0) > 0 then t:AddLine(("Entered %d more %s (the same copy)."):format(r.again, r.again == 1 and "time" or "times"), 1, 1, 1) end
+                        if not r.uid then t:AddLine("Instance ID unknown: the game didn't show it (no NPC seen, or hidden there). Re-entering within 30 minutes without a reset counts as the same copy.", 0.7, 0.7, 0.7, true) end
                     end,
                 }
             end
             instGrid:Show_(rows, "No instance visits recorded yet.")
-            zoneNote:SetText("One row per instance copy (Instance ID, read from the NPCs there). Entering the same copy again within 3 hours continues its row.")
+            zoneNote:SetText("One row per instance copy (Instance ID, read from the NPCs there when the game shows it). Entering it again within 30 minutes without a reset continues its row.")
         else
             local list = {}
             for _, z in pairs(zones) do if not z.inst then list[#list + 1] = z end end
