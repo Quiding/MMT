@@ -237,8 +237,24 @@ end
 M.Page = function(_, page)
     local panels, buttons = {}, {}
     local current = "gold"
+    -- notice on the tabs whose numbers stay on this account
+    local LOCAL_TABS = { kills = true, quests = true, leveling = true, zones = true }
+    local NOTICE_H = 24
+    local notice = CreateFrame("Frame", nil, page)
+    notice:SetPoint("TOPLEFT", 0, -32)
+    notice:SetSize(PAGE_W, NOTICE_H)
+    UI.Fill(notice, 1, 0.82, 0, 0.10)
+    UI.Border(notice, 1, 0.82, 0, 0.45)
+    local noticeText = UI.Label(notice, "", "GameFontNormal")
+    noticeText:SetPoint("LEFT", 10, 0)
+    noticeText:SetPoint("RIGHT", -10, 0)
+    noticeText:SetJustifyH("LEFT")
+    noticeText:SetWordWrap(false)
+    noticeText:SetTextColor(1, 0.82, 0)
+    noticeText:SetText("Account / character statistics: kept for this account's characters only and not shared with the team.")
     local function Show(key)
         current = key
+        notice:SetShown(LOCAL_TABS[key] == true)
         for k, p in pairs(panels) do p:SetShown(k == key) end
         for k, b in pairs(buttons) do
             if k == key then b.label:SetTextColor(A[1], A[2], A[3]) else b.label:SetTextColor(0.7, 0.7, 0.7) end
@@ -253,8 +269,9 @@ M.Page = function(_, page)
         b:SetPoint("TOPLEFT", (i - 1) * 116, 0)
         buttons[t[1]] = b
         local p = CreateFrame("Frame", nil, page)
-        p:SetPoint("TOPLEFT", 0, -32)
-        p:SetSize(PAGE_W, 520)
+        local shift = LOCAL_TABS[t[1]] and (NOTICE_H + 8) or 0
+        p:SetPoint("TOPLEFT", 0, -32 - shift)
+        p:SetSize(PAGE_W, 520 - shift)
         panels[t[1]] = p
     end
 
