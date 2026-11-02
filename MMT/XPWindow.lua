@@ -249,6 +249,21 @@ local function RowClick(row, button)
 end
 
 -- mouseover on a row: full name and all details of that member
+
+-- gold / silver / copper for the tooltip. The game's coin string (GetCoinTextureString) shifts each
+-- icon 2 px right of where its width is measured, so in a right-aligned tooltip line the last coin
+-- ran past the edge and was cut off: these icons have no offset, so drawn = measured
+local TIP_COIN = "|TInterface\\MoneyFrame\\UI-%sIcon:0:0:0:0|t"
+local function TipCoins(copper)
+    copper = math.floor(copper or 0)
+    local g, sv, c = math.floor(copper / 10000), math.floor(copper / 100) % 100, copper % 100
+    local parts = {}
+    if g > 0 then parts[#parts + 1] = g .. TIP_COIN:format("Gold") end
+    if g > 0 or sv > 0 then parts[#parts + 1] = sv .. TIP_COIN:format("Silver") end
+    parts[#parts + 1] = c .. TIP_COIN:format("Copper")
+    return table.concat(parts, " ")
+end
+
 local function RowTooltip(row)
     local key, s = row.key, row.status
     if not key or not s then return end
@@ -262,9 +277,7 @@ local function RowTooltip(row)
             tip:AddDoubleLine("Rested", ("%d XP (%d%%)"):format(s.rested, math.floor(s.rested / s.max * 100 + 0.5)), 0.75, 0.6, 1, 0.75, 0.6, 1)
         end
     end
-    -- the game's coin string draws each icon a few pixels right of where its width is measured:
-    -- a trailing space keeps the last coin inside the tooltip (it was clipped at the edge)
-    if s.money then tip:AddDoubleLine("Gold", (ns.CoinText(s.money) or ns.FormatMoney(s.money)) .. " ", 1, 1, 1, 1, 1, 1) end
+    if s.money then tip:AddDoubleLine("Gold", TipCoins(s.money), 1, 1, 1, 1, 1, 1) end
     if s.free then tip:AddDoubleLine("Bags", ("%d of %d slots free"):format(s.free, s.slots or 0), 1, 1, 1, 1, 1, 1) end
     if s.durMin then
         tip:AddDoubleLine("Durability", ("lowest %d%%, average %d%%"):format(s.durMin, s.durAvg or s.durMin), 1, 1, 1, 1, 1, 1)
