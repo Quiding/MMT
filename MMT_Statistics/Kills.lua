@@ -45,6 +45,7 @@ local function Count(name, guid, source)
     c.kills[name] = (c.kills[name] or 0) + 1
     c.killTotal = (c.killTotal or 0) + 1
     if mod.OnKill then mod.OnKill(name) end   -- level / zone / instance (Leveling.lua)
+    if mod.OnEncounterKill then mod.OnEncounterKill(name) end   -- an encounter's boss (KillTypes.lua)
     sources[source] = sources[source] + 1
     M:Debug("kill %s (%s): %s", name, source, mod.NpcKindText and mod.NpcKindText(name) or "?")
     if mod.Redraw then mod.Redraw() end

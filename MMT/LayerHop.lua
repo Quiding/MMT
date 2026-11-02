@@ -293,7 +293,8 @@ end)
 local sniffer = CreateFrame("Frame")
 sniffer:SetScript("OnEvent", function(_, event, ...)
     local e = event
-    if e:find("SHARD", 1, true) or e:find("LAYER", 1, true) or e:find("TRANSFER", 1, true)
+    -- (not just "LAYER": every PLAYER_* event contains it)
+    if e:find("SHARD", 1, true) or e:match("^LAYER") or e:find("_LAYER", 1, true) or e:find("TRANSFER", 1, true)
         or e == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" then
         local args = {}
         for i = 1, math.min(select("#", ...), 4) do args[i] = tostring((select(i, ...))) end

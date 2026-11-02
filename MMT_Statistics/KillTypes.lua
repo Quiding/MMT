@@ -131,44 +131,80 @@ M:On("UNIT_HEALTH", function(unit) if type(unit) == "string" and unit:match("^na
 -- Dungeon encounters
 ---------------------------------------------------------------------------
 local lastEncounter   -- debug report
+local encounter       -- { name, zk, raid, endedAt } the current / just ended encounter
+
+local function Won(success)
+    return success == 1 or success == true or success == "1"
+end
+
+-- marks the encounter's bosses (its name, its boss units) as dungeon bosses
+-- (raid: big baddies)
+local function MarkEncounter(e, extra)
+    local names = {}
+    if e.name then names[#names + 1] = e.name end
+    for unitName in pairs(encounterUnits) do names[#names + 1] = unitName end
+    if extra then names[#names + 1] = extra end
+    for _, nm in ipairs(names) do
+        local n = Npcs()[nm] or {}
+        MarkBoss(n, e.zk)
+        Npcs()[nm] = n
+    end
+    return names
+end
+
 M:On("ENCOUNTER_START", function(_, name)
     for k in pairs(encounterUnits) do encounterUnits[k] = nil end
-    M:Debug("encounter started: %s (%s)", tostring(Plain(name)), InRaid() and "raid" or "dungeon")
-    lastEncounter = ("%s, started %s"):format(tostring(Plain(name)), date("%H:%M"))
+    local zk = mod.CurrentZone()
+    encounter = { name = Plain(name), zk = zk, raid = InRaid() }
+    M:Debug("encounter started: %s (%s, %s)", tostring(encounter.name), encounter.raid and "raid" or "dungeon", tostring(zk))
+    lastEncounter = ("%s, started %s"):format(tostring(encounter.name), date("%H:%M"))
 end)
-M:On("ENCOUNTER_END", function(_, name, _, _, success)
-    if success ~= 1 and success ~= true then
-        M:Debug("encounter ended without a win: %s", tostring(Plain(name)))
-    end
-end)
-M:On("ENCOUNTER_END", function(_, name, _, _, success)
+
+M:On("ENCOUNTER_END", function(id, name, difficulty, size, success)
     name = Plain(name)
-    if success ~= 1 and success ~= true then return end
-    if type(name) ~= "string" or name == "" then return end
-    local zk, _, inst = mod.CurrentZone()   -- (Leveling.lua; not "x and f()": that keeps one value)
-    if not inst then return end
-    -- dungeon bosses; raid bosses are big baddies
-    local n = Npcs()[name] or {}
-    MarkBoss(n, zk)
-    Npcs()[name] = n
-    for unitName in pairs(encounterUnits) do
-        local u = Npcs()[unitName] or {}
-        MarkBoss(u, zk)
-        Npcs()[unitName] = u
+    local args = ("id %s, %s, difficulty %s, size %s, success %s"):format(tostring(Plain(id)), tostring(name),
+        tostring(Plain(difficulty)), tostring(Plain(size)), tostring(Plain(success)))
+    local e = encounter or { name = name, zk = mod.CurrentZone(), raid = InRaid() }
+    e.name = e.name or name
+    e.endedAt = GetTime()
+    encounter = e
+    if not Won(Plain(success)) then
+        M:Debug("encounter ended without a win: %s", args)
+        lastEncounter = ("%s, ended %s without a win (%s)"):format(tostring(e.name), date("%H:%M"), args)
+        return
     end
-    -- the bosses (a kill already counted in the last seconds isn't counted again);
-    -- without boss units the encounter's name
-    local names = {}
-    for unitName in pairs(encounterUnits) do names[#names + 1] = unitName end
-    if #names == 0 then names[1] = name end
+    local _, _, inst = mod.CurrentZone()
+    if not inst and not e.zk then
+        M:Debug("encounter won outside an instance (ignored): %s", args)
+        return
+    end
+    -- the bosses; a kill counted in the last seconds isn't counted again
+    local names = MarkEncounter(e)
     for k in pairs(encounterUnits) do encounterUnits[k] = nil end
     if mod.CountKill then
         for _, n2 in ipairs(names) do mod.CountKill(n2, "encounter") end
     end
-    M:Debug("encounter won: %s (%s) -> %s", name, InRaid() and "raid: big baddies" or "dungeon bosses",
+    M:Debug("encounter won: %s (%s) -> %s", tostring(e.name), e.raid and "raid: big baddies" or "dungeon bosses",
         table.concat(names, ", "))
-    lastEncounter = ("%s, won %s"):format(name, date("%H:%M"))
+    lastEncounter = ("%s, won %s (%s)"):format(tostring(e.name), date("%H:%M"), args)
 end)
+
+-- a kill during an encounter (or up to 10 s after it): the encounter's NPC
+-- itself is its boss even when ENCOUNTER_END doesn't come or doesn't say
+-- "won" (from Kills.lua)
+function mod.OnEncounterKill(name)
+    local e = encounter
+    if not e or not e.name then return end
+    if e.endedAt and GetTime() - e.endedAt > 10 then return end
+    if name == e.name or encounterUnits[name] then
+        local n = Npcs()[name] or {}
+        if not (n.d or n.rb) then
+            MarkBoss(n, e.zk)
+            Npcs()[name] = n
+            M:Debug("encounter boss killed: %s (%s)", name, e.raid and "raid: big baddie" or "dungeon boss")
+        end
+    end
+end
 
 ---------------------------------------------------------------------------
 -- Deaths: all of them, and by falling
