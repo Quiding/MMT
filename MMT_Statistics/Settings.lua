@@ -616,12 +616,12 @@ M.Page = function(_, page)
                         if r.leave then t:AddLine(("Left %s"):format(date("%Y-%m-%d %H:%M", r.leave)), 1, 1, 1) end
                         t:AddLine(mod.CharName(e.key, e.class), 0.7, 0.7, 0.7)
                         if (r.again or 0) > 0 then t:AddLine(("Entered %d more %s (the same copy)."):format(r.again, r.again == 1 and "time" or "times"), 1, 1, 1) end
-                        if not r.uid then t:AddLine(("#%d: this character's %d. visit of this instance. The game hides the real instance ID inside instances; re-entering within 30 minutes without a reset counts as the same visit."):format(e.nr, e.nr), 0.7, 0.7, 0.7, true) end
+                        if not r.uid then t:AddLine(("#%d: this character's %d. visit of this instance. The game hides the real instance ID inside instances; re-entering it, MMT asks whether it is the same instance."):format(e.nr, e.nr), 0.7, 0.7, 0.7, true) end
                     end,
                 }
             end
             instGrid:Show_(rows, "No instance visits recorded yet.")
-            zoneNote:SetText("One row per instance copy (Instance ID, read from the NPCs there when the game shows it). Entering it again within 30 minutes without a reset continues its row.")
+            zoneNote:SetText("One row per visit; re-entering an instance asks whether it is the same one (\"Same instance\" adds it to the earlier row). #1, #2: this character's visits of that instance.")
         else
             local list = {}
             for _, z in pairs(zones) do if not z.inst then list[#list + 1] = z end end
@@ -644,6 +644,9 @@ M.Page = function(_, page)
     SL:Check("Track kills and deaths", function() return M.db.trackKills end, function(v) M.db.trackKills = v end)
     SL:Check("Track leveling, zones and instances", function() return M.db.trackLeveling end, function(v) M.db.trackLeveling = v end,
         "Time played per level, zone and instance copy, with the quests, kills, deaths and experience there. For the Leveling and Zones tabs.")
+    SL:Check("Ask if a re-entered instance is the same", function() return M.db.askSameInstance ~= false end,
+        function(v) M.db.askSameInstance = v end,
+        "Entering an instance you left within the last 3 hours (no reset since) asks whether it is the same instance as before; \"Same instance\" adds the visit to the earlier row. Off: every entry is a new row. (The game hides the instance ID from addons.)")
     SL:Check("Track quests", function() return M.db.trackQuests end, function(v) M.db.trackQuests = v end,
         "Records the quests each character accepts, completes (with its level, the experience and the money of the reward) and abandons. For the export (Quests). Not sent to the team.")
     SL:Check("Share with the team", function() return M.db.share end, function(v) M.db.share = v; if v then mod.SendNow() end end,

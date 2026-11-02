@@ -13,9 +13,10 @@
 -- "n:<name>" when the map API has nothing.
 -- Instance copies: the 5th part of a creature GUID inside an instance (as
 -- NovaInstanceTracker reads it: Creature-0-server-map-copyID-npcID-spawn);
--- entering the same copy again continues its run. WoW: Forever may hide those
--- GUIDs inside instances: then re-entering the same instance within 30 min
--- without a reset message counts as the same copy.
+-- entering the same copy again continues its run. WoW: Forever hides those
+-- GUIDs inside instances: then every entry starts a new row, and when the
+-- same instance was left within 3 hours (no reset since) the player is asked
+-- whether it is the same copy ("Same instance" merges the rows).
 -- Time counts every 5 s while logged in (gaps over 30 s, e.g. a frozen
 -- client, count as 30 s).
 
@@ -29,7 +30,7 @@ local function Plain(v) if v == nil or IsSecret(v) then return nil end return v 
 mod.MAX_TRACKED_LEVEL = 59
 local MAX_RUNS = 300
 local MERGE_GAP = 3 * 3600   -- the same instance copy within 3 hours: one run
-local SAME_COPY_GAP = 30 * 60   -- re-entered within 30 min, no reset: the same copy
+local ASK_GAP = 3 * 3600   -- re-entered within 3 hours, no reset: ask whether it is the same copy
 
 ---------------------------------------------------------------------------
 -- Records
@@ -101,22 +102,19 @@ local function UpdateZone()
     if inst then
         if not run or run.map ~= map then
             if run then run.leave = time() end
-            -- the same instance re-entered soon after leaving it, without a reset in
-            -- between, is the same copy (WoW: Forever hides creature GUIDs inside
-            -- instances, so the copy ID often can't be read); a different copy ID
-            -- seen later splits it again (SeeGUID)
+            -- every entry starts a new row (WoW: Forever hides the instance copy ID);
+            -- when the last row is the same instance, left within 3 hours and not
+            -- reset since, the player is asked whether it is the same copy (as
+            -- NovaInstanceTracker does) and the rows are merged on "Same instance"
             local last = c.runs[#c.runs]
+            run = { map = map, n = name, enter = time(), t = 0, k = 0, d = 0, xp = 0 }
+            table.insert(c.runs, run)
+            while #c.runs > MAX_RUNS do table.remove(c.runs, 1) end
+            M:Debug("instance entered: %s (%d)", tostring(name), map)
             if last and last.map == map and last.leave and not last.reset
-                and time() - last.leave < SAME_COPY_GAP then
-                run = last
-                run.leave = nil
-                run.again = (run.again or 0) + 1
-                M:Debug("instance entered again: %s (%d), same copy assumed", tostring(name), map)
-            else
-                run = { map = map, n = name, enter = time(), t = 0, k = 0, d = 0, xp = 0 }
-                table.insert(c.runs, run)
-                while #c.runs > MAX_RUNS do table.remove(c.runs, 1) end
-                M:Debug("instance entered: %s (%d)", tostring(name), map)
+                and time() - last.leave < ASK_GAP and M.db.askSameInstance ~= false then
+                local new = run
+                C_Timer.After(2, function() mod.AskSameInstance(last, new) end)
             end
             run.seenAt = time()   -- the copy ID is checked again after each entry
             run.checked = nil
@@ -138,6 +136,36 @@ local function Why(reason, ...)
     said[reason] = true
     M:Debug("instance copy: " .. reason, ...)
 end
+-- adds src's numbers to target and drops src; the current run follows
+local function MergeRuns(target, src)
+    local c = mod.Char()
+    if not c or target == src then return end
+    target.t, target.k = (target.t or 0) + (src.t or 0), (target.k or 0) + (src.k or 0)
+    target.d, target.xp = (target.d or 0) + (src.d or 0), (target.xp or 0) + (src.xp or 0)
+    target.again = (target.again or 0) + 1 + (src.again or 0)
+    target.leave = src.leave
+    target.uid = target.uid or src.uid
+    for j = #c.runs, 1, -1 do if c.runs[j] == src then table.remove(c.runs, j) end end
+    if run == src then run = target; target.leave = nil end
+    if mod.Redraw then mod.Redraw() end
+end
+mod.MergeRuns = MergeRuns
+
+function mod.AskSameInstance(last, new)
+    local c = mod.Char()
+    if not c then return end
+    local present = false
+    for _, r in ipairs(c.runs) do if r == new then present = true end end
+    if not present or new.uid then return end   -- merged meanwhile, or the copy ID decided
+    MMT.UI.Confirm(("You entered %s again.\n\nIs this the same instance as your visit from %s? \"New instance\" keeps it as a separate row."):format(
+            new.n or "the instance", date("%H:%M", last.enter or time())),
+        "Same instance", function()
+            MergeRuns(last, new)
+            M:Debug("instance: merged with the visit from %s (player)", date("%H:%M", last.enter or 0))
+        end,
+        "New instance")
+end
+
 local function SeeGUID(unit)
     if not run or run.checked then return end
     -- not MMT.Safe: it turns a secret value into nil, and the debug line
@@ -157,25 +185,13 @@ local function SeeGUID(unit)
     end
     run.checked = true
     local c = mod.Char()
-    if run.uid and run.uid ~= uid then
-        -- assumed the same copy, but it is a new one: a new run from this entry
-        run.leave = run.seenAt
-        run.again = math.max(0, (run.again or 1) - 1)
-        run = { map = run.map, n = run.n, enter = run.seenAt or time(), t = 0, k = 0, d = 0, xp = 0, uid = uid, checked = true }
-        table.insert(c.runs, run)
-        M:Debug("instance copy %d is new: new run", uid)
-        return
-    end
     run.uid = uid
+    -- the same copy ID as an earlier visit (within 3 hours, no reset): merged without asking
     for i = #c.runs, 1, -1 do
         local r = c.runs[i]
         if r ~= run and r.map == run.map and r.uid == uid and not r.reset and (time() - (r.leave or r.enter)) < MERGE_GAP then
-            r.t, r.k, r.d, r.xp = (r.t or 0) + run.t, (r.k or 0) + run.k, (r.d or 0) + run.d, (r.xp or 0) + run.xp
-            r.leave = nil
-            r.again = (r.again or 0) + 1
-            for j = #c.runs, 1, -1 do if c.runs[j] == run then table.remove(c.runs, j) end end
-            run = r
-            M:Debug("instance copy %d again: run continued", uid)
+            MergeRuns(r, run)
+            M:Debug("instance copy %d again: merged with the earlier visit", uid)
             return
         end
     end

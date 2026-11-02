@@ -38,6 +38,7 @@ local M = MMT.NewModule({
         sendEvery   = 5,        -- minutes: at most one summary per this time
         questScope  = "CHAR",   -- Quests tab: CHAR | ACCOUNT
         trackLeveling = true,   -- time per level / zone / instance, xp (Leveling.lua)
+        askSameInstance = true, -- re-entered instance: ask whether it is the same copy
         levelScope  = "CHAR",   -- Leveling tab: CHAR | ACCOUNT | TEAM | ALL
         zoneScope   = "CHAR",   -- Zones tab: CHAR | ACCOUNT
         zoneView    = "ZONES",  -- ZONES | INSTANCES
@@ -472,7 +473,7 @@ M.Report = function(_, add)
     local nChars, nAcc = 0, 0
     for _ in pairs(s.chars) do nChars = nChars + 1 end
     for _ in pairs(s.accounts) do nAcc = nAcc + 1 end
-    add(("-- Statistics 1.0.22  account=%s characters=%d otherAccounts=%d gold=%s kills=%s share=%s"):format(
+    add(("-- Statistics 1.0.23  account=%s characters=%d otherAccounts=%d gold=%s kills=%s share=%s"):format(
         s.accountId, nChars, nAcc, tostring(M.db.trackGold), tostring(M.db.trackKills), tostring(M.db.share)))
     for key, c in pairs(s.chars) do
         local n = 0
