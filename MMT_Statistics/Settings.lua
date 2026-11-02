@@ -551,13 +551,14 @@ M.Page = function(_, page)
     }, ZONE_ROWS)
     zoneGrid:SetPoint("TOPLEFT", 0, zy)
     local instGrid = Grid(zp, {
-        { "Instance Name", x = 8, w = 180 },
-        { "Instance ID", right = 270, w = 76 },
-        { "Time Spent", right = 370, w = 96 },
-        { "NPC kills", right = 440, w = 64 },
-        { "Quests", right = 500, w = 54 },
-        { "XP Gathered", right = 600, w = 94 },
-        { "XP/hr", right = PAGE_W - 8, w = 84 },
+        { "Instance Name", x = 8, w = 150 },
+        { "ID", right = 206, w = 46 },
+        { "Time Spent", right = 300, w = 90 },
+        { "Kills", right = 346, w = 42 },
+        { "Quests", right = 400, w = 50 },
+        { "XP Gathered", right = 490, w = 86 },
+        { "XP/hr", right = 560, w = 66 },
+        { "Money", right = PAGE_W - 8, w = 126 },
     }, ZONE_ROWS)
     instGrid:SetPoint("TOPLEFT", 0, zy)
     local zoneNote = UI.Label(zp, "")
@@ -610,7 +611,7 @@ M.Page = function(_, page)
                 local perHour = (r.t or 0) >= 60 and (r.xp or 0) / (r.t / 3600) or nil
                 rows[#rows + 1] = {
                     cells = { r.n or ("Instance " .. tostring(r.map)), r.uid and tostring(r.uid) or ("#" .. e.nr), mod.Duration(r.t),
-                        Num(r.k), Num(r.q or 0), Num(r.xp), perHour and Num(perHour) or "-" },
+                        Num(r.k), Num(r.q or 0), Num(r.xp), perHour and Num(perHour) or "-", mod.Money(r.cp or 0) },
                     tip = function(t)
                         t:SetText(r.n or "Instance")
                         t:AddLine(("Entered %s"):format(date("%Y-%m-%d %H:%M", r.enter or 0)), 1, 1, 1)

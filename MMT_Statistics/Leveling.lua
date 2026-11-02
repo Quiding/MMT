@@ -6,7 +6,7 @@
 --                 partial = true while L was already running when tracking began }
 --   zones[zoneKey] = { n = name, inst = true for instances, t, k, d, q, xp }
 --   runs = { { map = instance map ID, n = name, uid = instance copy ID,
---              enter, leave, t, k, d, xp }, ... }   newest last, at most 300
+--              enter, leave, t, k, d, q, xp, cp = money gained }, ... }   newest last, at most 300
 --   killDetail[npc] = { ["<level>|<zoneKey>"] = count }   (also deathDetail)
 -- Zone keys: "z:<uiMapID>" (the main zone: Goldshire counts as Elwynn Forest),
 -- "i:<instanceMapID>" (every dungeon / raid / battleground its own zone),
@@ -210,6 +210,7 @@ local function MergeRuns(target, src)
     target.t, target.k = (target.t or 0) + (src.t or 0), (target.k or 0) + (src.k or 0)
     target.d, target.xp = (target.d or 0) + (src.d or 0), (target.xp or 0) + (src.xp or 0)
     target.q = (target.q or 0) + (src.q or 0)
+    target.cp = (target.cp or 0) + (src.cp or 0)
     target.again = (target.again or 0) + 1 + (src.again or 0)
     target.leave = src.leave
     target.uid = target.uid or src.uid
@@ -403,6 +404,15 @@ M:On("PLAYER_LEVEL_UP", function(newLevel)
     if mod.Redraw then mod.Redraw() end
 end)
 M:On("PLAYER_XP_UPDATE", function(unit) if unit == nil or unit == "player" then OnXP() end end)
+-- money gained in an instance (loot, quest rewards; spending doesn't count)
+local lastMoney
+M:On("PLAYER_MONEY", function()
+    local now = tonumber(Plain(Safe(GetMoney)))
+    if not now then return end
+    local gained = lastMoney and now - lastMoney or 0
+    lastMoney = now
+    if gained > 0 and run and M.db.trackLeveling then run.cp = (run.cp or 0) + gained end
+end)
 for _, e in ipairs({ "ZONE_CHANGED_NEW_AREA", "ZONE_CHANGED", "ZONE_CHANGED_INDOORS" }) do
     M:On(e, function() Tick() UpdateZone() end)
 end
@@ -428,6 +438,7 @@ local function Start()
     if started then return end
     started = true
     xpLevel, xpCur, xpMax = ReadXP()
+    lastMoney = tonumber(Plain(Safe(GetMoney)))
     UpdateZone()
     lastTick = GetTime()
     C_Timer.NewTicker(5, function() Tick() end)   -- (the ticker passes itself)

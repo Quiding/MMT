@@ -194,7 +194,8 @@ Saved data from MMT 0.1.x is converted automatically.
     entry is a new row, and re-entering an instance left within 3 hours without a reset asks
     whether it is the same one: "Same instance" merges the rows; after a /reload or a relog
     within 2 minutes in the instance it is the same without asking; visits numbered #1, #2)
-    with quests completed (their XP counts for XP and XP/hr). Chat notes on entering: new or
+    with quests completed (their XP counts for XP and XP/hr) and money gained (loot, quest
+    rewards). Chat notes on entering: new or
     the same instance, and how many instances the account entered in the last hour (limit 5) with
     XP per hour; tiles for the favourite zone by time and by kills. Kills and deaths are
     also kept with the character level and the zone they happened in.
