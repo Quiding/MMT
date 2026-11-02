@@ -551,14 +551,16 @@ M.Page = function(_, page)
     }, ZONE_ROWS)
     zoneGrid:SetPoint("TOPLEFT", 0, zy)
     local instGrid = Grid(zp, {
-        { "Instance Name", x = 8, w = 150 },
-        { "ID", right = 206, w = 46 },
-        { "Time Spent", right = 300, w = 90 },
-        { "Kills", right = 346, w = 42 },
-        { "Quests", right = 400, w = 50 },
-        { "XP Gain", right = 490, w = 86 },
-        { "XP/hr", right = 560, w = 66 },
-        { "Money", right = PAGE_W - 8, w = 126 },
+        { "Instance Name", x = 8, w = 116 },
+        { "ID", right = 168, w = 38 },
+        { "Lvl In", right = 214, w = 42 },
+        { "Lvl Out", right = 264, w = 46 },
+        { "Time Spent", right = 338, w = 70 },
+        { "Kills", right = 380, w = 38 },
+        { "Quests", right = 430, w = 46 },
+        { "XP Gain", right = 498, w = 64 },
+        { "XP/hr", right = 562, w = 60 },
+        { "Money", right = PAGE_W - 8, w = 124 },
     }, ZONE_ROWS)
     instGrid:SetPoint("TOPLEFT", 0, zy)
     local zoneNote = UI.Label(zp, "")
@@ -610,12 +612,17 @@ M.Page = function(_, page)
                 local r = e.r
                 local perHour = (r.t or 0) >= 60 and (r.xp or 0) / (r.t / 3600) or nil
                 rows[#rows + 1] = {
-                    cells = { r.n or ("Instance " .. tostring(r.map)), r.uid and tostring(r.uid) or ("#" .. e.nr), mod.Clock(r.t),
+                    cells = { r.n or ("Instance " .. tostring(r.map)), r.uid and tostring(r.uid) or ("#" .. e.nr),
+                        r.lvIn and tostring(r.lvIn) or "",
+                        (r.lvOut and not (r.leave == nil and e.key == me)) and tostring(r.lvOut)
+                            or ((r.leave == nil and e.key == me) and (mod.LevelNow() .. "*") or ""),
+                        mod.Clock(r.t),
                         Num(r.k), Num(r.q or 0), Num(r.xp), perHour and Num(perHour) or "-", mod.Money(r.cp or 0) },
                     tip = function(t)
                         t:SetText(r.n or "Instance")
                         t:AddLine(("Entered %s"):format(date("%Y-%m-%d %H:%M", r.enter or 0)), 1, 1, 1)
-                        if r.leave then t:AddLine(("Left %s"):format(date("%Y-%m-%d %H:%M", r.leave)), 1, 1, 1) end
+                        if r.leave then t:AddLine(("Left %s"):format(date("%Y-%m-%d %H:%M", r.leave)), 1, 1, 1)
+                        else t:AddLine("Still inside (* = level now).", 1, 1, 1) end
                         t:AddLine(mod.CharName(e.key, e.class), 0.7, 0.7, 0.7)
                         if (r.again or 0) > 0 then t:AddLine(("Entered %d more %s (the same copy)."):format(r.again, r.again == 1 and "time" or "times"), 1, 1, 1) end
                         if not r.uid then t:AddLine(("#%d: this character's %d. visit of this instance. The game hides the real instance ID inside instances; re-entering it, MMT asks whether it is the same instance."):format(e.nr, e.nr), 0.7, 0.7, 0.7, true) end

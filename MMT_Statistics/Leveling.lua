@@ -6,7 +6,8 @@
 --                 partial = true while L was already running when tracking began }
 --   zones[zoneKey] = { n = name, inst = true for instances, t, k, d, q, xp }
 --   runs = { { map = instance map ID, n = name, uid = instance copy ID,
---              enter, leave, t, k, d, q, xp, cp = money gained }, ... }   newest last, at most 300
+--              enter, leave, t, k, d, q, xp, cp = money gained,
+--              lvIn / lvOut = character level on entering / leaving }, ... }   newest last, at most 300
 --   killDetail[npc] = { ["<level>|<zoneKey>"] = count }   (also deathDetail)
 -- Zone keys: "z:<uiMapID>" (the main zone: Goldshire counts as Elwynn Forest),
 -- "i:<instanceMapID>" (every dungeon / raid / battleground its own zone),
@@ -103,7 +104,7 @@ local function UpdateZone()
     c.runs = c.runs or {}
     if inst then
         if not run or run.map ~= map then
-            if run then run.leave = time() end
+            if run then run.leave, run.lvOut = time(), Level() end
             -- every entry starts a new row (WoW: Forever hides the instance copy ID);
             -- when the last row is the same instance, left within 3 hours and not
             -- reset since, the player is asked whether it is the same copy (as
@@ -120,7 +121,7 @@ local function UpdateZone()
                 M:Debug("instance: back in %s after a reload: same instance", tostring(name))
                 mod.InstanceNote(("Back in %s after a reload: same instance (%s)."):format(tostring(name), mod.RunLabel(run)))
             else
-                run = { map = map, n = name, enter = time(), t = 0, k = 0, d = 0, q = 0, xp = 0 }
+                run = { map = map, n = name, enter = time(), t = 0, k = 0, d = 0, q = 0, xp = 0, lvIn = Level() }
                 table.insert(c.runs, run)
                 while #c.runs > MAX_RUNS do table.remove(c.runs, 1) end
                 M:Debug("instance entered: %s (%d)", tostring(name), map)
@@ -138,12 +139,13 @@ local function UpdateZone()
             for k in pairs(said) do said[k] = nil end
         end
     elseif run then
-        run.leave = time()
+        run.leave, run.lvOut = time(), Level()
         run = nil
     end
     if key then sessionZoneRead = true end
 end
 mod.UpdateZone = UpdateZone
+function mod.LevelNow() return Level() end
 -- as after a UI reload (test harness)
 function mod.ForgetSession() run, sessionZoneRead = nil, nil end
 
@@ -213,6 +215,8 @@ local function MergeRuns(target, src)
     target.cp = (target.cp or 0) + (src.cp or 0)
     target.again = (target.again or 0) + 1 + (src.again or 0)
     target.leave = src.leave
+    target.lvIn = target.lvIn or src.lvIn
+    target.lvOut = src.lvOut or target.lvOut
     target.uid = target.uid or src.uid
     for j = #c.runs, 1, -1 do if c.runs[j] == src then table.remove(c.runs, j) end end
     if run == src then run = target; target.leave = nil end
@@ -431,7 +435,7 @@ M:On("PLAYER_REGEN_ENABLED", function()
         for i = 1, 40 do if run and not run.checked then SeeGUID("nameplate" .. i) end end
     end)
 end)
-M:On("PLAYER_LOGOUT", function() Tick() if run then run.leave = time() end end)
+M:On("PLAYER_LOGOUT", function() Tick() if run then run.leave, run.lvOut = time(), Level() end end)
 
 local started
 local function Start()
