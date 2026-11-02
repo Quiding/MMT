@@ -468,6 +468,13 @@ local function FavZone(c, z)
     return best and (c.zones and c.zones[best] and c.zones[best].n or best:gsub("^%a:", ""))
 end
 
+-- "hh:mm:ss" (hours go past 24: "123:04:05")
+function mod.Clock(seconds)
+    if not seconds then return "" end
+    seconds = math.floor(seconds)
+    return ("%02d:%02d:%02d"):format(math.floor(seconds / 3600), math.floor(seconds / 60) % 60, seconds % 60)
+end
+
 -- a character's levels in the compact form sent to the team:
 -- { [L] = { t, q, k, d, z = favourite zone name, done = time or nil, p = partial } }
 function mod.CompactLevels(c)

@@ -188,7 +188,7 @@ Saved data from MMT 0.1.x is converted automatically.
     (dd:hh:mm:ss), when it was reached, quests completed, NPCs killed, deaths and the zone
     the most time was spent in; for this character, or the averages of this account, the
     team or all accounts (other accounts send their levels with the summary).
-  - Zones: time, NPC kills, quests and experience per main zone (a town counts for its
+  - Zones: time (hh:mm:ss), NPC kills, quests and XP gain per main zone (a town counts for its
     zone), and per instance copy (Instance ID read from the NPCs' GUIDs as
     NovaInstanceTracker does, when the game shows it; WoW: Forever hides it, so every
     entry is a new row, and re-entering an instance left within 3 hours without a reset asks

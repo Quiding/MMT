@@ -547,7 +547,7 @@ M.Page = function(_, page)
         { "Time Spent", right = 380, w = 110 },
         { "NPC kills", right = 470, w = 80 },
         { "Quests completed", right = 590, w = 110 },
-        { "XP gathered", right = PAGE_W - 8, w = 90 },
+        { "XP Gain", right = PAGE_W - 8, w = 90 },
     }, ZONE_ROWS)
     zoneGrid:SetPoint("TOPLEFT", 0, zy)
     local instGrid = Grid(zp, {
@@ -556,7 +556,7 @@ M.Page = function(_, page)
         { "Time Spent", right = 300, w = 90 },
         { "Kills", right = 346, w = 42 },
         { "Quests", right = 400, w = 50 },
-        { "XP Gathered", right = 490, w = 86 },
+        { "XP Gain", right = 490, w = 86 },
         { "XP/hr", right = 560, w = 66 },
         { "Money", right = PAGE_W - 8, w = 126 },
     }, ZONE_ROWS)
@@ -610,7 +610,7 @@ M.Page = function(_, page)
                 local r = e.r
                 local perHour = (r.t or 0) >= 60 and (r.xp or 0) / (r.t / 3600) or nil
                 rows[#rows + 1] = {
-                    cells = { r.n or ("Instance " .. tostring(r.map)), r.uid and tostring(r.uid) or ("#" .. e.nr), mod.Duration(r.t),
+                    cells = { r.n or ("Instance " .. tostring(r.map)), r.uid and tostring(r.uid) or ("#" .. e.nr), mod.Clock(r.t),
                         Num(r.k), Num(r.q or 0), Num(r.xp), perHour and Num(perHour) or "-", mod.Money(r.cp or 0) },
                     tip = function(t)
                         t:SetText(r.n or "Instance")
@@ -630,10 +630,10 @@ M.Page = function(_, page)
             table.sort(list, function(a, b) if a.t ~= b.t then return a.t > b.t end return (a.n or "") < (b.n or "") end)
             local rows = {}
             for _, z in ipairs(list) do
-                rows[#rows + 1] = { cells = { z.n or "?", mod.Duration(z.t), Num(z.k), Num(z.q), Num(z.xp) } }
+                rows[#rows + 1] = { cells = { z.n or "?", mod.Clock(z.t), Num(z.k), Num(z.q), Num(z.xp) } }
             end
             zoneGrid:Show_(rows, "No zones recorded yet.")
-            zoneNote:SetText("Main zones only (a town counts for its zone). Time in dd:hh:mm:ss while logged in; XP includes quest rewards.")
+            zoneNote:SetText("Main zones only (a town counts for its zone). Time in hh:mm:ss while logged in; XP includes quest rewards.")
         end
     end
 
