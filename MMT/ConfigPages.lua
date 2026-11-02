@@ -89,10 +89,85 @@ local function RowBackground(row, index)
     return bg
 end
 
+-- dots to drag a list row by
+local function Grip(row)
+    local g = CreateFrame("Frame", nil, row)
+    g:SetSize(6, 10)
+    g:SetPoint("LEFT", 4, 0)
+    for c = 0, 1 do
+        for r = 0, 2 do
+            local d = g:CreateTexture(nil, "OVERLAY")
+            d:SetSize(2, 2)
+            d:SetPoint("TOPLEFT", c * 4, -r * 4)
+            d:SetColorTexture(1, 1, 1, 0.35)
+            g[#g + 1] = d
+        end
+    end
+    function g:Light(on) for _, t in ipairs(self) do t:SetColorTexture(1, 1, 1, on and 0.9 or 0.35) end end
+    return g
+end
+
+-- drag & drop for the rows of a List (the XP window's pieces, the team):
+-- onDrop(fromIndex, beforeIndex | nil = to the end); the list scrolls when the
+-- cursor leaves it while dragging; a line shows where the row goes
+local function DragReorder(list, visible, rowH, onDrop)
+    local marker = list:CreateTexture(nil, "OVERLAY")
+    marker:SetColorTexture(A[1], A[2], A[3], 1)
+    marker:SetHeight(2)
+    marker:Hide()
+    local from, nextScroll
+    local function Slot()
+        local data, top = list.data, list:GetTop()
+        if not data or not top or not from then return end
+        local _, y = GetCursorPosition()
+        local dy = top - y / list:GetEffectiveScale()
+        local gap = math.max(0, math.min(visible, math.floor(dy / rowH + 0.5)))
+        return math.max(1, math.min(#data + 1, list.offset + gap + 1)), dy
+    end
+    local function Stop()
+        list:SetScript("OnUpdate", nil)
+        marker:Hide()
+        from = nil
+    end
+    for _, row in ipairs(list.rows) do
+        row:RegisterForDrag("LeftButton")
+        row:SetScript("OnDragStart", function(self)
+            if not self.index then return end
+            GameTooltip:Hide()
+            from, nextScroll = self.index, nil
+            list:SetScript("OnUpdate", function()
+                local slot, dy = Slot()
+                if not slot then return end
+                local now = GetTime()
+                if (dy < 0 or dy > list:GetHeight()) and (not nextScroll or now >= nextScroll) then
+                    nextScroll = now + 0.15
+                    list:GetScript("OnMouseWheel")(list, dy < 0 and 1 or -1)
+                    slot = Slot()
+                end
+                if slot == from or slot == from + 1 then marker:Hide() return end
+                local y = -(slot - 1 - list.offset) * rowH + 1
+                marker:ClearAllPoints()
+                marker:SetPoint("TOPLEFT", list, "TOPLEFT", 0, y)
+                marker:SetPoint("TOPRIGHT", list, "TOPRIGHT", 0, y)
+                marker:Show()
+            end)
+        end)
+        row:SetScript("OnDragStop", function()
+            local f, data = from, list.data
+            local slot = Slot()
+            Stop()
+            if not slot or slot == f or slot == f + 1 then return end
+            onDrop(f, slot <= #data and slot or nil)
+        end)
+    end
+    list:HookScript("OnHide", Stop)
+end
+
 -- shared with modules for their own settings pages
 ns.ConfigHelpers = {
     PAGE_W = PAGE_W, COL_W = COL_W, COL2_X = COL2_X,
     StatusLine = StatusLine, ConfirmButton = ConfirmButton, List = List, RowBackground = RowBackground,
+    Grip = Grip, DragReorder = DragReorder,
 }
 
 ---------------------------------------------------------------------------
@@ -101,16 +176,17 @@ ns.ConfigHelpers = {
 ns.RegisterPage("team", "Team", function(page)
     local col = UI.Column(page, 0, 0, PAGE_W)
     col:Header("Team members")
-    col:Note("The characters of your team, in the order the XP window shows them. Green dot = online with MMT.")
+    col:Note("The characters of your team, in the order the XP window shows them: drag a row by its dots to move it. Green dot = online with MMT.")
 
     local list = List(page, PAGE_W, 8, 22, function(parent, i)
         local row = CreateFrame("Frame", nil, parent)
         RowBackground(row, i)
+        row.grip = Grip(row)
         row.dot = row:CreateTexture(nil, "ARTWORK")
         row.dot:SetSize(6, 6)
-        row.dot:SetPoint("LEFT", 8, 0)
+        row.dot:SetPoint("LEFT", 18, 0)
         row.name = UI.Label(row, "")
-        row.name:SetPoint("LEFT", 22, 0)
+        row.name:SetPoint("LEFT", 32, 0)
         row.roles = UI.Label(row, "")
         row.roles:SetPoint("LEFT", 220, 0)
         row.roles:SetWidth(330)
@@ -119,16 +195,15 @@ ns.RegisterPage("team", "Team", function(page)
         row.roles:SetTextColor(0.55, 0.55, 0.55)
         row.remove = UI.TextButton(row, "x", function() ns.RemoveMember(row.key); ns.Refresh() end)
         row.remove:SetPoint("RIGHT", -2, 0)
-        row.down = UI.TextButton(row, "Dn", function() ns.MoveMember(row.key, 1); ns.Refresh() end, 26)
-        row.down:SetPoint("RIGHT", row.remove, "LEFT", -2, 0)
-        row.up = UI.TextButton(row, "Up", function() ns.MoveMember(row.key, -1); ns.Refresh() end, 26)
-        row.up:SetPoint("RIGHT", row.down, "LEFT", -2, 0)
         ns.HoverMember(row, function() return row.key end, function(tip, key)
             tip:AddLine("Team key: " .. key, 0.5, 0.5, 0.5)
+            tip:AddLine("Drag to change the order.", 0.5, 0.5, 0.5)
         end)
+        row:HookScript("OnEnter", function(self) self.grip:Light(true) end)
+        row:HookScript("OnLeave", function(self) self.grip:Light(false) end)
         return row
-    end, function(row, key)
-        row.key = key
+    end, function(row, key, index)
+        row.key, row.index = key, index
         local m = ns.db.team[key]
         row.name:SetText(ns.FirstName(key))
         local c = m.class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[m.class]
@@ -138,6 +213,12 @@ ns.RegisterPage("team", "Team", function(page)
         row.roles:SetText(roles ~= "" and roles or "no roles")
     end)
     col:Add(list, 8 * 22)
+    -- drag a member up or down (the XP window's order)
+    DragReorder(list, 8, 22, function(from, before)
+        local data = list.data
+        ns.MoveMemberBefore(data[from], before and data[before] or nil)
+        ns.Refresh()
+    end)
     local empty = UI.Label(page, "No team members yet. Group up and press \"Add group\", or type a name below.")
     empty:SetPoint("TOPLEFT", list, "TOPLEFT", 8, -4)
     empty:SetTextColor(0.5, 0.5, 0.5)
@@ -490,147 +571,75 @@ ns.RegisterPage("xp", "XP Window", function(page)
     }, gbm, sbm)
     L:Check("Class colours", Opt("xp", "classColors"))
 
-    -- pieces of a row (XPPieces.lua): left of the bar first, then on the bar; drag the dots to
-    -- reorder within a side, "left" / "bar" switches the side, "on" / "off" shows it
-    L:Header("Pieces")
+    -- pieces of a row (XPPieces.lua), left to right, the name among them: drag the dots
+    -- to move one, "on" / "off" shows it
+    L:Header("Pieces (left to right)")
     local pieces
     local function Shown()
         local out = {}
-        for _, side in ipairs({ "LEFT", "RIGHT" }) do
-            for _, e in ipairs(ns.XPPieceOrder()) do
-                if e.side == side and ns.xpPieces[e.id] then out[#out + 1] = e end
-            end
+        for _, e in ipairs(ns.XPPieceOrder()) do
+            if ns.xpPieces[e.id] then out[#out + 1] = e end
         end
         return out
     end
     local function Redraw() pieces:Render(Shown()) end
-    local PIECE_ROWS, PIECE_H = 6, 20
+    local PIECE_ROWS, PIECE_H = 7, 20
     pieces = List(page, COL_W, PIECE_ROWS, PIECE_H, function(parent, i)
         local row = CreateFrame("Frame", nil, parent)
         RowBackground(row, i)
-        -- the side's colour: a strip at the left edge and a faint tint
         row.tint = row:CreateTexture(nil, "BACKGROUND", nil, 1)
         row.tint:SetAllPoints()
         row.strip = row:CreateTexture(nil, "ARTWORK")
         row.strip:SetPoint("TOPLEFT"); row.strip:SetPoint("BOTTOMLEFT")
         row.strip:SetWidth(2)
-        row.grip = CreateFrame("Frame", nil, row)
-        row.grip:SetSize(6, 10)
-        row.grip:SetPoint("LEFT", 4, 0)
-        for c = 0, 1 do
-            for r = 0, 2 do
-                local d = row.grip:CreateTexture(nil, "OVERLAY")
-                d:SetSize(2, 2)
-                d:SetPoint("TOPLEFT", c * 4, -r * 4)
-                d:SetColorTexture(1, 1, 1, 0.35)
-                row.grip[#row.grip + 1] = d
-            end
-        end
+        row.grip = Grip(row)
         row.toggle = UI.TextButton(row, "", function()
-            if row.entry then ns.SetXPPiece(row.entry.id, not row.entry.on); Redraw() end
-        end, 26)
-        row.toggle:SetPoint("RIGHT", -2, 0)
-        UI.Tooltip(row.toggle, "On / off", "Switched-off pieces stay in the list but aren't shown.")
-        row.side = UI.TextButton(row, "", function()
             local e = row.entry
-            if e then ns.MoveXPPiece(e.id, e.side == "LEFT" and "RIGHT" or "LEFT"); Redraw() end
-        end, 30)
-        row.side:SetPoint("RIGHT", row.toggle, "LEFT", -4, 0)
-        UI.Tooltip(row.side, "Left or on the bar", "Left: in the column left of the bar (gold, bags, ...). Bar: on the bar, right side (level, XP %, ...).")
+            if e and not (ns.xpPieces[e.id] and ns.xpPieces[e.id].fixed) then ns.SetXPPiece(e.id, not e.on); Redraw() end
+        end, 40)
+        row.toggle:SetPoint("RIGHT", -2, 0)
+        UI.Tooltip(row.toggle, "On / off", "Switched-off pieces stay in the list but aren't shown. The name is always shown.")
         row.text = UI.Label(row, "")
         row.text:SetPoint("LEFT", row.grip, "RIGHT", 6, 0)
-        row.text:SetPoint("RIGHT", row.side, "LEFT", -4, 0)
+        row.text:SetPoint("RIGHT", row.toggle, "LEFT", -4, 0)
         row.text:SetJustifyH("LEFT")
         row.text:SetWordWrap(false)
         row:EnableMouse(true)
         row:SetScript("OnEnter", function(self)
             local d = self.entry and ns.xpPieces[self.entry.id]
-            for _, t in ipairs(self.grip) do t:SetColorTexture(1, 1, 1, 0.9) end
+            self.grip:Light(true)
             if not d then return end
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
             GameTooltip:SetText(d.title)
             if d.tip then GameTooltip:AddLine(d.tip, 1, 1, 1, true) end
-            GameTooltip:AddLine("Drag to move it among the pieces of its side.", 0.6, 0.6, 0.6)
+            GameTooltip:AddLine("Drag to change the order (left to right in the window).", 0.6, 0.6, 0.6)
             GameTooltip:Show()
         end)
         row:SetScript("OnLeave", function(self)
-            for _, t in ipairs(self.grip) do t:SetColorTexture(1, 1, 1, 0.35) end
+            self.grip:Light(false)
             GameTooltip:Hide()
         end)
         return row
     end, function(row, e, index)
         row.entry, row.index = e, index
         local d = ns.xpPieces[e.id]
+        local on = e.on or (d and d.fixed)
         row.text:SetText(d and d.title or e.id)
-        row.text:SetTextColor(e.on and 1 or 0.5, e.on and 1 or 0.5, e.on and 1 or 0.5)
-        local c = ns.XP_SIDE_COLOUR[e.side]
-        row.strip:SetColorTexture(c[1], c[2], c[3], e.on and 0.9 or 0.4)
-        row.tint:SetColorTexture(c[1], c[2], c[3], 0.07)
-        row.side.label:SetText(e.side == "LEFT" and "left" or "bar")
-        row.side.label:SetTextColor(c[1], c[2], c[3], e.on and 1 or 0.5)
-        row.toggle.label:SetText(e.on and "|cff55ff55on|r" or "|cff777777off|r")
+        row.text:SetTextColor(on and 1 or 0.5, on and 1 or 0.5, on and 1 or 0.5)
+        local c = e.id == "name" and ns.XP_NAME_COLOUR or ns.XP_PIECE_COLOUR
+        row.strip:SetColorTexture(c[1], c[2], c[3], on and 0.9 or 0.4)
+        row.tint:SetColorTexture(c[1], c[2], c[3], e.id == "name" and 0.12 or 0.05)
+        row.toggle.label:SetText((d and d.fixed) and "|cff999999always|r" or (on and "|cff55ff55on|r" or "|cff777777off|r"))
     end)
     L:Add(pieces, PIECE_ROWS * PIECE_H + 6)
-
-    -- dragging a row of the list: only among the pieces of its side
-    do
-        local marker = pieces:CreateTexture(nil, "OVERLAY")
-        marker:SetColorTexture(A[1], A[2], A[3], 1)
-        marker:SetHeight(2)
-        marker:Hide()
-        local from, nextScroll
-        local function Slot()
-            local data, top = pieces.data, pieces:GetTop()
-            if not data or not top or not from then return end
-            local _, y = GetCursorPosition()
-            local dy = top - y / pieces:GetEffectiveScale()
-            local gap = math.max(0, math.min(PIECE_ROWS, math.floor(dy / PIECE_H + 0.5)))
-            local side, first, last = data[from].side
-            for i, e in ipairs(data) do if e.side == side then first = first or i; last = i end end
-            local slot = math.max(first, math.min(last + 1, pieces.offset + gap + 1))
-            return slot, dy, side, last
-        end
-        local function Stop()
-            pieces:SetScript("OnUpdate", nil)
-            marker:Hide()
-            from = nil
-        end
-        pieces:SetScript("OnUpdate", nil)
-        for _, row in ipairs(pieces.rows) do
-            row:RegisterForDrag("LeftButton")
-            row:SetScript("OnDragStart", function(self)
-                if not self.index then return end
-                GameTooltip:Hide()
-                from, nextScroll = self.index, nil
-                pieces:SetScript("OnUpdate", function()
-                    local slot, dy = Slot()
-                    if not slot then return end
-                    local now = GetTime()
-                    if (dy < 0 or dy > pieces:GetHeight()) and (not nextScroll or now >= nextScroll) then
-                        nextScroll = now + 0.15
-                        pieces:GetScript("OnMouseWheel")(pieces, dy < 0 and 1 or -1)
-                        slot = Slot()
-                    end
-                    if slot == from or slot == from + 1 then marker:Hide() return end
-                    local y = -(slot - 1 - pieces.offset) * PIECE_H + 1
-                    marker:ClearAllPoints()
-                    marker:SetPoint("TOPLEFT", pieces, "TOPLEFT", 0, y)
-                    marker:SetPoint("TOPRIGHT", pieces, "TOPRIGHT", 0, y)
-                    marker:Show()
-                end)
-            end)
-            row:SetScript("OnDragStop", function()
-                local data, f = pieces.data, from
-                local slot, _, side, last = Slot()
-                Stop()
-                if not slot or slot == f or slot == f + 1 then return end
-                local before = slot <= last and data[slot].id or nil
-                ns.MoveXPPiece(data[f].id, side, before)
-                Redraw()
-            end)
-        end
-        pieces:HookScript("OnHide", Stop)
-    end
+    DragReorder(pieces, PIECE_ROWS, PIECE_H, function(from, before)
+        local data = pieces.data
+        ns.MoveXPPiece(data[from].id, nil, before and data[before].id or nil)
+        Redraw()
+    end)
+    local resetOrder = UI.Button(page, COL_W, "Default order", function() ns.ResetXPPieceOrder(); Redraw() end)
+    L:Add(resetOrder, UI.ROW + 2)
+    UI.Tooltip(resetOrder, "Default order", "Durability, Free bag slots, Gold, Name, Level, Bar value, Rested XP, then the others. On / off stays as it is.")
     local arrange
     arrange = UI.Button(page, COL_W, "", function() ns.ToggleXPArrange() end)
     local function ArrangeText()
@@ -638,7 +647,7 @@ ns.RegisterPage("xp", "XP Window", function(page)
     end
     ArrangeText()
     L:Add(arrange, UI.ROW + 2)
-    UI.Tooltip(arrange, "Arrange in the window", "Every switched-on piece shows in the XP window with dots: drag a piece along its row (also to the other side of the bar's start) or a row up or down to change the team order. Until you click again or /reload. Also /mmt xp arrange.")
+    UI.Tooltip(arrange, "Arrange in the window", "Every switched-on piece, the name too, shows in the XP window with dots: drag a piece along its row, or a row up or down to change the team order. Until you click again or /reload. Also /mmt xp arrange.")
     page.OnRefresh = function()
         Redraw()
         ArrangeText()
@@ -687,7 +696,7 @@ ns.RegisterPage("xp", "XP Window", function(page)
     }, go, so)
     local ga, sa = Opt("xp", "align")
     R:Cycle("Layout", {
-        { value = "SPLIT", text = "Name left, values right" },
+        { value = "SPLIT", text = "Name takes the free space" },
         { value = "LEFT", text = "Left" },
         { value = "CENTER", text = "Center" },
         { value = "RIGHT", text = "Right" },

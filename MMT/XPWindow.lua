@@ -1,6 +1,6 @@
 -- MMT: vertical, movable window with XP %, rested XP %, layer and phasing
--- of every online team member. Offline members are hidden. What a row shows
--- besides the name and the bar are pieces (XPPieces.lua), in the player's order;
+-- of every online team member. Offline members are hidden. A row shows the name
+-- and the other pieces (XPPieces.lua) in the player's order, the bar behind them;
 -- /mmt xp arrange drags them (and the rows) into place.
 
 local _, ns = ...
@@ -310,9 +310,9 @@ end
 
 ---------------------------------------------------------------------------
 -- Arranging (ns.xpArrange, session only: /mmt xp arrange, XP Window page):
--- every switched-on piece shows with dots and can be dragged along its row,
--- also to the other side of the bar's start (XPPieces.lua keeps the order);
--- a row dragged up or down changes the team order.
+-- every switched-on piece, the name included, shows with dots and can be
+-- dragged along its row (XPPieces.lua keeps the order); a row dragged up or
+-- down changes the team order.
 ---------------------------------------------------------------------------
 local drag   -- { kind = "piece", id, row } | { kind = "row", key }
 local driver = CreateFrame("Frame")
@@ -325,7 +325,6 @@ marker.tex:SetColorTexture(1, 0.82, 0, 1)
 marker:Hide()
 
 local function PieceGap() return math.max(4, math.floor(ns.db.xp.size * 0.5)) end
-local NAME_ROOM = 60   -- the name always gets at least this much of the bar
 local rowWidth = 325   -- the rows' width at the last redraw: the set width, or more when the pieces need it
 
 local function Cursor()
@@ -334,33 +333,30 @@ local function Cursor()
     return cx / scale, cy / scale
 end
 
--- the piece a dragged one would go before (nil: the end of that side)
+-- the piece a dragged one would go before (nil: the end of the row)
 local function PieceTarget(d)
     local row = d.row
     local cx = Cursor()
-    local barLeft = row.bar:GetLeft()
-    if not barLeft then return end
-    local side = (cx < barLeft) and "LEFT" or "RIGHT"
     local frames = {}
     for _, p in ipairs(row.pieces) do
-        if p:IsShown() and p.id and p.side == side then frames[#frames + 1] = p end
+        if p:IsShown() and p.id then frames[#frames + 1] = p end
     end
     table.sort(frames, function(a, b) return (a:GetLeft() or 0) < (b:GetLeft() or 0) end)
     for _, p in ipairs(frames) do
         local l, r = p:GetLeft(), p:GetRight()
-        if l and r and cx < (l + r) / 2 then return side, p.id, p, frames end
+        if l and r and cx < (l + r) / 2 then return p.id, p, frames end
     end
-    return side, nil, nil, frames
+    return nil, nil, frames
 end
 
-local function PieceNoMove(d, side, beforeId)
+local function PieceNoMove(d, beforeId)
     if beforeId == d.id then return true end
-    local next, seen, mine
+    local next, seen
     for _, q in ipairs(ns.XPPieceOrder()) do
-        if q.id == d.id then seen, mine = true, q
-        elseif seen and q.side == side and q.on and ns.xpPieces[q.id] then next = q.id break end
+        if q.id == d.id then seen = true
+        elseif seen and (q.on or q.id == "name") and ns.xpPieces[q.id] then next = q.id break end
     end
-    return mine and mine.side == side and next == beforeId
+    return next == beforeId
 end
 
 -- the row a dragged one would go above (nil: below the last)
@@ -395,18 +391,16 @@ local function ShowMarker()
     local x = ns.db.xp
     local h = math.max(x.barHeight, x.size + 4)
     if d.kind == "piece" then
-        local side, beforeId, p, frames = PieceTarget(d)
-        if not side or PieceNoMove(d, side, beforeId) then marker:Hide() return end
+        local beforeId, p, frames = PieceTarget(d)
+        if PieceNoMove(d, beforeId) then marker:Hide() return end
         local half = PieceGap() / 2
         marker:SetSize(2, h)
         if p then
             marker:SetPoint("CENTER", p, "LEFT", -half, 0)
         elseif #frames > 0 then
             marker:SetPoint("CENTER", frames[#frames], "RIGHT", half, 0)
-        elseif side == "LEFT" then
-            marker:SetPoint("LEFT", d.row, "LEFT", 2, 0)
         else
-            marker:SetPoint("RIGHT", d.row.bar, "RIGHT", -2, 0)
+            marker:SetPoint("LEFT", d.row, "LEFT", 2, 0)
         end
     else
         local beforeKey, row, last = RowTarget()
@@ -426,8 +420,8 @@ local function EndDrag()
     driver:Hide()
     marker:Hide()
     if d.kind == "piece" then
-        local side, beforeId = PieceTarget(d)
-        if side and not PieceNoMove(d, side, beforeId) then ns.MoveXPPiece(d.id, side, beforeId) return end
+        local beforeId = PieceTarget(d)
+        if not PieceNoMove(d, beforeId) then ns.MoveXPPiece(d.id, nil, beforeId) return end
     else
         local beforeKey = RowTarget()
         if not RowNoMove(d, beforeKey) then ns.MoveMemberBefore(d.key, beforeKey) return end
@@ -452,7 +446,7 @@ function ns.ToggleXPArrange(on)
     if on == nil then on = not ns.xpArrange end
     ns.xpArrange = on and true or nil
     if on and not ns.db.xp.enabled then ns.Print("The XP window is hidden: /mmt xp shows it.") end
-    ns.Print(on and "XP window: arranging. Drag a piece along its row (also across to the other side), or a row up or down. /mmt xp arrange again to stop."
+    ns.Print(on and "XP window: arranging. Drag a piece (the name too) along its row, or a row up or down. /mmt xp arrange again to stop."
         or "XP window: arranging off.")
     ns.Refresh()
 end
@@ -494,7 +488,7 @@ local function PieceFrame(row, n)
         if not d then return end
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
         GameTooltip:SetText(d.title)
-        GameTooltip:AddLine("Drag along the row to move it, also to the other side of the bar's start.", 1, 1, 1, true)
+        GameTooltip:AddLine("Drag along the row to move it.", 1, 1, 1, true)
         GameTooltip:Show()
     end)
     p:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -503,17 +497,19 @@ local function PieceFrame(row, n)
     return p
 end
 
-local function SetPiece(p, piece, side, h, arranging)
+-- piece.lead: room before the text (the name's Layer Hop tag)
+local function SetPiece(p, piece, h, arranging)
     local x = ns.db.xp
     ns.ApplyFont(p.text, x.font, x.size, x.outline)
     p.text:SetText(piece.text)
-    local pad = arranging and 10 or 0
+    if piece.colour then p.text:SetTextColor(piece.colour[1], piece.colour[2], piece.colour[3]) else p.text:SetTextColor(1, 1, 1) end
+    local pad = (arranging and 10 or 0) + (piece.lead or 0)
     p.text:ClearAllPoints()
     p.text:SetPoint("LEFT", pad, 0)
     p:SetSize(math.ceil(p.text:GetStringWidth() or 0) + pad + (arranging and 3 or 0), h)
-    p.id, p.side = piece.id, side
+    p.id = piece.id
     local draggable = arranging and piece.id ~= nil
-    local c = ns.XP_SIDE_COLOUR[side]
+    local c = piece.id == "name" and ns.XP_NAME_COLOUR or ns.XP_PIECE_COLOUR
     p.bg:SetColorTexture(c[1] * 0.3, c[2] * 0.3, c[3] * 0.3, 0.8)   -- the side's colour, dark
     p.bg:SetShown(draggable)
     p.grip:SetShown(draggable)
@@ -569,8 +565,7 @@ local function Row(i)
     row.grip:SetPoint("RIGHT", row, "LEFT", -2, 0)
     row.grip:Hide()
     -- pulsing red "Layer Hop" left of the name; clickable even when the window is click-through
-    row.hop = CreateFrame("Button", nil, row.bar)
-    row.hop:SetPoint("LEFT", 2, 0)
+    row.hop = CreateFrame("Button", nil, row)
     row.hop:SetFrameLevel(row:GetFrameLevel() + 5)
     row.hop.text = row.hop:CreateFontString(nil, "OVERLAY")
     row.hop.text:SetPoint("LEFT")
@@ -648,10 +643,13 @@ local function StatusOf(key)
     return { level = 0, cur = 0, max = 0, rested = 0, class = m and m.class, noData = true }
 end
 
--- the pieces right of the name; no data: only that, offline (debug mode): a note at the end
-local function RightPieces(key, s, arranging)
-    if s.noData and not arranging then return { { text = Hex(0.5, 0.5, 0.5) .. "offline, no data|r" } } end
-    local list = ns.XPPiecesOf("RIGHT", key, s, arranging)
+-- a row's pieces in order (the name among them); no data: the name and a
+-- note; offline (debug mode): a note at the end
+local function RowPieces(key, s, arranging)
+    if s.noData and not arranging then
+        return { { id = "name", name = true }, { text = Hex(0.5, 0.5, 0.5) .. "offline, no data|r" } }
+    end
+    local list = ns.XPRowPieces(key, s, arranging)
     if not ns.IsSelf(key) and not ns.IsOnline(key) then list[#list + 1] = { text = Hex(0.5, 0.5, 0.5) .. "offline|r" } end
     return list
 end
@@ -661,12 +659,6 @@ end
 local SHIFT = { LEFT = 0, CENTER = 0.5, RIGHT = 1 }
 
 local function ColumnKey(p, n) return p.id or ("_" .. n) end
-
-local function ByKey(frames)
-    local t = {}
-    for n, p in ipairs(frames) do t[ColumnKey(p, n)] = p end
-    return t
-end
 
 -- { key, ... } in order, .width[key], .total (all columns and the gaps between them)
 local function Columns(rowsFrames)
@@ -698,6 +690,28 @@ local function Flow(frames)
     return w
 end
 
+-- places one row's pieces: cols = { {frame|nil, width}, ... } left to right in
+-- the space 4 .. rowWidth - 4; "free" goes to the name column (SPLIT) or
+-- before / around the pieces (LEFT / CENTER / RIGHT)
+local function Place(row, cols, total, nameIndex, shift)
+    local x = ns.db.xp
+    local gap = PieceGap()
+    local free = math.max(0, rowWidth - 8 - total)
+    local px = 4
+    if x.align == "CENTER" then px = 4 + math.floor(free / 2)
+    elseif x.align == "RIGHT" then px = 4 + free end
+    for c, col in ipairs(cols) do
+        local cw = col[2]
+        if x.align == "SPLIT" and c == nameIndex then cw = cw + free end
+        local p = col[1]
+        if p then
+            local s = (c == nameIndex) and 0 or shift
+            p:SetPoint("LEFT", row, "LEFT", px + math.floor((cw - p:GetWidth()) * s), 0)
+        end
+        px = px + cw + gap
+    end
+end
+
 local function Update()
     local x = ns.db.xp
     if not x.enabled or not ns.ready then f:Hide() return end
@@ -706,46 +720,64 @@ local function Update()
     if #list == 0 then f:Hide() return end
     local arranging = ns.xpArrange and true or false
     local h = math.max(x.barHeight, x.size + 4)
-    local gap = PieceGap()
     local lined = x.pieceAlign ~= "OFF"
     local shift = SHIFT[x.pieceAlign] or 0.5
 
-    -- first pass: set up the pieces of every row (placed in the second pass)
-    local lefts, rights = {}, {}
+    -- first pass: set up the pieces of every row, the name with its crown, notes and Layer Hop
+    local rows = {}
     for i, key in ipairs(list) do
         local s = StatusOf(key)
         local row = Row(i)
-        lefts[i], rights[i] = {}, {}
-        local pieces = (s.noData and not arranging) and {} or ns.XPPiecesOf("LEFT", key, s, arranging)
-        for n, piece in ipairs(pieces) do
+        row.name:Hide()   -- (the name is a piece now)
+        local broken = x.followCheck and ns.FollowBroken and ns.FollowBroken(key)
+        local ccText = ns.db.cc.enabled and ns.CCShort and ns.CCShort(key)
+        local cr, cg, cb = ClassColor(s.class)
+        local useClass = x.classColors and cr
+        local name = ns.Display(key)
+        if ns.db.ftl.enabled and ns.db.ftl.crown and ns.IsFTLLeader(key) then
+            local crown = "|TInterface\\GroupFrame\\UI-Group-LeaderIcon:0:0:0:-1|t"
+            if ns.db.ftl.crownSide == "RIGHT" then name = name .. " " .. crown else name = crown .. name end
+        end
+        name = name .. (broken and " |cffff4040(no follow)|r" or "") .. (ccText and (" |cffffa020(" .. ccText .. ")|r") or "")
+        -- Layer Hop tag before the name
+        local hop = x.layerHopNotify and ns.HopPendingFor(key)
+        local lead = 0
+        if hop then
+            ns.ApplyFont(row.hop.text, x.font, x.size, x.outline)
+            local cdLeft = ns.HopCountdownFor and ns.HopCountdownFor(key)
+            row.hop.text:SetText(cdLeft and ("Layer Hop " .. cdLeft) or "Layer Hop")
+            row.hop:SetSize(row.hop.text:GetStringWidth() + 4, h)
+            row.hop:Show()
+            if not row.hop.pulse:IsPlaying() then row.hop.pulse:Play() end
+            lead = row.hop:GetWidth() + 4
+        else
+            row.hop.pulse:Stop()
+            row.hop:Hide()
+        end
+        local frames, nameIndex = {}, nil
+        for n, piece in ipairs(RowPieces(key, s, arranging)) do
             local p = PieceFrame(row, n)
-            SetPiece(p, piece, "LEFT", h, arranging)
-            lefts[i][n] = p
+            if piece.name then
+                piece = { id = "name", text = name, lead = lead,
+                    colour = useClass and { cr, cg, cb } or { 1, 1, 1 } }
+                nameIndex = n
+            end
+            SetPiece(p, piece, h, arranging)
+            frames[n] = p
         end
-        for n, piece in ipairs(RightPieces(key, s, arranging)) do
-            local p = PieceFrame(row, #pieces + n)
-            SetPiece(p, piece, "RIGHT", h, arranging)
-            rights[i][n] = p
-        end
+        for n = #frames + 1, #row.pieces do row.pieces[n]:Hide(); row.pieces[n].id = nil end
+        rows[i] = { key = key, s = s, row = row, frames = frames, nameIndex = nameIndex, broken = broken,
+            ccText = ccText, useClass = useClass, cr = cr, cg = cg, cb = cb, hop = hop }
     end
-    -- lined up: one column per piece, as wide as its widest value; else each row flows on its own
-    local leftCols, rightCols = Columns(lefts), Columns(rights)
-    local leftW, rightW = 0, 0
-    for i = 1, #list do
-        local lw = lined and leftCols.total or Flow(lefts[i])
-        if lw > 0 then leftW = math.max(leftW, lw) end
-        local rw = (lined and x.align == "SPLIT") and rightCols.total or Flow(rights[i])
-        if rw > 0 then rightW = math.max(rightW, rw + gap) end
-    end
-    local barLeft = leftW > 0 and math.floor(leftW + 10) or 0
-    -- wider than set when the pieces and some of the name don't fit (never overlapping)
-    rowWidth = math.max(x.width, math.ceil(barLeft + 4 + NAME_ROOM + rightW + 4))
-    local barWidth = math.max(20, rowWidth - barLeft)
+    -- the row width: the set width, or more when the pieces need it (never overlapping)
+    local cols = Columns((function() local t = {} for i, r in ipairs(rows) do t[i] = r.frames end return t end)())
+    local need = lined and cols.total or 0
+    if not lined then for _, r in ipairs(rows) do need = math.max(need, Flow(r.frames)) end end
+    rowWidth = math.max(x.width, math.ceil(need + 8))
     local rep = x.barMode == "REP"
 
-    for i, key in ipairs(list) do
-        local s = StatusOf(key)
-        local row = Row(i)
+    for i, e in ipairs(rows) do
+        local key, s, row = e.key, e.s, e.row
         row.key, row.status = key, s
         row:EnableMouse(arranging or not x.clickThrough)
         row:SetAlpha((drag and drag.kind == "row" and drag.key == key) and 0.5 or 1)
@@ -753,45 +785,44 @@ local function Update()
         row:ClearAllPoints()
         row:SetPoint("TOPLEFT", PAD + (arranging and 10 or 0), -(PAD + (i - 1) * (h + Gap())))
         row:SetSize(rowWidth, h)
-        local broken = x.followCheck and ns.FollowBroken and ns.FollowBroken(key)
-        local ccText = ns.db.cc.enabled and ns.CCShort and ns.CCShort(key)
-        local pulsing = broken and ns.FollowJustBroke(key) and not ccText
+        local pulsing = e.broken and ns.FollowJustBroke(key) and not e.ccText
         row.alert:SetShown(pulsing and true or false)
         if pulsing then
             if not row.alert.pulse:IsPlaying() then row.alert.pulse:Play() end
         else
             row.alert.pulse:Stop()
         end
-        row.ccMark:SetShown(ccText and true or false)
-        if ccText then
+        row.ccMark:SetShown(e.ccText and true or false)
+        if e.ccText then
             if not row.ccMark.pulse:IsPlaying() then row.ccMark.pulse:Play() end
         else
             row.ccMark.pulse:Stop()
         end
-        -- after the name: "(no follow)", "(stunned 4)"
-        local suffix = (broken and " |cffff4040(no follow)|r" or "") .. (ccText and (" |cffffa020(" .. ccText .. ")|r") or "")
 
-        local cr, cg, cb = ClassColor(s.class)
-        local useClass = x.classColors and cr
-        local r, g, b = useClass and cr or A[1], useClass and cg or A[2], useClass and cb or A[3]
-
-        -- left pieces (set up in the first pass), left to right
+        -- the pieces, left to right
+        local placed, nameCol = {}, nil
         if lined then
-            local px, byKey = 4, ByKey(lefts[i])
-            for _, k in ipairs(leftCols) do
-                local p, cw = byKey[k], leftCols.width[k]
-                if p then p:SetPoint("LEFT", row, "LEFT", px + math.floor((cw - p:GetWidth()) * shift), 0) end
-                px = px + cw + gap
+            local byKey = {}
+            for n, p in ipairs(e.frames) do byKey[ColumnKey(p, n)] = p end
+            for c, k in ipairs(cols) do
+                placed[c] = { byKey[k], cols.width[k] }
+                if k == "name" then nameCol = c end
             end
+            Place(row, placed, cols.total, nameCol, shift)
         else
-            local px = 4
-            for _, p in ipairs(lefts[i]) do
-                p:SetPoint("LEFT", row, "LEFT", px, 0)
-                px = px + p:GetWidth() + gap
-            end
+            for n, p in ipairs(e.frames) do placed[n] = { p, p:GetWidth() } end
+            Place(row, placed, Flow(e.frames), e.nameIndex, 0)
         end
-        row.bar:SetPoint("LEFT", barLeft, 0)
+        local namePiece = e.nameIndex and e.frames[e.nameIndex]
+        if e.hop and namePiece then
+            row.hop:ClearAllPoints()
+            row.hop:SetPoint("LEFT", namePiece, "LEFT", arranging and 10 or 0, 0)
+        end
 
+        -- the bar behind the whole row
+        row.bar:SetPoint("LEFT", 0, 0)
+        local barWidth = rowWidth
+        local r, g, b = e.useClass and e.cr or A[1], e.useClass and e.cg or A[2], e.useClass and e.cb or A[3]
         local pct, restPct
         if rep then
             local rp = s.rep
@@ -809,76 +840,6 @@ local function Update()
         row.rest:SetShown(x.showBars and not rep and ns.XPPieceOn("rested") and restPct > 0)
         row.rest:SetWidth(math.max(1, barWidth * restPct))
         row.track:SetShown(x.showBars)
-
-        local name = ns.Display(key)
-        if ns.db.ftl.enabled and ns.db.ftl.crown and ns.IsFTLLeader(key) then
-            local crown = "|TInterface\\GroupFrame\\UI-Group-LeaderIcon:0:0:0:-1|t"
-            if ns.db.ftl.crownSide == "RIGHT" then name = name .. " " .. crown else name = crown .. name end
-        end
-
-        -- Layer Hop tag
-        local hop = x.layerHopNotify and ns.HopPendingFor(key)
-        local left = 4
-        if hop then
-            ns.ApplyFont(row.hop.text, x.font, x.size, x.outline)
-            local cdLeft = ns.HopCountdownFor and ns.HopCountdownFor(key)
-            row.hop.text:SetText(cdLeft and ("Layer Hop " .. cdLeft) or "Layer Hop")
-            row.hop:SetSize(row.hop.text:GetStringWidth() + 4, h)
-            row.hop:Show()
-            if not row.hop.pulse:IsPlaying() then row.hop.pulse:Play() end
-            left = row.hop:GetWidth() + 8
-        else
-            row.hop.pulse:Stop()
-            row.hop:Hide()
-        end
-
-        -- the name, then the right pieces
-        local nr, ng, nb = useClass and cr or 1, useClass and cg or 1, useClass and cb or 1
-        ns.ApplyFont(row.name, x.font, x.size, x.outline)
-        row.name:SetText(name .. suffix)
-        row.name:SetTextColor(nr, ng, nb)
-        row.name:ClearAllPoints()
-        local frames = rights[i]
-        if x.align == "SPLIT" and lined then
-            -- name left, values right in their columns
-            local rx, byKey = -4, ByKey(frames)
-            for c = #rightCols, 1, -1 do
-                local k = rightCols[c]
-                local p, cw = byKey[k], rightCols.width[k]
-                if p then p:SetPoint("RIGHT", row.bar, "RIGHT", rx - math.floor((cw - p:GetWidth()) * (1 - shift)), 0) end
-                rx = rx - cw - gap
-            end
-            row.name:SetJustifyH("LEFT")
-            row.name:SetPoint("LEFT", row.bar, "LEFT", left, 0)
-            row.name:SetPoint("RIGHT", row.bar, "RIGHT", #rightCols > 0 and (rx + gap - 4) or -4, 0)
-        elseif x.align == "SPLIT" then
-            -- name left, values right (the name is cut short when it doesn't fit)
-            local rx = -4
-            for n = #frames, 1, -1 do
-                frames[n]:SetPoint("RIGHT", row.bar, "RIGHT", rx, 0)
-                rx = rx - frames[n]:GetWidth() - gap
-            end
-            row.name:SetJustifyH("LEFT")
-            row.name:SetPoint("LEFT", row.bar, "LEFT", left, 0)
-            row.name:SetPoint("RIGHT", frames[1] or row.bar, frames[1] and "LEFT" or "RIGHT", -4, 0)
-        else
-            -- name and values in one line, aligned left / centred / right
-            local nameW = math.ceil(row.name:GetStringWidth() or 0)
-            local total = nameW
-            for _, p in ipairs(frames) do total = total + gap + p:GetWidth() end
-            local start = left
-            if x.align == "CENTER" then start = math.max(left, math.floor((barWidth - total) / 2))
-            elseif x.align == "RIGHT" then start = math.max(left, barWidth - 4 - total) end
-            row.name:SetJustifyH("LEFT")
-            row.name:SetPoint("LEFT", row.bar, "LEFT", start, 0)
-            row.name:SetWidth(nameW + 1)
-            local cx = start + nameW + gap
-            for _, p in ipairs(frames) do
-                p:SetPoint("LEFT", row.bar, "LEFT", cx, 0)
-                cx = cx + p:GetWidth() + gap
-            end
-        end
-        for n = #lefts[i] + #frames + 1, #row.pieces do row.pieces[n]:Hide(); row.pieces[n].id = nil end
         row:Show()
     end
     for i = #list + 1, #f.rows do f.rows[i]:Hide() end

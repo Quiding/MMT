@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.46: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.47: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -47,7 +47,8 @@ Saved data from MMT 0.1.x is converted automatically.
   API, team communication, two complete examples).
 
 ## Settings (/mmt)
-- **Team**: Add group / Add me / Add target, or type "First Last". Reorder with Up/Dn.
+- **Team**: Add group / Add me / Add target, or type "First Last". Drag a row by its dots to
+  change the order.
   **Privacy**: "Show characters by" first name (default), last name, full name, class
   ("Druid 1", "Druid 2" in team order) or slot ("Slot 1", "Slot 2"). This applies to
   everything MMT shows: windows, settings, tooltips, its chat lines and raid warnings.
@@ -74,11 +75,14 @@ Saved data from MMT 0.1.x is converted automatically.
   Mail / Vendor page). You accept yourself.
 - **XP Window**: XP %, rested XP %, gold, free bag slots, durability (lowest item or
   average), level, reputation and layer, plus font, layout, size, scale and opacity. Each of
-  these is a piece: switch it on or off, put it left of the bar (own column, the bar starts
-  at the name) or on the bar, and drag it into place in the XP Window page's list or in the
-  window itself ("Arrange" / `/mmt xp arrange`: every piece shows with dots, drag pieces
-  along a row and rows up or down to change the team order). "Line up pieces" puts each piece in its own column
-  (centred, left or right in it), so it sits in the same place on every row. Modules can add pieces
+  these is a piece, and so is the name: one order left to right (default: Durability, Free
+  bag slots, Gold, Name, Level, Bar value, Rested XP), the bar behind the whole row. Switch
+  pieces on or off (the name is always shown) and drag them into place in the XP Window
+  page's list ("Default order" resets it) or in the window itself ("Arrange" /
+  `/mmt xp arrange`: every piece shows with dots, drag pieces along a row and rows up or
+  down to change the team order). "Line up pieces" puts each piece in its own column
+  (centred, left or right in it), so it sits in the same place on every row; "Layout":
+  the name takes the free space, or all pieces left / centred / right. Modules can add pieces
   (`MMT.RegisterXPPiece`, CreateModules.md). "Bar shows": experience
   or the reputation of each character's watched faction (standing and %, faction in
   the tooltip). "Layer Hop": when the game

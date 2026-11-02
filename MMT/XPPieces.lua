@@ -1,8 +1,9 @@
--- MMT: the pieces of an XP window row (gold, bags, durability, level, XP %, ...).
--- Each one is shown or not, sits left of the bar or on it (right side), and has
--- its place in one order: ns.db.xp.pieces = { { id, side = "LEFT"|"RIGHT", on }, ... }.
--- Older profiles get that list from their old switches (showGold, showLevel, ...),
--- which are still kept up to date for clients without pieces.
+-- MMT: the pieces of an XP window row (durability, bags, gold, the name, level, XP %, ...).
+-- One order for the whole row, left to right, the name being a piece like the others:
+-- ns.db.xp.pieces = { { id, on }, ... }. The bar lies behind the whole row.
+-- Older profiles (pieces left of the bar / on it, "side") are converted once: the
+-- left ones, the name, then the ones on the bar. Their old switches (showGold, ...)
+-- are still kept up to date for clients without pieces.
 -- Modules add their own pieces with MMT.RegisterXPPiece (CreateModules.md).
 
 local _, ns = ...
@@ -10,9 +11,10 @@ local _, ns = ...
 ns.xpPieces = {}      -- [id] = def
 ns.xpPieceIds = {}    -- registration order
 
--- def = { id, title, side = "LEFT" | "RIGHT", text = function(key, status) -> string | nil,
---         on = shown by default (modules: off unless set), sample = text while arranging when
---         text() has nothing, tip = settings tooltip }
+-- def = { id, title, text = function(key, status) -> string | nil, on = shown by default
+--         (modules: off unless set), sample = text while arranging when text() has nothing,
+--         tip = settings tooltip, side = "LEFT": placed before the name when first added
+--         (else after it), fixed = always shown (the name) }
 function ns.RegisterXPPiece(def)
     assert(type(def) == "table" and type(def.id) == "string" and type(def.text) == "function",
         "MMT.RegisterXPPiece{ id = \"...\", title = \"...\", text = function(key, status) ... end }")
@@ -23,8 +25,10 @@ function ns.RegisterXPPiece(def)
     if ns.ready and ns.UpdateXPWindow then ns.UpdateXPWindow() end
 end
 
--- colour of each side (settings list, pieces while arranging): left column blue, bar gold
-ns.XP_SIDE_COLOUR = { LEFT = { 0.31, 0.70, 1.00 }, RIGHT = { 1.00, 0.82, 0.00 } }
+-- colours while arranging and in the settings list: pieces blue, the name gold
+ns.XP_PIECE_COLOUR = { 0.31, 0.70, 1.00 }
+ns.XP_NAME_COLOUR = { 1.00, 0.82, 0.00 }
+ns.XP_SIDE_COLOUR = { LEFT = ns.XP_PIECE_COLOUR, RIGHT = ns.XP_PIECE_COLOUR }   -- (old name)
 
 ---------------------------------------------------------------------------
 -- Text helpers (also used by XPWindow.lua)
@@ -83,7 +87,7 @@ local BAG_ICON = "|TInterface\\Icons\\INV_Misc_Bag_08:0:0:0:0:64:64:6:58:6:58|t"
 local DUR_ICON = "|TInterface\\Icons\\Trade_BlackSmithing:0:0:0:0:64:64:6:58:6:58|t"
 
 ---------------------------------------------------------------------------
--- Built-in pieces, in the window's old order
+-- Built-in pieces
 ---------------------------------------------------------------------------
 ns.RegisterXPPiece{ id = "gold", title = "Gold", side = "LEFT", on = true, sample = "123" .. GOLD_ICON,
     tip = "Gold of the character (format: Gold below).",
@@ -125,33 +129,77 @@ ns.RegisterXPPiece{ id = "rep", title = "Reputation", side = "RIGHT", on = false
 ns.RegisterXPPiece{ id = "layer", title = "Layer", side = "RIGHT", on = false, sample = "#3",
     text = function(_, s) return s.layer and (Hex(0.7, 0.7, 0.7) .. "#" .. s.layer .. "|r") or nil end }
 
+-- the name: placed and filled by XPWindow.lua (crown, "(no follow)", Layer Hop)
+ns.RegisterXPPiece{ id = "name", title = "Name", side = "RIGHT", on = true, fixed = true, sample = "Name",
+    tip = "The character's name (with the leader crown and notes like \"no follow\"). Always shown; it takes the free space with the layout \"Name takes the free space\".",
+    text = function() return nil end }
+
 ---------------------------------------------------------------------------
 -- The saved order
 ---------------------------------------------------------------------------
+-- the default order, left to right
+local DEFAULT_ORDER = { "durability", "bags", "gold", "name", "level", "value", "rested", "rep", "layer" }
 -- old switch of a built-in piece (kept in step for clients without pieces)
 local SWITCH = { gold = "showGold", bags = "showBags", durability = "showDurability", level = "showLevel", rested = "showRested" }
+
+local function Entry(id)
+    local d = ns.xpPieces[id]
+    local on = d.on and true or false
+    local x = ns.db.xp
+    if SWITCH[id] and x[SWITCH[id]] ~= nil then on = x[SWITCH[id]] and true or false end
+    return { id = id, on = on }
+end
 
 function ns.XPPieceOrder()
     local x = ns.db.xp
     if type(x.pieces) ~= "table" then
         x.pieces = {}
-        for _, id in ipairs(ns.xpPieceIds) do
-            local d = ns.xpPieces[id]
-            local on = d.on
-            if SWITCH[id] and x[SWITCH[id]] ~= nil then on = x[SWITCH[id]] end
-            x.pieces[#x.pieces + 1] = { id = id, side = d.side, on = on and true or false }
+        for _, id in ipairs(DEFAULT_ORDER) do
+            if ns.xpPieces[id] then x.pieces[#x.pieces + 1] = Entry(id) end
         end
     end
-    -- pieces registered since (new built-ins, modules): at the end, with their default
+    -- MMT 0.9.47: one order with the name; older lists had sides (left of the bar / on it)
+    local hasName = false
+    for _, p in ipairs(x.pieces) do if p.id == "name" then hasName = true end end
+    if not hasName then
+        local left, right = {}, {}
+        for _, p in ipairs(x.pieces) do
+            if p.side == "LEFT" then left[#left + 1] = p else right[#right + 1] = p end
+        end
+        -- the old default left order (gold, bags, durability) becomes the new one
+        if #left == 3 and left[1].id == "gold" and left[2].id == "bags" and left[3].id == "durability" then
+            left = { left[3], left[2], left[1] }
+        end
+        local list = {}
+        for _, p in ipairs(left) do list[#list + 1] = p end
+        list[#list + 1] = { id = "name", on = true }
+        for _, p in ipairs(right) do list[#list + 1] = p end
+        for _, p in ipairs(list) do p.side = nil end
+        x.pieces = list
+    end
+    -- pieces registered since (new built-ins, modules): "LEFT" ones before the name, others at the end
     local have = {}
     for _, p in ipairs(x.pieces) do have[p.id] = true end
     for _, id in ipairs(ns.xpPieceIds) do
         if not have[id] then
-            local d = ns.xpPieces[id]
-            x.pieces[#x.pieces + 1] = { id = id, side = d.side, on = d.on and true or false }
+            local e = Entry(id)
+            local at = #x.pieces + 1
+            if ns.xpPieces[id].side == "LEFT" then
+                for k, p in ipairs(x.pieces) do if p.id == "name" then at = k end end
+            end
+            table.insert(x.pieces, at, e)
         end
     end
     return x.pieces
+end
+
+-- back to the default order (pieces keep their on / off)
+function ns.ResetXPPieceOrder()
+    local on = {}
+    for _, p in ipairs(ns.XPPieceOrder()) do on[p.id] = p.on end
+    ns.db.xp.pieces = nil
+    for _, p in ipairs(ns.XPPieceOrder()) do if on[p.id] ~= nil then p.on = on[p.id] end end
+    ns.UpdateXPWindow()
 end
 
 local function Find(id)
@@ -163,43 +211,46 @@ function ns.XPPieceOn(id)
     return p and p.on and ns.xpPieces[id] ~= nil or false
 end
 
-function ns.SetXPPiece(id, on, side)
+function ns.SetXPPiece(id, on)
     local p = Find(id)
     if not p then return end
+    if ns.xpPieces[id] and ns.xpPieces[id].fixed then on = true end
     if on ~= nil then p.on = on and true or false end
-    if side then p.side = side end
     if SWITCH[id] then ns.db.xp[SWITCH[id]] = p.on end
     ns.UpdateXPWindow()
 end
 
--- moves a piece to a side, before another piece (nil: after the side's last one)
-function ns.MoveXPPiece(id, side, beforeId)
+-- moves a piece before another one (nil: to the end); the side argument of
+-- older callers is ignored: MoveXPPiece(id, side, beforeId)
+function ns.MoveXPPiece(id, _, beforeId)
     local list = ns.XPPieceOrder()
     local p, i = Find(id)
     if not p or beforeId == id then return end
     table.remove(list, i)
-    p.side = side or p.side
     local at
     if beforeId then
         for j, q in ipairs(list) do if q.id == beforeId then at = j end end
-    else
-        for j, q in ipairs(list) do if q.side == p.side then at = j + 1 end end
     end
     table.insert(list, at or (#list + 1), p)
     ns.UpdateXPWindow()
 end
 
--- shown pieces of one side, in order: { { id, def, text }, ... }; arranging also lists
--- pieces with nothing to show (their sample)
-function ns.XPPiecesOf(side, key, s, arranging)
+-- the shown pieces of a row, in order: { { id, def, text }, ... }; the name comes
+-- with text = nil (XPWindow.lua fills it); arranging also lists pieces with nothing
+-- to show (their sample)
+function ns.XPRowPieces(key, s, arranging)
     local out = {}
     for _, p in ipairs(ns.XPPieceOrder()) do
-        local d = p.on and p.side == side and ns.xpPieces[p.id]
+        local d = (p.on or (ns.xpPieces[p.id] and ns.xpPieces[p.id].fixed)) and ns.xpPieces[p.id]
         if d then
-            local ok, text = pcall(d.text, key, s)
-            if not ok or text == "" then text = nil end
-            if not text and arranging then text = Hex(0.5, 0.5, 0.5) .. (d.sample or d.title) .. "|r" end
-            if text then out[#out + 1] = { id = p.id, def = d, text = text } end
+            if p.id == "name" then
+                out[#out + 1] = { id = "name", def = d, name = true }
+            else
+                local ok, text = pcall(d.text, key, s)
+                if not ok or text == "" then text = nil end
+                if not text and arranging then text = Hex(0.5, 0.5, 0.5) .. (d.sample or d.title) .. "|r" end
+                if text then out[#out + 1] = { id = p.id, def = d, text = text } end
+            end
         end
     end
     return out

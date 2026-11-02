@@ -180,16 +180,16 @@ Equip) that members are assigned to.
 
 ### XP window pieces
 
-A row of the XP window shows pieces besides the name and the bar (gold, bags,
-level, XP %, ...). Players switch them on or off, put them left of the bar or on
-it, and drag them into their order (XP Window page, or `/mmt xp arrange`). A
-module can add its own piece:
+A row of the XP window is a line of pieces in the player's order, left to right,
+the name being one of them (durability, bags, gold, name, level, XP %, ...), with
+the bar behind the row. Players switch them on or off and drag them into their
+order (XP Window page, or `/mmt xp arrange`). A module can add its own piece:
 
 ```lua
 MMT.RegisterXPPiece{
     id = "example",              -- unique, kept in the player's order
     title = "Example",           -- name in the settings list
-    side = "RIGHT",              -- "LEFT" of the bar or "RIGHT" on it (default RIGHT)
+    side = "RIGHT",              -- where it first goes: "LEFT" = before the name, else at the end
     on = false,                  -- shown until the player switches it (default off)
     sample = "42",               -- shown while arranging when text() has nothing
     tip = "One line for the settings list.",
