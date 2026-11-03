@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.53: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.54: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -49,7 +49,7 @@ Saved data from MMT 0.1.x is converted automatically.
   API, team communication, two complete examples).
 
 ## Settings (/mmt)
-- **Team**: Add group / Add me / Add target, or type "First Last". Drag a row by its dots to
+- **Team** (tiles: Team Members, Communication, Privacy): Add group / Add me / Add target, or type "First Last". Drag a row by its dots to
   change the order.
   **Privacy**: "Show characters by" first name (default), last name, full name, class
   ("Druid 1", "Druid 2" in team order) or slot ("Slot 1", "Slot 2"). This applies to
@@ -68,7 +68,7 @@ Saved data from MMT 0.1.x is converted automatically.
   after a reload; Cancel leaves it as it was. (The game no longer lets addons reload the UI
   themselves; MMT's "Reload now" buttons are secure macro buttons running /reload.) A profile switch that changes it
   says in chat that a reload is needed; a sync that changes it asks to reload.
-- **Roles**: two example roles come with every profile ("Tailor" = item group Cloth,
+- **Roles** (tiles: Roles, Members of the role, Items for the role): two example roles come with every profile ("Tailor" = item group Cloth,
   "Enchanter" = all Bind on Equip items + item group Enchanting materials; deleted ones
   stay deleted); create roles, tick their members, add items (drop one on the slot, or
   click the field and shift-click an item anywhere; IDs and exact names work too),

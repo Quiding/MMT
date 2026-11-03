@@ -170,15 +170,74 @@ ns.ConfigHelpers = {
     Grip = Grip, DragReorder = DragReorder,
 }
 
+-- tiles: two side by side fill the page
+local TILE_W, TILE_GAP = 344, 10
+local TILE_IN = TILE_W - 16   -- width of the settings inside a tile
+
+-- a framed tile with an icon and a title; returns the tile and a column inside it
+local function Tile(parent, x, y, w, h, title, icon)
+    local t = CreateFrame("Frame", nil, parent)
+    t:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
+    t:SetSize(w, h)
+    UI.Fill(t, A[1], A[2], A[3], 0.04)
+    UI.Border(t, A[1], A[2], A[3], 0.30)
+    local ic = t:CreateTexture(nil, "ARTWORK")
+    ic:SetTexture(icon)
+    ic:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    ic:SetSize(22, 22)
+    ic:SetPoint("TOPLEFT", 8, -7)
+    local label = UI.Label(t, title, "GameFontNormalLarge")
+    label:SetPoint("LEFT", ic, "RIGHT", 8, 0)
+    label:SetTextColor(A[1], A[2], A[3])
+    -- a long title that doesn't fit in the large font takes the normal one
+    if (label:GetStringWidth() or 0) > w - 46 and GameFontNormal then label:SetFontObject(GameFontNormal) end
+    local line = t:CreateTexture(nil, "ARTWORK")
+    line:SetColorTexture(A[1], A[2], A[3], 0.35)
+    line:SetHeight(1)
+    line:SetPoint("TOPLEFT", 8, -34)
+    line:SetPoint("TOPRIGHT", -8, -34)
+    t.title = label
+    return t, UI.Column(t, 8, -42, w - 16)
+end
+ns.ConfigHelpers.Tile = Tile
+
+-- the grey line on top of a tiled page
+local function Intro(page, text)
+    local fs = UI.Label(page, text)
+    fs:SetPoint("TOPLEFT", 0, 0)
+    fs:SetWidth(PAGE_W)
+    fs:SetJustifyH("LEFT")
+    fs:SetTextColor(0.75, 0.75, 0.75)
+    return fs
+end
+
 ---------------------------------------------------------------------------
 -- Team
 ---------------------------------------------------------------------------
 ns.RegisterPage("team", "Team", function(page)
-    local col = UI.Column(page, 0, 0, PAGE_W)
-    col:Header("Team members")
-    col:Note("The characters of your team, in the order the XP window shows them: drag a row by its dots to move it. Green dot = online with MMT.")
+    Intro(page, "Your team: the characters MMT works with, how their clients talk to each other and how their names are shown.")
+    local TOP = -22
+    local ROWS, ROW_H = 8, 22
+    local TEAM_H = 42 + 34 + ROWS * ROW_H + 8 + (UI.ROW + 6) + UI.ROW + 6
+    local Y2 = TOP - TEAM_H - 8
+    local BOTTOM_H = 564 + Y2   -- the rest of the page
+    local X2 = TILE_W + TILE_GAP
 
-    local list = List(page, PAGE_W, 8, 22, function(parent, i)
+    -- Team Members (full width) ------------------------------------------------
+    local tt, col = Tile(page, 0, TOP, PAGE_W, TEAM_H, "Team Members", "Interface\\Icons\\Spell_Holy_PrayerOfFortitude")
+    local IN = PAGE_W - 16
+    -- who you are playing, on the title line
+    local youHover = CreateFrame("Frame", nil, tt)
+    youHover:SetSize(260, 20)
+    youHover:SetPoint("TOPRIGHT", -10, -8)
+    local you = UI.Label(youHover, "")
+    you:SetPoint("RIGHT")
+    you:SetJustifyH("RIGHT")
+    you:SetTextColor(0.5, 0.5, 0.5)
+    ns.HoverMember(youHover, function() return ns.PlayerFull() end)
+    col:Note("In the order the XP window shows them: drag a row by its dots to move it. Green dot = online with MMT. Every account keeps its own team: add it on each client, or send it with Profiles > Sync to team (/mmt sync).")
+
+    local list = List(tt, IN, ROWS, ROW_H, function(parent, i)
         local row = CreateFrame("Frame", nil, parent)
         RowBackground(row, i)
         row.grip = Grip(row)
@@ -189,7 +248,7 @@ ns.RegisterPage("team", "Team", function(page)
         row.name:SetPoint("LEFT", 32, 0)
         row.roles = UI.Label(row, "")
         row.roles:SetPoint("LEFT", 220, 0)
-        row.roles:SetWidth(330)
+        row.roles:SetWidth(IN - 250)
         row.roles:SetJustifyH("LEFT")
         row.roles:SetWordWrap(false)
         row.roles:SetTextColor(0.55, 0.55, 0.55)
@@ -212,29 +271,31 @@ ns.RegisterPage("team", "Team", function(page)
         local roles = table.concat(ns.MemberRoleList(key), ", ")
         row.roles:SetText(roles ~= "" and roles or "no roles")
     end)
-    col:Add(list, 8 * 22)
+    col:Add(list, ROWS * ROW_H)
     -- drag a member up or down (the XP window's order)
-    DragReorder(list, 8, 22, function(from, before)
+    DragReorder(list, ROWS, ROW_H, function(from, before)
         local data = list.data
         ns.MoveMemberBefore(data[from], before and data[before] or nil)
         ns.Refresh()
     end)
-    local empty = UI.Label(page, "No team members yet. Group up and press \"Add group\", or type a name below.")
+    local empty = UI.Label(tt, "No team members yet. Group up and press \"Add group\", or type a name below.")
     empty:SetPoint("TOPLEFT", list, "TOPLEFT", 8, -4)
     empty:SetTextColor(0.5, 0.5, 0.5)
 
     col:Space(8)
     local status
-    local group = UI.Button(page, 120, "Add group", function()
-        local n = ns.AddGroupMembers()
-        status.Show_(n > 0 and ("Added " .. n .. " character(s) from your group.") or "Nobody new in your group.")
+    -- one line: name field + Add, then the quick buttons on the right
+    local input = UI.EditBox(tt, 220, "First Last", function(text, box)
+        local ok, err = ns.AddManual(text)
+        if ok then box:SetText(""); box:ClearFocus(); status.Show_("Added " .. ns.Trim(text) .. ".") else status.Show_(err, true) end
         ns.Refresh()
     end)
-    col:Add(group, 0)
-    UI.Tooltip(group, "Add group", "Adds you and everybody in your party or raid.")
-    local me = UI.Button(page, 90, "Add me", function() ns.AddUnit("player"); ns.Refresh() end)
-    me:SetPoint("LEFT", group, "RIGHT", 8, 0)
-    local target = UI.Button(page, 100, "Add target", function()
+    col:Add(input, 0)
+    local add = UI.Button(tt, 60, "Add", function() input:GetScript("OnEnterPressed")(input) end)
+    add:SetPoint("LEFT", input, "RIGHT", 6, 0)
+    local clear = ConfirmButton(tt, 110, "Remove all", function() ns.ClearTeam(); ns.Refresh() end)
+    clear:SetPoint("TOPRIGHT", tt, "TOPLEFT", 8 + IN, col.y)
+    local target = UI.Button(tt, 95, "Add target", function()
         if UnitExists("target") and UnitIsPlayer("target") then
             ns.AddUnit("target")
             status.Show_("")
@@ -243,35 +304,23 @@ ns.RegisterPage("team", "Team", function(page)
         end
         ns.Refresh()
     end)
-    target:SetPoint("LEFT", me, "RIGHT", 8, 0)
-    local clear = ConfirmButton(page, 120, "Remove all", function() ns.ClearTeam(); ns.Refresh() end)
-    clear:SetPoint("LEFT", target, "RIGHT", 8, 0)
-    col:Space(UI.ROW + 6)
-
-    local input = UI.EditBox(page, 300, "First Last", function(text, box)
-        local ok, err = ns.AddManual(text)
-        if ok then box:SetText(""); box:ClearFocus(); status.Show_("Added " .. ns.Trim(text) .. ".") else status.Show_(err, true) end
+    target:SetPoint("RIGHT", clear, "LEFT", -6, 0)
+    local me = UI.Button(tt, 80, "Add me", function() ns.AddUnit("player"); ns.Refresh() end)
+    me:SetPoint("RIGHT", target, "LEFT", -6, 0)
+    local group = UI.Button(tt, 100, "Add group", function()
+        local n = ns.AddGroupMembers()
+        status.Show_(n > 0 and ("Added " .. n .. " character(s) from your group.") or "Nobody new in your group.")
         ns.Refresh()
     end)
-    col:Add(input, 0)
-    local add = UI.Button(page, 90, "Add", function() input:GetScript("OnEnterPressed")(input) end)
-    add:SetPoint("LEFT", input, "RIGHT", 8, 0)
+    group:SetPoint("RIGHT", me, "LEFT", -6, 0)
+    UI.Tooltip(group, "Add group", "Adds you and everybody in your party or raid.")
     col:Space(UI.ROW + 6)
-
-    status = StatusLine(page)
+    status = StatusLine(tt)
+    status:SetWidth(IN)
     col:Add(status, UI.ROW)
-    local youHover = CreateFrame("Frame", nil, page)
-    youHover:SetSize(PAGE_W, UI.ROW)
-    local you = UI.Label(youHover, "")
-    you:SetPoint("LEFT")
-    you:SetTextColor(0.5, 0.5, 0.5)
-    ns.HoverMember(youHover, function() return ns.PlayerFull() end)
-    col:Add(youHover, UI.ROW)
-    col:Note("Every account keeps its own team. Add the team on each client, or send it with Profiles > Sync to team (/mmt sync).")
 
-    -- two columns: communication left, privacy right
-    local C = UI.Column(page, 0, col.y, COL_W)
-    C:Header("Communication")
+    -- Communication (bottom left) ------------------------------------------------
+    local _, C = Tile(page, 0, Y2, TILE_W, BOTTOM_H, "Communication", "Interface\\Icons\\Ability_Warrior_BattleShout")
     local gg, sg = Opt("comm", "guild")
     C:Check("Use guild channel", gg, function(v)
         if v and not IsInGuild() then
@@ -287,11 +336,12 @@ ns.RegisterPage("team", "Team", function(page)
     local gf, sf = Opt("comm", "fast")
     C:Check("Faster sending (1200 bytes/s)", gf, sf,
         "Increases the amount of data sent between team members for internal communication purposes by up to 50%.\nThis setting should be kept off, because it might cause the server to disconnect you if used excessively.")
+    C:Space(4)
     C:Note("Addons have limits on how much data can be sent to other addons and clients. MMT tries to avoid hitting the threshold, which can make sharing the profile slow.\nFor best performance, join the same guild with all characters and enable \"Use guild channel\".")
     local commInfo = C:Note("")
 
-    local P = UI.Column(page, COL2_X, col.y, COL_W)
-    P:Header("Privacy")
+    -- Privacy (bottom right) -------------------------------------------------------
+    local _, P = Tile(page, X2, Y2, TILE_W, BOTTOM_H, "Privacy", "Interface\\Icons\\Ability_Stealth")
     -- "Hide names outside MMT too" hooks other addons' frames at load: switching
     -- it on or off only works fully after a UI reload, so it reloads right away
     local function AskReload(what, apply)
@@ -327,6 +377,7 @@ ns.RegisterPage("team", "Team", function(page)
                 function() sh(v) if ns.PrivacyChanged then ns.PrivacyChanged() end end)
         end,
         "Requires /reload: MMT will try to obfuscate the names of your team on all Blizzard and other addon frames, including chat, tooltips, player/target/group/raid etc. according to the setting made above.\nIf \"Full name\" is selected, this option automatically switches off.")
+    P:Space(4)
     P:Note("All MMT features (core and modules) will use this setting. If \"Hide names outside MMT\" is enabled, the addon will also try to obfuscate the names there.\nMacros will still carry the full name to work, regardless of this setting.")
 
     page.OnRefresh = function()
@@ -355,20 +406,25 @@ ns.RegisterPage("team", "Team", function(page)
 end)
 
 ---------------------------------------------------------------------------
--- Roles
+-- Roles: the roles on the left, members and items of the selected one on the right
 ---------------------------------------------------------------------------
-local LEFT_W, RIGHT_X, RIGHT_W = 220, 250, 440
+local LEFT_W = 236
+local RIGHT_X = LEFT_W + TILE_GAP
+local RIGHT_W = PAGE_W - RIGHT_X
+local RIGHT_IN = RIGHT_W - 16
 
 ns.RegisterPage("roles", "Roles", function(page)
+    Intro(page, "Roles group your characters by job (e.g. Tailor, Herbs, Cloth). Trading with a team member hands over the items of their roles (Trade / Mail / Vendor page).")
     local selected
     local quality, itemGroup = 0, "cloth"
+    local TOP = -22
+    local FULL_H = 564 + TOP
 
-    local top = { y = 0 }   -- trade switch: Trade / Mail / Vendor page
-
-    -- left: roles --------------------------------------------------------
-    local L = UI.Column(page, 0, top.y, LEFT_W)
-    L:Header("Roles")
-    local roleList = List(page, LEFT_W, 12, 22, function(parent, i)
+    -- Roles (left, full height) ----------------------------------------------------
+    local ROLE_ROWS = 14
+    local lt, L = Tile(page, 0, TOP, LEFT_W, FULL_H, "Roles", "Interface\\Icons\\INV_Misc_Book_09")
+    local LIN = LEFT_W - 16
+    local roleList = List(lt, LIN, ROLE_ROWS, 22, function(parent, i)
         local row = CreateFrame("Button", nil, parent)
         RowBackground(row, i)
         row.sel = UI.Fill(row, A[1], A[2], A[3], 0.18, "BORDER")
@@ -390,43 +446,50 @@ ns.RegisterPage("roles", "Roles", function(page)
         row.count:SetText(ns.MembersWithRole(role))
         row.sel:SetShown(role == selected)
     end)
-    L:Add(roleList, 12 * 22 + 6)
+    L:Add(roleList, ROLE_ROWS * 22 + 8)
 
     local roleStatus
-    local roleInput = UI.EditBox(page, LEFT_W - 50, "New role", function(text, box)
+    local roleInput = UI.EditBox(lt, LIN - 50, "New role", function(text, box)
         local name, err = ns.AddRole(text)
         if name then selected = name; box:SetText(""); box:ClearFocus(); roleStatus.Show_("") else roleStatus.Show_(err, true) end
         ns.Refresh()
     end)
     L:Add(roleInput, 0)
-    local roleAdd = UI.Button(page, 44, "Add", function() roleInput:GetScript("OnEnterPressed")(roleInput) end)
+    local roleAdd = UI.Button(lt, 44, "Add", function() roleInput:GetScript("OnEnterPressed")(roleInput) end)
     roleAdd:SetPoint("LEFT", roleInput, "RIGHT", 6, 0)
     L:Space(UI.ROW + 4)
-    roleStatus = StatusLine(page)
-    roleStatus:SetWidth(LEFT_W)
-    L:Add(roleStatus, 16)
+    roleStatus = StatusLine(lt)
+    roleStatus:SetWidth(LIN)
+    L:Add(roleStatus, 18)
+    L:Note("Click a role to edit its members and items. The number is how many characters have it.")
     L:Note("Soulbound and quest items are never traded. A trade holds 6 stacks.")
 
-    -- right: members & rules ----------------------------------------------
-    local R = UI.Column(page, RIGHT_X, top.y, RIGHT_W)
-    local membersHeader = R:Header("Members")
+    -- Members of the role (right, top) ---------------------------------------------
+    local MEM_H = 42 + 5 * 22 + 8
+    local mt, R1 = Tile(page, RIGHT_X, TOP, RIGHT_W, MEM_H, "Members", "Interface\\Icons\\Spell_Holy_PrayerOfFortitude")
     local memberChecks, memberKeys = {}, {}
-    local half = RIGHT_W / 2
+    local half = RIGHT_IN / 2
     for i = 1, 10 do
-        local cb = UI.Check(page, half - 8, "",
+        local cb = UI.Check(mt, half - 8, "",
             function() return selected and memberKeys[i] and ns.HasRole(memberKeys[i], selected) end,
             function(v) if selected and memberKeys[i] then ns.SetMemberRole(memberKeys[i], selected, v) end end)
-        cb:SetPoint("TOPLEFT", page, "TOPLEFT", RIGHT_X + ((i - 1) % 2) * half, R.y - math.floor((i - 1) / 2) * 22)
+        cb:SetPoint("TOPLEFT", mt, "TOPLEFT", 8 + ((i - 1) % 2) * half, R1.y - math.floor((i - 1) / 2) * 22)
         ns.HoverMember(cb, function() return memberKeys[i] end)
         memberChecks[i] = cb
     end
-    local noTeam = UI.Label(page, "Add team members on the Team tab first.")
-    noTeam:SetPoint("TOPLEFT", page, "TOPLEFT", RIGHT_X, R.y - 2)
+    local noTeam = UI.Label(mt, "Add team members on the Team tab first.")
+    noTeam:SetPoint("TOPLEFT", mt, "TOPLEFT", 8, R1.y - 2)
     noTeam:SetTextColor(0.5, 0.5, 0.5)
-    R:Space(5 * 22)
+    local noRole = UI.Label(mt, "Create a role on the left (e.g. Cloth), then tick its members and add items.")
+    noRole:SetPoint("TOPLEFT", mt, "TOPLEFT", 8, R1.y - 2)
+    noRole:SetWidth(RIGHT_IN)
+    noRole:SetJustifyH("LEFT")
+    noRole:SetTextColor(0.5, 0.5, 0.5)
 
-    local rulesHeader = R:Header("Items")
-    local ruleList = List(page, RIGHT_W, 7, 20, function(parent, i)
+    -- Items of the role (right, below) -----------------------------------------------
+    local IT_Y = TOP - MEM_H - 8
+    local it, R = Tile(page, RIGHT_X, IT_Y, RIGHT_W, 564 + IT_Y, "Items", "Interface\\Icons\\INV_Fabric_Silk_01")
+    local ruleList = List(it, RIGHT_IN, 7, 20, function(parent, i)
         local row = CreateFrame("Frame", nil, parent)
         RowBackground(row, i)
         row.icon = row:CreateTexture(nil, "ARTWORK")
@@ -448,8 +511,8 @@ ns.RegisterPage("roles", "Roles", function(page)
         row.icon:SetTexture(icon or "Interface\\Buttons\\WHITE8x8")
         if icon then row.icon:SetVertexColor(1, 1, 1) else row.icon:SetVertexColor(0.3, 0.3, 0.3) end
     end)
-    R:Add(ruleList, 7 * 20 + 6)
-    local noRules = UI.Label(page, "No items or rules on this role yet.")
+    R:Add(ruleList, 7 * 20 + 8)
+    local noRules = UI.Label(it, "No items or rules on this role yet.")
     noRules:SetPoint("TOPLEFT", ruleList, "TOPLEFT", 6, -4)
     noRules:SetTextColor(0.5, 0.5, 0.5)
 
@@ -462,7 +525,7 @@ ns.RegisterPage("roles", "Roles", function(page)
         return ok
     end
 
-    local drop = UI.Button(page, RIGHT_W, "Drop an item from your bags here", function()
+    local drop = UI.Button(it, RIGHT_IN, "Drop an item from your bags here", function()
         local kind, id = GetCursorInfo()
         if kind == "item" then
             AddRule({ type = "item", itemID = id, name = (ns.ItemInfo(id)) })
@@ -470,9 +533,9 @@ ns.RegisterPage("roles", "Roles", function(page)
         end
     end)
     drop:SetScript("OnReceiveDrag", drop:GetScript("OnClick"))
-    R:Add(drop, UI.ROW + 2)
+    R:Add(drop, UI.ROW + 4)
 
-    local itemInput = UI.EditBox(page, RIGHT_W - 52, "Click, then shift-click an item", function(text, box)
+    local itemInput = UI.EditBox(it, RIGHT_IN - 52, "Click, then shift-click an item", function(text, box)
         local rule = ns.RuleFromText(text)
         if rule and AddRule(rule) then box:SetText(""); box:ClearFocus() end
     end)
@@ -481,46 +544,42 @@ ns.RegisterPage("roles", "Roles", function(page)
     end)
     UI.Tooltip(itemInput, "Add an item", "Click into the field, then shift-click an item in your bags, the loot window, a chat link or any other window. Item IDs and exact item names work too.")
     R:Add(itemInput, 0)
-    local itemAdd = UI.Button(page, 44, "Add", function() itemInput:GetScript("OnEnterPressed")(itemInput) end)
+    local itemAdd = UI.Button(it, 44, "Add", function() itemInput:GetScript("OnEnterPressed")(itemInput) end)
     itemAdd:SetPoint("LEFT", itemInput, "RIGHT", 8, 0)
-    R:Space(UI.ROW + 2)
+    R:Space(UI.ROW + 4)
 
-    local grey = UI.Button(page, half - 4, "All grey items", function() AddRule({ type = "quality", quality = 0 }) end)
+    local grey = UI.Button(it, half - 4, "All grey items", function() AddRule({ type = "quality", quality = 0 }) end)
     R:Add(grey, 0)
-    local boe = UI.Button(page, half - 4, "All Bind on Equip", function() AddRule({ type = "boe" }) end)
+    local boe = UI.Button(it, half - 4, "All Bind on Equip", function() AddRule({ type = "boe" }) end)
     boe:SetPoint("LEFT", grey, "RIGHT", 8, 0)
-    R:Space(UI.ROW + 2)
+    R:Space(UI.ROW + 4)
 
     local qualities = {}
     for q = 0, 5 do qualities[#qualities + 1] = { value = q, text = ns.QualityName(q) } end
-    local qCycle = UI.Cycle(page, RIGHT_W - 52, "Quality", qualities,
+    local qCycle = UI.Cycle(it, RIGHT_IN - 52, "Quality", qualities,
         function() return quality end, function(v) quality = v end)
     R:Add(qCycle, 0)
-    local qAdd = UI.Button(page, 44, "Add", function() AddRule({ type = "quality", quality = quality }) end)
+    local qAdd = UI.Button(it, 44, "Add", function() AddRule({ type = "quality", quality = quality }) end)
     qAdd:SetPoint("LEFT", qCycle, "RIGHT", 8, 0)
-    R:Space(UI.ROW + 2)
+    R:Space(UI.ROW + 4)
 
     local groups = {}
     for _, g in ipairs(ns.ITEM_GROUPS) do
         groups[#groups + 1] = g.header and { header = true, text = g.header } or { value = g.id, text = g.name }
     end
-    local cCycle = UI.Dropdown(page, RIGHT_W - 52, "Item group", groups,
+    local cCycle = UI.Dropdown(it, RIGHT_IN - 52, "Item group", groups,
         function() return itemGroup end, function(v) itemGroup = v end)
     R:Add(cCycle, 0)
     UI.Tooltip(cCycle, "Item group", "Ready-made groups by item category, e.g. Cloth (Linen, Wool, Silk, Mageweave, Runecloth and their bolts), Herbs, Potions, Food & drink or Reagents.")
-    local cAdd = UI.Button(page, 44, "Add", function() AddRule({ type = "group", group = itemGroup }) end)
+    local cAdd = UI.Button(it, 44, "Add", function() AddRule({ type = "group", group = itemGroup }) end)
     cAdd:SetPoint("LEFT", cCycle, "RIGHT", 8, 0)
-    R:Space(UI.ROW + 2)
+    R:Space(UI.ROW + 4)
 
-    ruleStatus = StatusLine(page)
+    ruleStatus = StatusLine(it)
+    ruleStatus:SetWidth(RIGHT_IN)
     R:Add(ruleStatus, 16)
 
-    local noRole = UI.Label(page, "Create a role on the left (e.g. Cloth), then tick its members and add items.")
-    noRole:SetPoint("TOPLEFT", page, "TOPLEFT", RIGHT_X, top.y - 30)
-    noRole:SetWidth(RIGHT_W)
-    noRole:SetJustifyH("LEFT")
-    noRole:SetTextColor(0.5, 0.5, 0.5)
-    local rightSide = { membersHeader, rulesHeader, ruleList, drop, itemInput, itemAdd, grey, boe, qCycle, qAdd, cCycle, cAdd, ruleStatus }
+    local rightSide = { ruleList, drop, itemInput, itemAdd, grey, boe, qCycle, qAdd, cCycle, cAdd, ruleStatus }
 
     page.OnRefresh = function()
         local roles = ns.SortedRoleNames()
@@ -530,8 +589,8 @@ ns.RegisterPage("roles", "Roles", function(page)
 
         for _, region in ipairs(rightSide) do region:SetShown(selected ~= nil) end
         noRole:SetShown(selected == nil)
-        membersHeader:SetText(selected and ("Members of " .. selected) or "Members")
-        rulesHeader:SetText(selected and ("Items for " .. selected) or "Items")
+        mt.title:SetText(selected and ("Members of " .. selected) or "Members")
+        it.title:SetText(selected and ("Items for " .. selected) or "Items")
 
         local rules = selected and ns.db.roles[selected].rules or {}
         ruleList:Render(rules)
@@ -556,8 +615,6 @@ end)
 -- Column Visibility & Order, Miscellaneous); fonts, bars, scale and opacity
 -- in a side window
 ---------------------------------------------------------------------------
-local TILE_W, TILE_GAP = 344, 10
-local TILE_IN = TILE_W - 16   -- width of the settings inside a tile
 
 local xpLook
 function ns.ToggleXPLook(window)
@@ -619,38 +676,9 @@ function ns.ToggleXPLook(window)
     for _, w in ipairs(xpLook.widgets) do w.Refresh() end
 end
 
--- a framed tile with an icon and a title; returns the tile and a column inside it
-local function Tile(parent, x, y, w, h, title, icon)
-    local t = CreateFrame("Frame", nil, parent)
-    t:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
-    t:SetSize(w, h)
-    UI.Fill(t, A[1], A[2], A[3], 0.04)
-    UI.Border(t, A[1], A[2], A[3], 0.30)
-    local ic = t:CreateTexture(nil, "ARTWORK")
-    ic:SetTexture(icon)
-    ic:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-    ic:SetSize(22, 22)
-    ic:SetPoint("TOPLEFT", 8, -7)
-    local label = UI.Label(t, title, "GameFontNormalLarge")
-    label:SetPoint("LEFT", ic, "RIGHT", 8, 0)
-    label:SetTextColor(A[1], A[2], A[3])
-    -- a long title that doesn't fit in the large font takes the normal one
-    if (label:GetStringWidth() or 0) > w - 46 and GameFontNormal then label:SetFontObject(GameFontNormal) end
-    local line = t:CreateTexture(nil, "ARTWORK")
-    line:SetColorTexture(A[1], A[2], A[3], 0.35)
-    line:SetHeight(1)
-    line:SetPoint("TOPLEFT", 8, -34)
-    line:SetPoint("TOPRIGHT", -8, -34)
-    return t, UI.Column(t, 8, -42, w - 16)
-end
-ns.ConfigHelpers.Tile = Tile
 
 ns.RegisterPage("xp", "XP Window", function(page)
-    local intro = UI.Label(page, "The XP Window is a central part of MMT that is used to show you lots of information about your team.")
-    intro:SetPoint("TOPLEFT", 0, 0)
-    intro:SetWidth(PAGE_W)
-    intro:SetJustifyH("LEFT")
-    intro:SetTextColor(0.75, 0.75, 0.75)
+    Intro(page, "The XP Window is a central part of MMT that is used to show you lots of information about your team.")
     local TOP = -22
     local PIECE_ROWS, PIECE_H = 9, 20   -- every piece visible without scrolling
     local EXTRA = 2 * PIECE_H           -- every tile two rows taller
