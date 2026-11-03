@@ -252,11 +252,11 @@ ns.RegisterPage("help", "Help", function(page)
     cc:Note(COMM_TEXT)
     cc:Add(CodeBox(c, PAGE_W, 400, COMM_CODE), 408)
 
-    -- Appearance (per account, like the window scale; never synced) -------------
+    -- Appearance (per account, like the window scale; sent with Profiles > Sync to team) ----
     local lk = panels.look
     local col = UI.Column(lk, 0, 0, COL_W)
     col:Header("Settings window")
-    col:Note("How this window looks. The choice belongs to this account (all its characters and profiles) and is never synced.")
+    col:Note("How this window looks. The choice belongs to this account (all its characters and profiles). Profiles > Sync to team (/mmt sync) sends it along, with the window size.")
     col:Cycle("Background", ns.BackgroundChoices, ns.ConfigBackground, ns.SetConfigBackground)
     col:Space(4)
     local desc = col:Note("")

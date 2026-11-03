@@ -1401,7 +1401,7 @@ ns.RegisterPage("profiles", "Profiles", function(page)
     col:Add(status, UI.ROW)
 
     local syncButton = UI.SyncButton(page, "Sync to team", function() ns.SendProfileToTeam() end, "Sync core settings",
-        "Same as /mmt sync: sends the core settings of the active profile (team, roles, XP window incl. its position, automations, distance window) and which modules are on or off to your group and online team members. With \"Use guild channel\" and every recipient in your guild, the settings of the modules go along too; otherwise every module page has its own Sync button. Each recipient gets a dialog to accept them (or accepts on its own, see the option beside this button).")
+        "Same as /mmt sync: sends the core settings of the active profile (team, roles, XP window incl. its position, automations, distance window), which modules are on or off and the settings window's look and size (Help > Appearance) to your group and online team members. With \"Use guild channel\" and every recipient in your guild, the settings of the modules go along too; otherwise every module page has its own Sync button. Each recipient gets a dialog to accept them (or accepts on its own, see the option beside this button).")
     local autoAccept = UI.Check(page, 250, "Auto-accept synced settings",
         function() return MMTDB.autoAcceptSync and true or false end,
         function(v) MMTDB.autoAcceptSync = v or nil end,

@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.50: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.51: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -345,7 +345,8 @@ Saved data from MMT 0.1.x is converted automatically.
   (parts arrived / total; green when received, red when it stopped), then a dialog to accept it. "Auto-accept
   synced settings" (beside the button) applies core and module settings from team
   members without the dialog; it is stored per account and never synced.
-  `/mmt sync` also sends which modules are on or off, and with "Use guild channel" and
+  `/mmt sync` also sends which modules are on or off, the settings window's look (Help >
+  Appearance) and scale, and with "Use guild channel" and
   every recipient in your guild also the settings of the modules (sync = true; if that
   would be more than the 200 parts recipients accept, it falls back to the core settings
   and module states, with a note; offline group members are not recipients); the
@@ -360,7 +361,8 @@ Saved data from MMT 0.1.x is converted automatically.
   settings window (plain looks such as Dark, Dusk, Vignette, Accent or Class glow, Grid,
   Glass, or the game's talent tree paintings: one per class and spec, or "My class", which
   follows the talent tree with the most points), its opacity (default 30 %) and whether
-  the painting is drawn in MMT's accent colour. Per account, never synced; default None.
+  the painting is drawn in MMT's accent colour. Per account, default None; sent along with
+  the profile sync (`/mmt sync`), together with the settings window's scale.
   "Debug mode (ignore online requirements)" (off, per account): the XP window and the
   Quest Tracker list every team member, also those offline or never heard from (in grey,
   with their last known values). Only for testing: while it is on, MMT asks at every
@@ -370,7 +372,7 @@ The page list on the left shows up to 16 pages; scroll it with the mouse wheel. 
 CORE or MODULES to collapse or expand that section (remembered per account).
 
 The settings window has its own scale (- / + at the bottom left, right-click resets,
-or `/mmt scale 130`), kept per account. The XP window's scale is under XP Window > Look.
+or `/mmt scale 130`), kept per account and sent along with the profile sync. The XP window's scale is under XP Window > Look.
 
 Names follow Team > Privacy (first name by default) in windows and chat messages;
 the debug report keeps full names unless "Keep full names in debug logs" is off.

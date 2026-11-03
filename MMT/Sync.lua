@@ -624,7 +624,7 @@ local function Complete(t)
         return
     end
 
-    local name, data, states, moduleSettings = ns.ParseExport(payload)
+    local name, data, states, moduleSettings, look = ns.ParseExport(payload)
     if not name then
         ns.Print("%sCould not read|r the settings from %s.", BAD, Name(t.who))
         Answer(t, "BAD")
@@ -634,9 +634,10 @@ local function Complete(t)
     ns.Print("%sReceived|r the %s from %s completely.", OK, label, Name(t.who))
     Answer(t, "RECV")
     -- own dialog instead of Blizzard's StaticPopup (taint)
-    AskOrAccept(("%s wants to share the MMT core settings (profile \"%s\") with you: team, roles, XP window incl. position, automations%s.\n\nAccepting overwrites them in a profile with that name and makes it your active profile.%s"):format(
+    AskOrAccept(("%s wants to share the MMT core settings (profile \"%s\") with you: team, roles, XP window incl. position, automations%s%s.\n\nAccepting overwrites them in a profile with that name and makes it your active profile.%s"):format(
             t.who, name, moduleSettings and ", which modules are on or off, and the settings of the modules"
-                or (states and ", and which modules are on or off" or ""),
+                or (states and ", which modules are on or off" or ""),
+            look and ", and the look and size of the settings window (Help > Appearance)" or "",
             moduleSettings and "" or " Module settings stay as they are."),
         ("Core settings from %s"):format(Name(t.who)),
         function()
@@ -651,6 +652,9 @@ local function Complete(t)
                     local changed, reload, missing = ns.ApplyModuleStates(states)
                     ReportStates(t.who, changed, reload, missing)
                     if changed > 0 then needReload = true end
+                end
+                if look and ns.ApplyLook(look) then
+                    ns.Print("Settings window look and size from %s applied.", Name(t.who))
                 end
                 if moduleSettings then
                     local n = 0

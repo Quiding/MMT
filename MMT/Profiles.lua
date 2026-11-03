@@ -480,7 +480,8 @@ function ns.ParseExport(str)
     if type(t) ~= "table" then return nil end
     if type(t.name) == "string" and type(t.data) == "table" then
         return t.name, t.data, type(t.modules) == "table" and t.modules or nil,
-            type(t.moduleSettings) == "table" and t.moduleSettings or nil
+            type(t.moduleSettings) == "table" and t.moduleSettings or nil,
+            type(t.look) == "table" and t.look or nil
     end
     if t.team or t.xp then return "Imported", t end -- 2.0.0 test build strings
     return nil
@@ -512,9 +513,35 @@ function ns.ExportCoreSettings(withModules)
         moduleSettings = {}
         for _, m in ipairs(ns.SyncableModules()) do moduleSettings[m.name] = m:SyncData() end
     end
-    -- the on/off state of the modules goes along (applied, not stored in the profile)
+    -- the on/off state of the modules and the settings window's look go along
+    -- (applied, not stored in the profile)
     return "MMT1:" .. ns.Serialize({ name = ns.CurrentProfileName(), data = data, core = true,
-        modules = ns.ModuleStates and ns.ModuleStates() or nil, moduleSettings = moduleSettings })
+        modules = ns.ModuleStates and ns.ModuleStates() or nil, moduleSettings = moduleSettings,
+        look = ns.ExportLook() })
+end
+
+-- the settings window's look (Help > Appearance) and scale: kept per account in MMTDB,
+-- sent along with the profile sync
+function ns.ExportLook()
+    return { background = MMTDB.configBackground or "NONE", artAlpha = ns.ArtAlpha and ns.ArtAlpha() or nil,
+        artTint = not (MMTDB.configArtTint == false), scale = ns.ConfigScale and ns.ConfigScale() or nil }
+end
+
+-- applies a synced look; returns true when something changed
+function ns.ApplyLook(look)
+    if type(look) ~= "table" then return false end
+    local before = ns.Serialize(ns.ExportLook())
+    if type(look.background) == "string" then
+        local known = look.background == "NONE"
+        for _, b in ipairs(ns.BACKGROUNDS or {}) do if b.value == look.background then known = true end end
+        if known and ns.SetConfigBackground then ns.SetConfigBackground(look.background) end
+    end
+    local alpha = tonumber(look.artAlpha)
+    if alpha and alpha >= 0.1 and alpha <= 0.6 and ns.SetArtAlpha then ns.SetArtAlpha(alpha) end
+    if type(look.artTint) == "boolean" and ns.SetArtTint then ns.SetArtTint(look.artTint) end
+    local scale = tonumber(look.scale)
+    if scale and ns.SetConfigScale then ns.SetConfigScale(scale) end
+    return ns.Serialize(ns.ExportLook()) ~= before
 end
 
 -- Stores core settings under name and activates that profile. The module
