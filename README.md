@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.48: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.49: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -341,11 +341,14 @@ Saved data from MMT 0.1.x is converted automatically.
   (e.g. `/mmt sync questtracker`), which sends only that module's settings.
   Messages are paced to stay under the game's addon message limit. The sender sees who
   it went to and who confirmed (received, accepted, declined); recipients see when a
-  transfer starts and when it is complete, then a dialog to accept it. "Auto-accept
+  transfer starts and a small movable window with a progress bar per incoming transfer
+  (parts arrived / total; green when received, red when it stopped), then a dialog to accept it. "Auto-accept
   synced settings" (beside the button) applies core and module settings from team
   members without the dialog; it is stored per account and never synced.
   `/mmt sync` also sends which modules are on or off, and with "Use guild channel" and
-  every recipient in your guild also the settings of the modules (sync = true); the
+  every recipient in your guild also the settings of the modules (sync = true; if that
+  would be more than the 200 parts recipients accept, it falls back to the core settings
+  and module states, with a note; offline group members are not recipients); the
   recipients switch their modules the same way (modules switched on that weren't loaded need a UI reload; modules they don't
   have installed are named in chat). Modules page > "Sync to team" (or
   `/mmt sync modules`) sends only the on/off states.
