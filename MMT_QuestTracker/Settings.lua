@@ -1,5 +1,5 @@
 -- MMT Quest Tracker: settings page (under MODULES in /mmt) with three
--- sub-tabs (Tracker, Automation, Fonts), and the debug report.
+-- sub-tabs (Tracker, Automation, Fonts) in the tile design, and the debug report.
 
 local _, mod = ...
 local MMT = MMT
@@ -24,56 +24,23 @@ local function FontChoices(current)
     return l
 end
 
--- small tab bar at the top of the page
-local function SubTabs(page, names)
-    local frames, buttons = {}, {}
-    local function Select(i)
-        for j, fr in ipairs(frames) do fr:SetShown(i == j) end
-        for j, b in ipairs(buttons) do b.Update(i == j) end
-        page.subTab = i
-    end
-    local x = 0
-    for i, name in ipairs(names) do
-        local b = CreateFrame("Button", nil, page)
-        b:SetSize(110, 22)
-        b:SetPoint("TOPLEFT", x, 0)
-        x = x + 114
-        local bg = UI.Fill(b, 1, 1, 1, 0.03)
-        local bar = b:CreateTexture(nil, "ARTWORK")
-        bar:SetColorTexture(A[1], A[2], A[3], 1)
-        bar:SetPoint("BOTTOMLEFT"); bar:SetPoint("BOTTOMRIGHT")
-        bar:SetHeight(2)
-        local label = UI.Label(b, name, "GameFontNormal")
-        label:SetPoint("CENTER", 0, 1)
-        local hl = b:CreateTexture(nil, "HIGHLIGHT")
-        hl:SetAllPoints(); hl:SetColorTexture(1, 1, 1, 0.04)
-        b.Update = function(on)
-            bar:SetShown(on)
-            bg:SetColorTexture(1, 1, 1, on and 0.07 or 0.03)
-            if on then label:SetTextColor(1, 1, 1) else label:SetTextColor(0.6, 0.6, 0.6) end
-        end
-        b:SetScript("OnClick", function() Select(i) end)
-        buttons[i] = b
-
-        local fr = CreateFrame("Frame", nil, page)
-        fr:SetPoint("TOPLEFT", 0, -32)
-        fr:SetPoint("BOTTOMRIGHT")
-        frames[i] = fr
-    end
-    Select(1)
-    return frames
-end
-
 M.Page = function(_, page)
-    local tabs = SubTabs(page, { "Tracker", "Automation", "Fonts" })
+    local Tile, TILE_W, X2 = H.Tile, H.TILE_W, H.TILE_W + H.TILE_GAP
+    local TILE_IN = TILE_W - 16
+    local TOP = H.Intro(page, "One quest tracker for the whole team: every member's progress under each quest, plus quest automation and sharing.")
+    local tabs, _, PANEL_H = H.TabStrip(page, TOP, {
+        { "tracker", "Tracker", "INV_Misc_Book_09" },
+        { "auto", "Automation", "INV_Misc_Gear_01" },
+        { "fonts", "Fonts", "INV_Misc_Note_01" },
+    }, H.SYNC_RESERVE)
     local status
 
     -------------------------------------------------------------------------
-    -- Tracker
+    -- Tracker: Quest Tracker + Content (left), Look (right)
     -------------------------------------------------------------------------
-    local T = tabs[1]
-    local L = UI.Column(T, 0, 0, COL_W)
-    L:Header("Quest tracker")
+    local T = tabs.tracker
+    local QT_H = 42 + 6 * UI.ROW + 10
+    local _, L = Tile(T, 0, 0, TILE_W, QT_H, "Quest Tracker", "Interface\\Icons\\INV_Misc_Book_09")
     L:Check("Show quest tracker", Opt("show"))
     local ghb, shb = Opt("hideBlizzard")
     L:Check("Hide the Blizzard quest tracker", ghb, shb, "Comes back when you switch this off or disable the module (outside combat).")
@@ -87,7 +54,9 @@ M.Page = function(_, page)
     local gsh, ssh = Opt("showHeader")
     L:Check("Show header", gsh, ssh, "\"Quests 12/25\" at the top, with [-] / [+] on the right to collapse everything down to the zones or open everything.")
 
-    L:Header("Content")
+    local CY = -(QT_H + 8)
+    local ct
+    ct, L = Tile(T, 0, CY, TILE_W, PANEL_H + CY, "Content", "Interface\\Icons\\INV_Misc_Spyglass_02")
     local gw, sw = Opt("onlyWatched")
     L:Check("Only quests you track", gw, sw, "Only quests marked for tracking in your quest log.")
     local gtq, stq = Opt("teamQuests")
@@ -104,12 +73,11 @@ M.Page = function(_, page)
         mod.RequestAll()
         status.Show_("Asked the online team for their quest logs.")
     end)
-    status = StatusLine(T)
-    status:SetWidth(COL_W)
+    status = StatusLine(ct)
+    status:SetWidth(TILE_IN)
     L:Add(status, 20)
 
-    local R = UI.Column(T, COL2_X, 0, COL_W)
-    R:Header("Look")
+    local _, R = Tile(T, X2, 0, TILE_W, PANEL_H, "Look", "Interface\\Icons\\INV_Misc_Ribbon_01")
     local gbg, sbg = Opt("bg")
     R:Color("Background colour", gbg, sbg)
     local gba, sba = Opt("bgAlpha")
@@ -135,16 +103,20 @@ M.Page = function(_, page)
         { value = "THICKOUTLINE", text = "Thick" },
         { value = "MONOCHROME,OUTLINE", text = "Mono" },
     }, gol, sol)
-    R:Button("Expand all", function() mod.SetAllCollapsed(false) end)
+    local half = math.floor((TILE_IN - 8) / 2)
+    local rt = R.parent
+    local expand = UI.Button(rt, half, "Expand all", function() mod.SetAllCollapsed(false) end)
+    R:Add(expand, 0)
+    local resetPos = UI.Button(rt, half, "Reset position", function() mod.ResetPosition() end)
+    resetPos:SetPoint("LEFT", expand, "RIGHT", 8, 0)
+    R:Space(UI.ROW + 6)
     R:Note("In the tracker: Shift + drag moves it. Quest: click opens it in the quest log, Shift-click links it, Shift-right-click abandons it. Zone: Ctrl-click collapses its quests, Ctrl-right-click shows only that zone (again: all).")
-    R:Button("Reset position", function() mod.ResetPosition() end)
 
     -------------------------------------------------------------------------
-    -- Automation
+    -- Automation: Quests (left), Team (right)
     -------------------------------------------------------------------------
-    local Au = tabs[2]
-    local L2 = UI.Column(Au, 0, 0, COL_W)
-    L2:Header("Quests")
+    local Au = tabs.auto
+    local _, L2 = Tile(Au, 0, 0, TILE_W, PANEL_H, "Quests", "Interface\\Icons\\INV_Misc_Note_02")
     L2:Check("Accept quests from NPCs", Opt("acceptNPC"))
     L2:Check("Accept quests shared by group", Opt("acceptShared"))
     L2:Check("Turn in completed quests", Opt("turnIn"))
@@ -159,41 +131,42 @@ M.Page = function(_, page)
     local gmr, smr = Opt("markRewards")
     L2:Check("Mark the best rewards", gmr, smr,
         "On quest reward choices: a coin on the reward that sells for the most, a green arrow on every reward that is an upgrade for this character (it can wear it and its item level is higher than what it wears in that slot). Choosing stays manual.")
+    L2:Space(4)
     L2:Note("Hold Shift while an NPC page opens to keep that page manual (Core > Automations).")
 
-    local R2 = UI.Column(Au, COL2_X, 0, COL_W)
-    R2:Header("Team")
+    local _, R2 = Tile(Au, X2, 0, TILE_W, PANEL_H, "Team", "Interface\\Icons\\Spell_Holy_PrayerOfFortitude")
     local gas, sas = Opt("autoShare")
     R2:Check("Share new quests automatically", gas, sas,
         "When you accept a quest, it is shared with your group. Quests you got shared by a group member, or that every team member already has, aren't shared again.")
     local gns, sns = Opt("announceNoShare")
-    R2:Check("Announce in party chat if a quest can't be shared", gns, sns,
-        "Posts \"[Quest] can't be shared.\" when you accept a quest that the game doesn't let you share.")
+    R2:Check("Announce if a quest can't be shared", gns, sns,
+        "Posts \"[Quest] can't be shared.\" in party chat when you accept a quest that the game doesn't let you share.")
     local gab, sab = Opt("abortTeam")
     R2:Check("Abandon quests on the whole team", gab, sab,
         "When you abandon a quest, you are asked: \"Do you want to abort this quest on your entire team?\". Yes makes every online team member abandon it too. Must be on for the other characters as well.")
+    R2:Space(4)
     R2:Note("Sharing and team abandon need MMT with this module on every client.")
 
     -------------------------------------------------------------------------
-    -- Fonts: font, size and colour for each of the four levels
+    -- Fonts: one tile per level (font, size, colour), two by two
     -------------------------------------------------------------------------
-    local Fo = tabs[3]
-    local cols = { UI.Column(Fo, 0, 0, COL_W), UI.Column(Fo, COL2_X, 0, COL_W) }
+    local Fo = tabs.fonts
+    local FONT_H = 42 + (UI.ROW + 2) + 36 + (UI.ROW + 2) + 10
     for i, level in ipairs(mod.LEVELS) do
-        local C = cols[(i - 1) % 2 + 1]
+        local x = ((i - 1) % 2 == 0) and 0 or X2
+        local y = -math.floor((i - 1) / 2) * (FONT_H + 8)
+        local _, C = Tile(Fo, x, y, TILE_W, FONT_H, level.title, "Interface\\Icons\\INV_Misc_Note_01")
         local function S() return M.db.fonts[level.key] end
-        C:Header(level.title)
         C:Cycle("Font", function() return FontChoices(S().font) end,
             function() return S().font end, function(v) S().font = v end)
         C:Slider("Font size", 6, 24, 1, function() return S().size end, function(v) S().size = v end)
         C:Color("Font colour", function() return S().color end, function(v) S().color = v end)
-        C:Space(8)
     end
     local note = UI.Label(Fo, "Zone > [Level] Quest > Objective > one row per team member. +/- at the start of a line collapses / expands it.")
     note:SetTextColor(0.6, 0.6, 0.6)
     note:SetWidth(PAGE_W)
     note:SetJustifyH("LEFT")
-    note:SetPoint("TOPLEFT", 0, cols[1].y - 8)
+    note:SetPoint("TOPLEFT", 0, -(math.ceil(#mod.LEVELS / 2) * (FONT_H + 8)) - 2)
 end
 
 function M.Report(_, add)

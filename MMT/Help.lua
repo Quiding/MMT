@@ -192,50 +192,9 @@ ns.RegisterPage("help", "Help", function(page)
     local X2 = TILE_W + TILE_GAP
     local TOP = Intro(page, "Tools for when something goes wrong, guides for writing your own modules, and the look of this window.")
 
-    -- sub pages as a tab strip: the chosen one in the accent colour, underlined
-    local panels, buttons = {}, {}
-    local function Show(key)
-        for k, p in pairs(panels) do p:SetShown(k == key) end
-        for k, b in pairs(buttons) do
-            local on = k == key
-            b.label:SetTextColor(on and A[1] or 0.7, on and A[2] or 0.7, on and A[3] or 0.7)
-            b.bar:SetShown(on)
-        end
-    end
-    local tabs = { { "debug", "Debugging", "INV_Misc_Wrench_01" }, { "modules", "Writing modules", "Trade_Engineering" },
-                   { "comm", "Team communication", "Ability_Warrior_BattleShout" }, { "look", "Appearance", "INV_Misc_Ribbon_01" } }
-    local TAB_W = math.floor((PAGE_W - 3 * 6) / 4)
-    local strip = page:CreateTexture(nil, "ARTWORK")
-    strip:SetColorTexture(1, 1, 1, 0.08)
-    strip:SetHeight(1)
-    strip:SetPoint("TOPLEFT", 0, TOP - 26)
-    strip:SetPoint("TOPRIGHT", 0, TOP - 26)
-    local PANEL_Y = TOP - 34
-    local PANEL_H = 564 + PANEL_Y
-    for i, t in ipairs(tabs) do
-        local b = CreateFrame("Button", nil, page)
-        b:SetSize(TAB_W, 26)
-        b:SetPoint("TOPLEFT", (i - 1) * (TAB_W + 6), TOP)
-        local hl = b:CreateTexture(nil, "HIGHLIGHT")
-        hl:SetAllPoints(); hl:SetColorTexture(1, 1, 1, 0.04)
-        local icon = b:CreateTexture(nil, "ARTWORK")
-        icon:SetSize(16, 16)
-        icon:SetPoint("LEFT", 6, 0)
-        icon:SetTexture("Interface\\Icons\\" .. t[3])
-        icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-        b.label = UI.Label(b, t[2], "GameFontNormal")
-        b.label:SetPoint("LEFT", icon, "RIGHT", 6, 0)
-        b.bar = b:CreateTexture(nil, "OVERLAY")
-        b.bar:SetColorTexture(A[1], A[2], A[3], 0.9)
-        b.bar:SetHeight(2)
-        b.bar:SetPoint("BOTTOMLEFT"); b.bar:SetPoint("BOTTOMRIGHT")
-        b:SetScript("OnClick", function() Show(t[1]) end)
-        buttons[t[1]] = b
-        local p = CreateFrame("Frame", nil, page)
-        p:SetPoint("TOPLEFT", 0, PANEL_Y)
-        p:SetSize(PAGE_W, PANEL_H)
-        panels[t[1]] = p
-    end
+    local panels, Show, PANEL_H = H.TabStrip(page, TOP, {
+        { "debug", "Debugging", "INV_Misc_Wrench_01" }, { "modules", "Writing modules", "Trade_Engineering" },
+        { "comm", "Team communication", "Ability_Warrior_BattleShout" }, { "look", "Appearance", "INV_Misc_Ribbon_01" } })
 
     -- Debugging: tools and actions side by side, the how-to below -----------------------
     local d = panels.debug

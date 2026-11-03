@@ -124,6 +124,29 @@ A new or changed `Bindings.xml` is only read at a full game restart.
 With `sync = true`, the core adds a "Sync to team" button to `M.Page` and the command
 `/mmt sync <name>`. Only `M.db` is sent, never `M.store`.
 
+### Settings page layout
+
+The core pages use one design: a grey intro line on top, then framed tiles with an icon and
+a title (two side by side fill the page). `MMT.ConfigHelpers` gives modules the same parts:
+
+| Helper | |
+|---|---|
+| `H.Intro(page, text)` | Intro line; returns the y where the tiles start (below a wrapped line too) |
+| `H.Tile(parent, x, y, w, h, title, icon)` | A tile; returns the frame and a column inside it (`col:Check`, `col:Cycle`, ...) |
+| `H.TILE_W`, `H.TILE_GAP` | Width of a half-page tile and the gap between two (`x` of the right one: `TILE_W + TILE_GAP`) |
+| `H.TabStrip(page, y, tabs, reserve)` | Sub pages as tabs: `tabs = { { key, label, icon }, ... }`; returns `panels`, `Show(key)`, the panel height |
+| `H.SYNC_RESERVE` | Room to keep free at the bottom for the Sync button (`sync = true`) |
+
+```lua
+M.Page = function(self, page)
+    local H = MMT.ConfigHelpers
+    local top = H.Intro(page, "What the module does, in one line.")
+    local _, col = H.Tile(page, 0, top, H.TILE_W, 140, "Ready Check", "Interface\\Icons\\INV_Misc_Note_01")
+    col:Slider("Free bag slots needed", 0, 16, 1,
+        function() return M.db.minFree end, function(v) M.db.minFree = v end)
+end
+```
+
 ## Hooking into the team management
 
 ### Team members

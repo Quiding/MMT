@@ -13,9 +13,13 @@ local function Opt(key)
 end
 
 M.Page = function(_, page)
-    local L = UI.Column(page, 0, 0, COL_W)
-    L:Header("Item Bar")
-    L:Note("Item slots that are the same on every team member. Drop an item from your bags on a slot: it appears there on every character, also on those that don't have it.")
+    local Tile, TILE_W, X2 = H.Tile, H.TILE_W, H.TILE_W + H.TILE_GAP
+    local TOP = H.Intro(page, "Item slots that are the same on every team member. Drop an item from your bags on a slot: it appears there on every character, also on those that don't have it.")
+    local TOP_H, BOTTOM_H = 214, 160
+    local Y2 = TOP - TOP_H - 8
+
+    -- Bar (top left) --------------------------------------------------------------------------
+    local _, L = Tile(page, 0, TOP, TILE_W, TOP_H, "Bar", "Interface\\Icons\\INV_Misc_Bag_08")
     local gl, sl = Opt("layout")
     L:Cycle("Layout", {
         { value = "H", text = "Horizontal" },
@@ -25,20 +29,25 @@ M.Page = function(_, page)
     L:Slider("Number of slots", 2, mod.MAX_SLOTS, 1, gn, sn)
     local gs, ss = Opt("scale")
     L:Slider("Scale", 0.8, 2, 0.05, gs, ss, "%.2f")
+    local glk, slk = Opt("locked")
+    L:Check("Lock position", glk, slk, "Unlocked, Shift + drag moves the bar.")
+    L:Button("Reset position", function() mod.ResetPosition() end)
+
+    -- Buttons & Tooltip (bottom left) ---------------------------------------------------------
+    _, L = Tile(page, 0, Y2, TILE_W, BOTTOM_H, "Buttons & Tooltip", "Interface\\Icons\\INV_Misc_Note_01")
     local gr, sr = Opt("showRefresh")
     L:Check("Show refresh button", gr, sr, "Sends this bar to every team member and asks for their counts.")
     local gc, sc = Opt("showClear")
     L:Check("Show clear button", gc, sc, "Removes every item from the bar, on every team member (asks first).")
     local gg, sg = Opt("guildBank")
     L:Check("Guild bank in the tooltip", gg, sg, "Adds the guild bank count. It is counted whenever a team member opens the guild bank.")
-    local glk, slk = Opt("locked")
-    L:Check("Lock position", glk, slk, "Unlocked, Shift + drag moves the bar.")
-    L:Button("Reset position", function() mod.ResetPosition() end)
 
-    local R = UI.Column(page, COL2_X, 0, COL_W)
-    R:Header("Mouse")
+    -- Mouse (top right) -----------------------------------------------------------------------
+    local _, R = Tile(page, X2, TOP, TILE_W, TOP_H, "Mouse", "Interface\\Icons\\INV_Misc_Spyglass_02")
     R:Note("Drop an item on a slot: it is added on every character.\nClick: use the item on this character.\nCtrl-click: remove it from every character.\nShift + drag: move the bar.\nShift-right-click: these settings.\nTooltip: every character's count in bags and bank.")
-    R:Header("Using items on the team")
+
+    -- Using Items on the Team (bottom right) ----------------------------------------------------
+    _, R = Tile(page, X2, Y2, TILE_W, BOTTOM_H, "Using Items on the Team", "Interface\\Icons\\Spell_Holy_PrayerOfFortitude")
     R:Note("WoW lets an addon use an item only on the character where you click or press a key, so a click uses it on this character only.")
     R:Note("To use it on every character: Esc > Options > Keybindings > \"MMT (Manage My Team)\" > Item Bar has a key per slot. With key broadcasting, one key press uses the item on every character.")
 end

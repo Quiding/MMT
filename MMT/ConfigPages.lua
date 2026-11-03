@@ -213,6 +213,59 @@ local function Intro(page, text)
     return -math.max(22, h + 10), fs
 end
 ns.ConfigHelpers.Intro = Intro
+
+-- sub pages of a page as a tab strip at y (below the intro): icons, the chosen one in the
+-- accent colour and underlined. tabs = { { key, label, icon (Interface\Icons\...) }, ... };
+-- returns panels[key] (frames below the strip, height to the page bottom minus reserve), Show(key)
+local function TabStrip(page, y, tabs, reserve)
+    local panels, buttons = {}, {}
+    local function Show(key)
+        for k, p in pairs(panels) do p:SetShown(k == key) end
+        for k, b in pairs(buttons) do
+            local on = k == key
+            b.label:SetTextColor(on and A[1] or 0.7, on and A[2] or 0.7, on and A[3] or 0.7)
+            b.bar:SetShown(on)
+        end
+        page.subTab = key
+    end
+    local n = #tabs
+    local TAB_W = math.floor((PAGE_W - (n - 1) * 6) / n)
+    local line = page:CreateTexture(nil, "ARTWORK")
+    line:SetColorTexture(1, 1, 1, 0.08)
+    line:SetHeight(1)
+    line:SetPoint("TOPLEFT", 0, y - 26)
+    line:SetPoint("TOPRIGHT", 0, y - 26)
+    local panelY = y - 34
+    for i, t in ipairs(tabs) do
+        local b = CreateFrame("Button", nil, page)
+        b:SetSize(TAB_W, 26)
+        b:SetPoint("TOPLEFT", (i - 1) * (TAB_W + 6), y)
+        local hl = b:CreateTexture(nil, "HIGHLIGHT")
+        hl:SetAllPoints(); hl:SetColorTexture(1, 1, 1, 0.04)
+        local icon = b:CreateTexture(nil, "ARTWORK")
+        icon:SetSize(16, 16)
+        icon:SetPoint("LEFT", 6, 0)
+        icon:SetTexture("Interface\\Icons\\" .. t[3])
+        icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+        b.label = UI.Label(b, t[2], "GameFontNormal")
+        b.label:SetPoint("LEFT", icon, "RIGHT", 6, 0)
+        b.bar = b:CreateTexture(nil, "OVERLAY")
+        b.bar:SetColorTexture(A[1], A[2], A[3], 0.9)
+        b.bar:SetHeight(2)
+        b.bar:SetPoint("BOTTOMLEFT"); b.bar:SetPoint("BOTTOMRIGHT")
+        b:SetScript("OnClick", function() Show(t[1]) end)
+        buttons[t[1]] = b
+        local p = CreateFrame("Frame", nil, page)
+        p:SetPoint("TOPLEFT", 0, panelY)
+        p:SetSize(PAGE_W, 564 + panelY - (reserve or 0))
+        panels[t[1]] = p
+    end
+    Show(tabs[1][1])
+    return panels, Show, 564 + panelY - (reserve or 0)
+end
+ns.ConfigHelpers.TabStrip = TabStrip
+-- room the Sync button takes at the bottom right of a module page
+ns.ConfigHelpers.SYNC_RESERVE = 34
 ns.ConfigHelpers.TILE_W, ns.ConfigHelpers.TILE_GAP = TILE_W, TILE_GAP
 
 ---------------------------------------------------------------------------

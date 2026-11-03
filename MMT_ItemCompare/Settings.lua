@@ -18,11 +18,15 @@ local MODIFIER_KEYS = { LSHIFT = true, RSHIFT = true, LCTRL = true, RCTRL = true
     LMETA = true, RMETA = true, UNKNOWN = true }
 
 M.Page = function(_, page)
-    local L = UI.Column(page, 0, 0, COL_W)
     local status
+    local Tile, TILE_W, X2 = H.Tile, H.TILE_W, H.TILE_W + H.TILE_GAP
+    local TILE_IN = TILE_W - 16
+    local TOP = H.Intro(page, "Hover an item and press your Item Compare key: you see what every team member wears in that slot.")
+    local KEY_H, LOOK_H = 42 + 3 * (UI.ROW + 2) + 3 * UI.ROW + 4 + 30 + 8, 42 + 2 * 36 + 10
+    local FULL_H = KEY_H + 8 + LOOK_H
 
-    L:Header("Item Compare")
-    L:Note("Hover an item and press your Item Compare key: you see what every team member wears in that slot.")
+    -- Key & Behaviour (top left) ------------------------------------------------------------------
+    local kt, L = Tile(page, 0, TOP, TILE_W, KEY_H, "Key & Behaviour", "Interface\\Icons\\INV_Misc_Spyglass_02")
     L:Check("Item Compare is on", function() return M.enabled end, function(v)
         for _, entry in ipairs(MMT.InstalledModules()) do
             if entry.module == M then MMT.SetModuleEnabled(entry, v) end
@@ -44,7 +48,7 @@ M.Page = function(_, page)
         keyButton:EnableKeyboard(false)
         keyButton.label:SetText("Key: " .. KeyText())
     end
-    keyButton = UI.Button(page, COL_W, "", function(self, button)
+    keyButton = UI.Button(kt, TILE_IN, "", function(self, button)
         if button == "RightButton" then
             local ok, err = mod.SetKey(nil)
             status.Show_(ok and "Item Compare key removed." or err, not ok)
@@ -83,24 +87,24 @@ M.Page = function(_, page)
     local go, so = Opt("showStale")
     L:Check("Include offline members", go, so, "Shows the items they wore when they were last online, with the age of that data.")
     L:Space(4)
-    status = StatusLine(page)
-    status:SetWidth(COL_W)
+    status = StatusLine(kt)
+    status:SetWidth(TILE_IN)
     L:Add(status, 30)
 
-    L:Header("Look")
+    -- Look (bottom left) -------------------------------------------------------------------------------
+    _, L = Tile(page, 0, TOP - KEY_H - 8, TILE_W, LOOK_H, "Look", "Interface\\Icons\\INV_Misc_Ribbon_01")
     local gsc, ssc = Opt("scale")
     L:Slider("Tooltip scale", 0.5, 1.5, 0.05, gsc, ssc, "%.2f")
     local gp, sp = Opt("perRow")
     L:Slider("Tooltips per row", 1, 8, 1, gp, sp)
 
-    -- right: equipment database ------------------------------------------
-    local R = UI.Column(page, COL2_X, 0, COL_W)
-    R:Header("Team items")
+    -- Team Items (right): the equipment database -------------------------------------------------------
+    local rt, R = Tile(page, X2, TOP, TILE_W, FULL_H, "Team Items", "Interface\\Icons\\INV_Chest_Chain")
     R:Note("Every client keeps the team's equipped items and only sends changes. Item stats come from the game.")
     local lines, lineKeys = {}, {}
     for i = 1, 10 do
-        local row = CreateFrame("Frame", nil, page)
-        row:SetSize(COL_W, 18)
+        local row = CreateFrame("Frame", nil, rt)
+        row:SetSize(TILE_IN, 18)
         local fs = UI.Label(row, "")
         fs:SetPoint("LEFT")
         fs:SetPoint("RIGHT")
@@ -118,7 +122,7 @@ M.Page = function(_, page)
         mod.RequestAll()
         status.Show_("Asked the online team for their items.")
     end)
-    local clear = ConfirmButton(page, COL_W, "Clear stored items", function()
+    local clear = ConfirmButton(rt, TILE_IN, "Clear stored items", function()
         mod.Clear()
         status.Show_("Stored items cleared. They fill in again as members come online.")
         MMT.RefreshConfig()
