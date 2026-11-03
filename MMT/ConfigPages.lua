@@ -899,8 +899,13 @@ end
 -- Alerts: follow and crowd control
 ---------------------------------------------------------------------------
 ns.RegisterPage("alerts", "Alerts", function(page)
-    local L = UI.Column(page, 0, 0, COL_W)
-    L:Header("Follow")
+    local TOP = Intro(page, "You can have MMT notify you via XP window, sound or text warnings about certain conditions and situations, to help you keeping track of your team.")
+    local FULL_H = 564 + TOP
+    local X2 = TILE_W + TILE_GAP
+    local FOLLOW_H = 42 + UI.ROW + 4 * UI.ROW + 36 + 10
+
+    -- Follow (top left) -------------------------------------------------------------
+    local _, L = Tile(page, 0, TOP, TILE_W, FOLLOW_H, "Follow", "Interface\\Icons\\Ability_Rogue_Sprint")
     L:Note("Warns when a team character stops following.")
     local gfc, sfc = Opt("xp", "followCheck")
     L:Check("Check /follow of team", gfc, sfc,
@@ -916,7 +921,9 @@ ns.RegisterPage("alerts", "Alerts", function(page)
     local gfd, sfd = Opt("xp", "followCombatDelay")
     L:Slider("Check after combat (seconds)", 1, 30, 1, gfd, sfd)
 
-    L:Header("Bags and quest log")
+    -- Bags and Quest Log (bottom left) ------------------------------------------------
+    local BY = TOP - FOLLOW_H - 8
+    _, L = Tile(page, 0, BY, TILE_W, 564 + BY, "Bags and Quest Log", "Interface\\Icons\\INV_Misc_Bag_08")
     L:Note("Warns the leader (the FTL leader; without one online, the group leader if in the team, else the first online team member) when a character runs out of room.")
     local gwb, swb = Opt("warn", "bags")
     L:Check("Bags almost full", gwb, swb, "Once when a character gets down to the free slots below, and once more when its bags are full.")
@@ -930,8 +937,8 @@ ns.RegisterPage("alerts", "Alerts", function(page)
     L:Check("Show as raid warning", gwr, swr, "Besides the chat line.")
     L:Check("Play sound", Opt("warn", "sound"))
 
-    local R = UI.Column(page, COL2_X, 0, COL_W)
-    R:Header("Crowd control")
+    -- Crowd Control (right, full height) -------------------------------------------
+    local _, R = Tile(page, X2, TOP, TILE_W, FULL_H, "Crowd Control", "Interface\\Icons\\Spell_Nature_Polymorph")
     R:Note("Warns when a team character can't move: stunned, feared, incapacitated or rooted. The XP window marks the row orange with the time left.")
     local ge, se = Opt("cc", "enabled")
     R:Check("Check crowd control of team", ge, se,
