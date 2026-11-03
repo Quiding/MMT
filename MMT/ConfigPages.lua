@@ -208,15 +208,16 @@ local function Intro(page, text)
     fs:SetWidth(PAGE_W)
     fs:SetJustifyH("LEFT")
     fs:SetTextColor(0.75, 0.75, 0.75)
-    return fs
+    -- where the tiles start: below the text, also when it wraps into a second line
+    local h = math.ceil(fs:GetStringHeight() or 0)
+    return -math.max(22, h + 10), fs
 end
 
 ---------------------------------------------------------------------------
 -- Team
 ---------------------------------------------------------------------------
 ns.RegisterPage("team", "Team", function(page)
-    Intro(page, "Your team: the characters MMT works with, how their clients talk to each other and how their names are shown.")
-    local TOP = -22
+    local TOP = Intro(page, "Your team: the characters MMT works with, how their clients talk to each other and how their names are shown.")
     local ROWS, ROW_H = 8, 22
     local TEAM_H = 42 + 34 + ROWS * ROW_H + 8 + (UI.ROW + 6) + UI.ROW + 6
     local Y2 = TOP - TEAM_H - 8
@@ -414,15 +415,14 @@ local RIGHT_W = PAGE_W - RIGHT_X
 local RIGHT_IN = RIGHT_W - 16
 
 ns.RegisterPage("roles", "Roles", function(page)
-    Intro(page, "Roles group your characters by job (e.g. Tailor, Herbs, Cloth). Trading with a team member hands over the items of their roles (Trade / Mail / Vendor page).")
+    local TOP = Intro(page, "Roles group your characters by job (e.g. Tailor, Herbs, Cloth). Trading with a team member hands over the items of their roles (Trade / Mail / Vendor page).")
     local selected
     local quality, itemGroup = 0, "cloth"
-    local TOP = -22
     local FULL_H = 564 + TOP
 
     -- Roles (left, full height) ----------------------------------------------------
     local ROLE_ROWS = 14
-    local lt, L = Tile(page, 0, TOP, LEFT_W, FULL_H, "Roles", "Interface\\Icons\\INV_Misc_Book_09")
+    local lt, L = Tile(page, 0, TOP, LEFT_W, FULL_H, "Roles", "Interface\\Icons\\INV_Scroll_03")
     local LIN = LEFT_W - 16
     local roleList = List(lt, LIN, ROLE_ROWS, 22, function(parent, i)
         local row = CreateFrame("Button", nil, parent)
@@ -466,7 +466,7 @@ ns.RegisterPage("roles", "Roles", function(page)
 
     -- Members of the role (right, top) ---------------------------------------------
     local MEM_H = 42 + 5 * 22 + 8
-    local mt, R1 = Tile(page, RIGHT_X, TOP, RIGHT_W, MEM_H, "Members", "Interface\\Icons\\Spell_Holy_PrayerOfFortitude")
+    local mt, R1 = Tile(page, RIGHT_X, TOP, RIGHT_W, MEM_H, "Members", "Interface\\Icons\\INV_Misc_Head_Human_01")
     local memberChecks, memberKeys = {}, {}
     local half = RIGHT_IN / 2
     for i = 1, 10 do
@@ -488,7 +488,7 @@ ns.RegisterPage("roles", "Roles", function(page)
 
     -- Items of the role (right, below) -----------------------------------------------
     local IT_Y = TOP - MEM_H - 8
-    local it, R = Tile(page, RIGHT_X, IT_Y, RIGHT_W, 564 + IT_Y, "Items", "Interface\\Icons\\INV_Fabric_Silk_01")
+    local it, R = Tile(page, RIGHT_X, IT_Y, RIGHT_W, 564 + IT_Y, "Items", "Interface\\Icons\\INV_Crate_01")
     local ruleList = List(it, RIGHT_IN, 7, 20, function(parent, i)
         local row = CreateFrame("Frame", nil, parent)
         RowBackground(row, i)
@@ -678,8 +678,7 @@ end
 
 
 ns.RegisterPage("xp", "XP Window", function(page)
-    Intro(page, "The XP Window is a central part of MMT that is used to show you lots of information about your team.")
-    local TOP = -22
+    local TOP = Intro(page, "The XP Window is a central part of MMT that is used to show you lots of information about your team.")
     local PIECE_ROWS, PIECE_H = 9, 20   -- every piece visible without scrolling
     local EXTRA = 2 * PIECE_H           -- every tile two rows taller
     local TOP_H = 42 + 6 * UI.ROW + (UI.ROW + 2) + 8 + EXTRA
