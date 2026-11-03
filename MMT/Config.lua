@@ -1,6 +1,8 @@
 -- MMT: configuration window (/mmt).
 -- Navigation: CORE pages (always on), then MODULES: one entry per installed
--- module (greyed out when switched off) and "Manage modules". At most 16
+-- module (greyed out when switched off) and "Manage modules". With modules from
+-- both, MODULES splits into Official (MMT's own repository) and Community
+-- (everyone else's), each collapsible on its own. At most 16
 -- entries are visible; the mouse wheel scrolls; clicking CORE or MODULES
 -- collapses / expands that section.
 
@@ -108,7 +110,8 @@ end
 -- Navigation
 ---------------------------------------------------------------------------
 -- isOn(): nil = no on/off state, true/false = module state
-local function Tab(parent, title, target, isOn)
+-- indent: extra space before the title (module entries inside a group: Official / Community)
+local function Tab(parent, title, target, isOn, indent)
     local b = CreateFrame("Button", nil, parent)
     b:SetSize(NAV, 26)
     local bg = UI.Fill(b, 1, 1, 1, 0)
@@ -117,7 +120,7 @@ local function Tab(parent, title, target, isOn)
     bar:SetPoint("TOPLEFT"); bar:SetPoint("BOTTOMLEFT")
     bar:SetWidth(2)
     local label = UI.Label(b, title, "GameFontNormal")
-    label:SetPoint("LEFT", 16, 0)
+    label:SetPoint("LEFT", 16 + (indent or 0), 0)
     local state = UI.Label(b, "")
     state:SetPoint("RIGHT", -10, 0)
     local hl = b:CreateTexture(nil, "HIGHLIGHT")
@@ -188,22 +191,27 @@ local function Build()
     -- page list: at most NAV_ROWS entries visible, mouse wheel scrolls,
     -- CORE / MODULES collapse and expand (remembered per account)
     local items = {}
-    local function Item(kind, section, frame, height)
-        items[#items + 1] = { kind = kind, section = section, frame = frame, height = height }
+    local function Item(kind, section, frame, height, parent)
+        items[#items + 1] = { kind = kind, section = section, frame = frame, height = height, parent = parent }
     end
     local function Collapsed(section)
         return MMTDB.navCollapsed and MMTDB.navCollapsed[section] or false
     end
     local LayoutNav
-    local function Header(text, section)
+    -- parent: a sub-header inside that section (Official / Community under MODULES); count:
+    -- function -> on, total for its "(4 of 6)"
+    local function Header(text, section, parent, count)
         local b = CreateFrame("Button", nil, nav)
         b:SetSize(NAV, NAV_HEAD)
-        local label = UI.Label(b, text)
-        label:SetPoint("LEFT", 16, -2)
-        label:SetTextColor(A[1], A[2], A[3], 0.8)
+        -- a sub-header: smaller, a little in, the accent dimmed; its entries come further in
+        local label = UI.Label(b, text, parent and "GameFontNormalSmall" or nil)
+        label:SetPoint("LEFT", parent and 20 or 16, -2)
+        if parent then label:SetTextColor(A[1], A[2], A[3], 0.55)
+        else label:SetTextColor(A[1], A[2], A[3], 0.8) end
         local sign = UI.Label(b, "")
         sign:SetPoint("RIGHT", -12, -2)
-        sign:SetTextColor(A[1], A[2], A[3], 0.8)
+        if parent then sign:SetTextColor(A[1], A[2], A[3], 0.55)
+        else sign:SetTextColor(A[1], A[2], A[3], 0.8) end
         local hl = b:CreateTexture(nil, "HIGHLIGHT")
         hl:SetAllPoints(); hl:SetColorTexture(1, 1, 1, 0.03)
         b.Update = function()
@@ -213,6 +221,9 @@ local function Build()
                 local on, total = 0, 0
                 for _, v in pairs(ns.ModuleStates()) do total = total + 1 if v then on = on + 1 end end
                 label:SetText(("%s (%d of %d)"):format(text, on, total))
+            elseif count then
+                local on, total = count()
+                label:SetText(("%s (%d of %d)"):format(text, on, total))
             end
         end
         b:SetScript("OnClick", function()
@@ -221,26 +232,51 @@ local function Build()
             LayoutNav()
         end)
         w.tabs[#w.tabs + 1] = b
-        Item("head", section, b, NAV_HEAD)
+        Item("head", section, b, NAV_HEAD, parent)
     end
-    local function AddTab(tab, section, target, sortOn, sortTitle)
+    local function AddTab(tab, section, target, sortOn, sortTitle, parent)
         tab.target = target
         w.tabs[#w.tabs + 1] = tab
-        Item("tab", section, tab, NAV_ROW)
+        Item("tab", section, tab, NAV_ROW, parent)
         items[#items].sortOn, items[#items].sortTitle = sortOn, sortTitle
     end
 
     Header("CORE", "core")
     for _, key in ipairs(coreOrder) do AddTab(Tab(nav, pages[key].title, key), "core", key) end
     Header("MODULES", "modules")
+    -- Official (MMT's own repository) and Community (everyone else's); one kind only: no sub-headers
+    local groups = { official = {}, community = {} }
     for _, entry in ipairs(ns.InstalledModules()) do
-        local m = entry.module
-        local target = (m and pages["mod:" .. m.name]) and ("mod:" .. m.name) or "modules"
-        local function isOn()
-            if m then return m.enabled end
-            return false
+        local list = ns.IsOfficialModule(entry.addon) and groups.official or groups.community
+        list[#list + 1] = entry
+    end
+    local split = #groups.official > 0 and #groups.community > 0
+    local function ModuleTabs(list, section, parent)
+        for _, entry in ipairs(list) do
+            local m = entry.module
+            local target = (m and pages["mod:" .. m.name]) and ("mod:" .. m.name) or "modules"
+            local function isOn()
+                if m then return m.enabled end
+                return false
+            end
+            AddTab(Tab(nav, entry.title, target, isOn, parent and 10 or 0), section, target, isOn, entry.title, parent)
         end
-        AddTab(Tab(nav, entry.title, target, isOn), "modules", target, isOn, entry.title)
+    end
+    local function Counter(list)
+        return function()
+            local on = 0
+            for _, entry in ipairs(list) do if entry.module and entry.module.enabled then on = on + 1 end end
+            return on, #list
+        end
+    end
+    if split then
+        Header("Official", "modules.official", "modules", Counter(groups.official))
+        ModuleTabs(groups.official, "modules.official", "modules")
+        Header("Community", "modules.community", "modules", Counter(groups.community))
+        ModuleTabs(groups.community, "modules.community", "modules")
+    else
+        ModuleTabs(groups.official, "modules")
+        ModuleTabs(groups.community, "modules")
     end
     AddTab(Tab(nav, "Manage modules", "modules"), "modules", "modules")
 
@@ -259,26 +295,36 @@ local function Build()
     local arrowDown = UI.ScrollArrow(nav, "DOWN", function() nav:GetScript("OnMouseWheel")(nav, -1) end)
     arrowDown:SetPoint("TOP", nav, "TOP", 0, NAV_TOP - NAV_VIEW - 2)
 
-    -- switched-on modules first, then the others (each by name); "Manage modules" stays last
+    -- switched-on modules first, then the others (each by name), within each group (Official /
+    -- Community: every run of module entries between headers on its own); "Manage modules" stays last
+    local function ByOnThenName(a, b)
+        local ao, bo = a.sortOn() and true or false, b.sortOn() and true or false
+        if ao ~= bo then return ao end
+        return a.sortTitle < b.sortTitle
+    end
     local function SortModules()
-        local first, sorted
-        for i, it in ipairs(items) do
-            if it.sortOn then first = first or i; sorted = sorted or {}; sorted[#sorted + 1] = it end
+        local i = 1
+        while i <= #items do
+            if items[i].sortOn then
+                local first, run = i, {}
+                while i <= #items and items[i].sortOn do run[#run + 1] = items[i]; i = i + 1 end
+                table.sort(run, ByOnThenName)
+                for k, it in ipairs(run) do items[first + k - 1] = it end
+            else
+                i = i + 1
+            end
         end
-        if not sorted then return end
-        table.sort(sorted, function(a, b)
-            local ao, bo = a.sortOn() and true or false, b.sortOn() and true or false
-            if ao ~= bo then return ao end
-            return a.sortTitle < b.sortTitle
-        end)
-        for k, it in ipairs(sorted) do items[first + k - 1] = it end
     end
 
     local offset = 0   -- entries scrolled away at the top
     local function Visible()
         local list = {}
         for _, it in ipairs(items) do
-            if it.kind == "head" or not Collapsed(it.section) then list[#list + 1] = it
+            -- inside a closed parent (MODULES) nothing shows; a header shows while its parent is open,
+            -- an entry while its own section is open
+            local shown = not (it.parent and Collapsed(it.parent))
+                and (it.kind == "head" or not Collapsed(it.section))
+            if shown then list[#list + 1] = it
             else it.frame:Hide() end
         end
         return list
