@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.62: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.63: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -227,8 +227,8 @@ Saved data from MMT 0.1.x is converted automatically.
   member wears in that slot (both slots for rings, trinkets and one-hand weapons),
   with the stat and item level changes if they equipped the hovered item.
 - **Loot Distribution** (module): sets Free for All, Round Robin or Master Looter and the
-  loot threshold when a group forms or a team character becomes leader. "Group Loot when
-  outsiders join": while a player who isn't in your team list is in the group, the method
+  loot threshold when a group forms or a team character becomes leader. "Return to Group
+  Loot when outsiders join": while a player who isn't in your team list is in the group, the method
   is Group Loot, and the chosen method again when they leave. As master
   looter it gives items at or above the threshold to the team member whose roles want
   them. When roles of different members want the same item, the most specific rule
@@ -237,7 +237,8 @@ Saved data from MMT 0.1.x is converted automatically.
   have the role": fill up by team order (the first in team order with
   more free bag slots than the reserve gets everything, then the next) or round robin
   (in turns). "Role members have no room": leave for manual, give to the next team
-  member with room (round robin), or to the master looter. Bind on Pickup
+  member with room (round robin, the default), or to the master looter. "No role wants
+  it" defaults to round robin to the team. Bind on Pickup
   items are never given out: they are posted in group chat for manual assignment.
   "Auto-Round Robin quest items": quest items go to the team in turns (team order).
   The master looter first asks the team who still needs the item (each client checks
@@ -338,7 +339,7 @@ Saved data from MMT 0.1.x is converted automatically.
 
 - **Shift**: hold it while an NPC window opens to keep that page manual; pick an option
   without Shift and the next page (dialog, quest, reward) is automated again.
-- **Profiles** (tiles: Active Profile, New & Copy, Share with the Team, Export / Import): per character; copy, reset, delete, export/import. After a reset or a new
+- **Profiles** ("Show Minimap button" on top; tiles: Active Profile, New & Copy, Share with the Team, Export / Import): per character; copy, reset, delete, export/import. After a reset or a new
   empty profile, MMT asks whether to switch the modules back to their default (on or off) too.
 - **Sync to team**: `/mmt sync` (or the blue button in the bottom right of Profiles) sends
   the core settings of the active profile: team, roles, XP window incl. its position,
@@ -406,6 +407,7 @@ progress). The heartbeat carries a hash (qt=), an outdated copy is requested onc
 Team abandon is QTAB:<questID>.
 
 ## Commands
+- Minimap button (Profiles > "Show Minimap button", per account): left-click opens the settings, right-click shows / hides the XP window, drag moves it.
 - `/mmt` settings, `/mmt xp` toggle XP window, `/mmt xp arrange` drag its pieces and rows, `/mmt trade` refill open trade,
   `/mmt sync` send the core settings to the team, `/mmt sync <module>` only that module's settings, `/mmt sync modules` only which modules are on or off, `/mmt modules` installed
   modules, `/mmt scale <percent>` settings window size, `/mmt leader [name]` FTL leader (this character or the named one), `/jamba-team iammaster all` same as `/mmt leader` (only when Jamba isn't loaded, for old Jamba macros), `/mmt help` help page, `/mmt reset` reset profile.

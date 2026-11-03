@@ -141,6 +141,36 @@ function UI.Slider(parent, width, text, min, max, step, get, set, fmt)
     return c
 end
 
+-- Greys a widget (or a whole tile) out and makes it unusable, or brings it back:
+-- buttons, checks, drop-downs, sliders and edit boxes are disabled, other frames
+-- stop taking the mouse. A setting that depends on a switched-off one uses this.
+local function SetActiveDeep(f, on)
+    if f.SetEnabled then pcall(f.SetEnabled, f, on)
+    elseif on and f.Enable then pcall(f.Enable, f)
+    elseif not on and f.Disable then pcall(f.Disable, f) end
+    if f.EnableMouse and f.IsMouseEnabled then
+        if not on then
+            if f.mmtMouse == nil then f.mmtMouse = f:IsMouseEnabled() and true or false end
+            f:EnableMouse(false)
+        elseif f.mmtMouse ~= nil then
+            f:EnableMouse(f.mmtMouse)
+            f.mmtMouse = nil
+        end
+    end
+    if f.GetChildren then
+        for _, child in ipairs({ f:GetChildren() }) do SetActiveDeep(child, on) end
+    end
+end
+function UI.SetActive(frame, on)
+    if not frame then return end
+    on = on and true or false
+    if frame.mmtActive == on then return end
+    if frame.mmtActive == nil and on then frame.mmtActive = true return end   -- never greyed: nothing to undo
+    frame.mmtActive = on
+    frame:SetAlpha(on and 1 or 0.35)
+    SetActiveDeep(frame, on)
+end
+
 -- Flat button ---------------------------------------------------------------------
 function UI.Button(parent, width, text, onClick)
     local b = CreateFrame("Button", nil, parent)

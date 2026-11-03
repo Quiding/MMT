@@ -32,6 +32,8 @@ M.Page = function(_, page)
             if entry.module == M then MMT.SetModuleEnabled(entry, v) end
         end
     end, "Same as the switch under Manage modules. Off also disables the addon for the next login.")
+    M.keepPageWhenOff = true   -- off: the settings below are greyed out (no "switched off" cover)
+    local keyMark = H.Mark(kt)
 
     -- key capture button: click, then press the key (with modifiers)
     local keyButton
@@ -92,7 +94,8 @@ M.Page = function(_, page)
     L:Add(status, 30)
 
     -- Look (bottom left) -------------------------------------------------------------------------------
-    _, L = Tile(page, 0, TOP - KEY_H - 8, TILE_W, LOOK_H, "Look", "Interface\\Icons\\INV_Misc_Ribbon_01")
+    local lookTile
+    lookTile, L = Tile(page, 0, TOP - KEY_H - 8, TILE_W, LOOK_H, "Look", "Interface\\Icons\\INV_Misc_Ribbon_01")
     local gsc, ssc = Opt("scale")
     L:Slider("Tooltip scale", 0.5, 1.5, 0.05, gsc, ssc, "%.2f")
     local gp, sp = Opt("perRow")
@@ -129,7 +132,10 @@ M.Page = function(_, page)
     end)
     R:Add(clear, UI.ROW + 2)
 
+    local icDep
     page.OnRefresh = function()
+        if not icDep then icDep = H.After(keyMark) icDep[#icDep + 1] = lookTile icDep[#icDep + 1] = rt end
+        H.Depend(icDep, function() return M.enabled end)
         if not capturing then keyButton.label:SetText("Key: " .. KeyText()) end
         local members = MMT.SortedMembers()
         for i, fs in ipairs(lines) do

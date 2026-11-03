@@ -42,7 +42,8 @@ local function RefreshPage(page)
     if not page or not page.frame then return end
     for _, w in ipairs(page.frame.widgets) do w.Refresh() end
     if page.frame.OnRefresh then pcall(page.frame.OnRefresh) end
-    if page.overlay then page.overlay:SetShown(not page.module.enabled) end
+    -- a module whose page has its own on/off switch (keepPageWhenOff) greys its settings out instead
+    if page.overlay then page.overlay:SetShown(not page.module.enabled and not page.module.keepPageWhenOff) end
 end
 
 local function RefreshNav()

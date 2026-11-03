@@ -22,6 +22,9 @@ M.Page = function(_, page)
 
     -- Loot Method (top left) ----------------------------------------------------------------
     local lt, L = Tile(page, 0, TOP, TILE_W, TOP_H, "Loot Method", "Interface\\Icons\\INV_Misc_Bag_10")
+    local gog, sog = Opt("outsiderGroup")
+    L:Check("Return to Group Loot when outsiders join", gog, sog,
+        "While a player who isn't in your team list is in the group, the loot method is Group Loot. When they leave, the method below is set again.")
     local ga, sa = Opt("autoMethod")
     L:Check("Set loot method automatically", ga, sa,
         "When a group forms or one of your team characters becomes leader, that character sets the method and threshold below. Only the group leader can change loot settings.")
@@ -31,9 +34,6 @@ M.Page = function(_, page)
         { value = "roundrobin", text = "Round Robin" },
         { value = "master", text = "Master Looter" },
     }, gm, sm)
-    local gog, sog = Opt("outsiderGroup")
-    L:Check("Group Loot when outsiders join", gog, sog,
-        "While a player who isn't in your team list is in the group, the loot method is Group Loot. When they leave, the method above is set again.")
     local qualities = {}
     for q = 0, 5 do qualities[#qualities + 1] = { value = q, text = MMT.QualityName(q) } end
     local gt, st = Opt("threshold")
@@ -70,7 +70,7 @@ M.Page = function(_, page)
     }, ge, se)
 
     -- Master Loot by Roles (top right) ----------------------------------------------------------
-    local _, R = Tile(page, X2, TOP, TILE_W, TOP_H, "Master Loot by Roles", "Interface\\Icons\\INV_Misc_Coin_02")
+    local _, R = Tile(page, X2, TOP, TILE_W, TOP_H + 8 + BOTTOM_H, "Master Loot by Roles", "Interface\\Icons\\INV_Misc_Coin_02")
     local masterOnly = {}
     local gr, sr = Opt("byRoles")
     masterOnly[#masterOnly + 1] = R:Check("Give items by roles", gr, sr,
@@ -106,8 +106,7 @@ M.Page = function(_, page)
     masterOnly[#masterOnly + 1] = R:Note("Bind on Pickup items are never given out or looted: they are posted in group chat, and the master looter assigns them by hand. Items without loaded item data are left alone, too.")
     local hint = R:Note("")
 
-    -- Quest Items (bottom right) -------------------------------------------------------------------
-    _, R = Tile(page, X2, Y2, TILE_W, BOTTOM_H, "Quest Items", "Interface\\Icons\\INV_Misc_Note_02")
+    R:Header("Quest items")
     local gq, sq = Opt("questRR")
     masterOnly[#masterOnly + 1] = R:Check("Auto-Round Robin quest items", gq, sq,
         "As master looter, quest items go to the team members in turns, in team order. Only characters the game offers for the item (on the quest and able to receive it) get a turn. Turns are kept per item, so drops spread evenly. The free bag slots setting doesn't apply: quest items are given even into the last slot.")

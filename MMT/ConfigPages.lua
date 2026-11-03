@@ -201,6 +201,29 @@ local function Tile(parent, x, y, w, h, title, icon)
 end
 ns.ConfigHelpers.Tile = Tile
 
+-- greying out settings that depend on a switch: Mark(frame) remembers what a frame holds
+-- now; After(mark) returns what was added to it since (frames and texts), for UI.SetActive
+local function Mark(frame)
+    local seen = {}
+    for _, c in ipairs({ frame:GetChildren() }) do seen[c] = true end
+    for _, r in ipairs({ frame:GetRegions() }) do seen[r] = true end
+    return { frame = frame, seen = seen }
+end
+local function After(mark)
+    local out = {}
+    for _, c in ipairs({ mark.frame:GetChildren() }) do if not mark.seen[c] then out[#out + 1] = c end end
+    for _, r in ipairs({ mark.frame:GetRegions() }) do
+        if not mark.seen[r] and r.GetObjectType and r:GetObjectType() == "FontString" then out[#out + 1] = r end
+    end
+    return out
+end
+-- greys everything in list out (or back) by isOn()
+local function Depend(list, isOn)
+    local on = isOn() and true or false
+    for _, w in ipairs(list) do UI.SetActive(w, on) end
+end
+ns.ConfigHelpers.Mark, ns.ConfigHelpers.After, ns.ConfigHelpers.Depend = Mark, After, Depend
+
 -- the grey line on top of a tiled page
 local function Intro(page, text)
     local fs = UI.Label(page, text)
@@ -742,8 +765,9 @@ ns.RegisterPage("xp", "XP Window", function(page)
     local BOTTOM_H = 42 + 7 * PIECE_H + 6 + 2 * (UI.ROW + 2) + 8 + EXTRA
 
     -- Basics ----------------------------------------------------------------
-    local _, B = Tile(page, 0, TOP, TILE_W, TOP_H, "Basics", "Interface\\Icons\\INV_Misc_Gear_01")
+    local bt, B = Tile(page, 0, TOP, TILE_W, TOP_H, "Basics", "Interface\\Icons\\INV_Misc_Gear_01")
     B:Check("Show window", Opt("xp", "enabled"))
+    local basicsMark = Mark(bt)
     local glk, slk = Opt("xp", "locked")
     B:Check("Lock position", glk, slk, "Unlocked, Shift + drag or the tab above the window's corner (shown while the mouse is over the window) moves it.")
     local gct, sct = Opt("xp", "clickThrough")
@@ -758,7 +782,7 @@ ns.RegisterPage("xp", "XP Window", function(page)
     }, gbm, sbm)
 
     -- General Look & Feel ---------------------------------------------------
-    local _, G = Tile(page, X2, TOP, TILE_W, TOP_H, "General Look & Feel", "Interface\\Icons\\INV_Misc_Ribbon_01")
+    local gtile, G = Tile(page, X2, TOP, TILE_W, TOP_H, "General Look & Feel", "Interface\\Icons\\INV_Misc_Ribbon_01")
     local gcs, scs = Opt("ftl", "crownSide")
     G:Cycle("Leader crown", {
         { value = "LEFT", text = "Left of the name" },
@@ -863,13 +887,20 @@ ns.RegisterPage("xp", "XP Window", function(page)
     end
     ArrangeText()
     UI.Tooltip(arrange, "Drag&drop mode", "Every switched-on piece, the name too, shows in the XP window with dots: drag a piece along its row, or a row up or down to change the team order. Until you click again or /reload. Also /mmt xp arrange.")
+    local xpDependent
     page.OnRefresh = function()
         Redraw()
         ArrangeText()
+        -- the window off: every other setting greyed out
+        if not xpDependent then
+            xpDependent = After(basicsMark)
+            for _, t in ipairs({ gtile, ctile, mtile }) do xpDependent[#xpDependent + 1] = t end
+        end
+        Depend(xpDependent, function() return ns.db.xp.enabled end)
     end
 
     -- Miscellaneous ---------------------------------------------------------
-    local _, M = Tile(page, X2, Y2, TILE_W, BOTTOM_H, "Miscellaneous", "Interface\\Icons\\INV_Misc_Bag_08")
+    local mtile, M = Tile(page, X2, Y2, TILE_W, BOTTOM_H, "Miscellaneous", "Interface\\Icons\\INV_Misc_Bag_08")
     local function Now(set) return function(v) set(v); if ns.UpdateXPWindow then ns.UpdateXPWindow() end end end
     local gdm, sdm = Opt("xp", "durability")
     M:Cycle("Durability show as:", {
@@ -960,11 +991,12 @@ ns.RegisterPage("alerts", "Alerts", function(page)
     local FOLLOW_H = 42 + UI.ROW + 4 * UI.ROW + 36 + 10
 
     -- Follow (top left) -------------------------------------------------------------
-    local _, L = Tile(page, 0, TOP, TILE_W, FOLLOW_H, "Follow", "Interface\\Icons\\Ability_Rogue_Sprint")
+    local ft, L = Tile(page, 0, TOP, TILE_W, FOLLOW_H, "Follow", "Interface\\Icons\\Ability_Rogue_Sprint")
     L:Note("Warns when a team character stops following.")
     local gfc, sfc = Opt("xp", "followCheck")
     L:Check("Check /follow of team", gfc, sfc,
         "Every client reports when its character starts or stops following. A member who stops gets a red, pulsing row in the XP window. Needs MMT on every client.")
+    local followMark = Mark(ft)
     local gfw, sfw = Opt("xp", "followWarn")
     L:Check("Show warning when follow breaks", gfw, sfw,
         "Raid warning \"<Name> stopped following\" on the client of the character that was followed (the one you play).")
@@ -975,6 +1007,8 @@ ns.RegisterPage("alerts", "Alerts", function(page)
         "Follow often breaks in a fight. A break in combat only counts if the character still isn't following when the time below has passed after its combat ended.")
     local gfd, sfd = Opt("xp", "followCombatDelay")
     L:Slider("Check after combat (seconds)", 1, 30, 1, gfd, sfd)
+
+    local followDep = After(followMark)
 
     -- Bags and Quest Log (bottom left) ------------------------------------------------
     local BY = TOP - FOLLOW_H - 8
@@ -993,11 +1027,12 @@ ns.RegisterPage("alerts", "Alerts", function(page)
     L:Check("Play sound", Opt("warn", "sound"))
 
     -- Crowd Control (right, full height) -------------------------------------------
-    local _, R = Tile(page, X2, TOP, TILE_W, FULL_H, "Crowd Control", "Interface\\Icons\\Spell_Nature_Polymorph")
+    local ct, R = Tile(page, X2, TOP, TILE_W, FULL_H, "Crowd Control", "Interface\\Icons\\Spell_Nature_Polymorph")
     R:Note("Warns when a team character can't move: stunned, feared, incapacitated or rooted. The XP window marks the row orange with the time left.")
     local ge, se = Opt("cc", "enabled")
     R:Check("Check crowd control of team", ge, se,
         "Every client reports when its character loses control and when it is free again. Needs MMT on every client.")
+    local ccMark = Mark(ct)
     local gw, sw = Opt("cc", "warn")
     R:Check("Show warning", gw, sw,
         "Raid warning \"<Name> is stunned (4 s)\" on the FTL leader's client (the character you play). With no leader known, on every client. Never for the character itself.")
@@ -1013,6 +1048,11 @@ ns.RegisterPage("alerts", "Alerts", function(page)
     R:Check("Roots", Opt("cc", "root"))
     local gm, sm = Opt("cc", "minDuration")
     R:Slider("Ignore shorter than (seconds)", 0, 10, 1, gm, sm)
+    local ccDep = After(ccMark)
+    page.OnRefresh = function()
+        Depend(followDep, function() return ns.db.xp.followCheck end)
+        Depend(ccDep, function() return ns.db.cc.enabled end)
+    end
 end)
 
 ---------------------------------------------------------------------------
@@ -1024,8 +1064,9 @@ ns.RegisterPage("ftl", "FTL", function(page)
     local FULL_H = 564 + TOP
 
     -- Settings (left) ----------------------------------------------------------------
-    local _, L = Tile(page, 0, TOP, TILE_W, FULL_H, "Settings", "Interface\\Icons\\INV_Misc_Gear_01")
+    local st, L = Tile(page, 0, TOP, TILE_W, FULL_H, "Settings", "Interface\\Icons\\INV_Misc_Gear_01")
     L:Check("Use FTL macros", Opt("ftl", "enabled"))
+    local ftlMark = Mark(st)
     local gd, sd = Opt("ftl", "detect")
     L:Cycle("Leader", {
         { value = "MANUAL", text = "Only by click, key, command" },
@@ -1144,7 +1185,10 @@ ns.RegisterPage("ftl", "FTL", function(page)
     R:Add(status, UI.ROW)
     R:Note("Write {FTL} where the leader's name goes. Every client keeps these macros up to date.")
 
+    local ftlDep
     page.OnRefresh = function()
+        if not ftlDep then ftlDep = After(ftlMark) ftlDep[#ftlDep + 1] = mt end
+        Depend(ftlDep, function() return ns.db.ftl.enabled end)
         local macros = Macros()
         if selected > #macros then selected = math.max(1, #macros) end
         list:Render(macros)
@@ -1688,6 +1732,13 @@ end)
 
 ns.RegisterPage("profiles", "Profiles", function(page)
     local TOP = Intro(page, "A profile holds all core settings: team, roles, XP window, automations and more. Profiles are shared by all characters on this account; each character uses one, new characters start with \"Default\".")
+    -- account-wide, not part of a profile
+    local mm = UI.Check(page, 300, "Show Minimap button",
+        function() return ns.MinimapButtonShown and ns.MinimapButtonShown() end,
+        function(v) if ns.SetMinimapButton then ns.SetMinimapButton(v) end end,
+        "A button on the minimap: left-click opens these settings (like /mmt), right-click shows or hides the XP window, drag it to move it. This choice belongs to this account (all its characters and profiles).")
+    mm:SetPoint("TOPLEFT", page, "TOPLEFT", 0, TOP + 2)
+    TOP = TOP - UI.ROW - 4
     local X2 = TILE_W + TILE_GAP
     local TOP_H = 42 + 4 * (UI.ROW + 6) + 8
     local Y2 = TOP - TOP_H - 8
