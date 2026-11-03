@@ -552,28 +552,164 @@ ns.RegisterPage("roles", "Roles", function(page)
 end)
 
 ---------------------------------------------------------------------------
--- XP window
+-- XP window: a line on top, then four tiles (Basics, General Look & Feel,
+-- Column Visibility & Order, Miscellaneous); fonts, bars, scale and opacity
+-- in a side window
 ---------------------------------------------------------------------------
+local TILE_W, TILE_GAP = 344, 10
+local TILE_IN = TILE_W - 16   -- width of the settings inside a tile
+
+local xpLook
+function ns.ToggleXPLook(window)
+    if xpLook and xpLook:IsShown() then xpLook:Hide() return end
+    if not xpLook then
+        local f = CreateFrame("Frame", "MMTXPLookFrame", window)   -- scales and hides with the settings window
+        f:SetFrameStrata(window:GetFrameStrata())
+        f:SetFrameLevel(window:GetFrameLevel() + 50)
+        f:EnableMouse(true)
+        f:SetClampedToScreen(true)
+        UI.Fill(f, 0.05, 0.05, 0.06, 0.96)
+        UI.Border(f, 0.22, 0.22, 0.24, 1)
+        f.widgets = {}
+        local title = UI.Label(f, "XP Window: fonts, bars, scale, opacity", "GameFontNormal")
+        title:SetPoint("TOPLEFT", 16, -14)
+        local close = UI.TextButton(f, "x", function() f:Hide() end, 20)
+        close:SetPoint("TOPRIGHT", -8, -8)
+
+        local C = UI.Column(f, 16, -40, COL_W)
+        local gf, sf = Opt("xp", "font")
+        C:Cycle("Font", function()
+            local l = {}
+            for _, font in ipairs(ns.fonts) do l[#l + 1] = { value = font.name, text = font.name } end
+            local cur = ns.db.xp.font
+            local known = false
+            for _, c in ipairs(l) do if c.value == cur then known = true end end
+            if not known then l[#l + 1] = { value = cur, text = "Custom" } end
+            return l
+        end, gf, sf)
+        local go, so = Opt("xp", "outline")
+        C:Cycle("Outline", {
+            { value = "NONE", text = "None" },
+            { value = "OUTLINE", text = "Thin" },
+            { value = "THICKOUTLINE", text = "Thick" },
+            { value = "MONOCHROME,OUTLINE", text = "Mono" },
+        }, go, so)
+        local gz, sz = Opt("xp", "size")
+        C:Slider("Font size", 8, 24, 1, gz, sz)
+        local gw, sw = Opt("xp", "width")
+        C:Slider("Width", 100, 400, 5, gw, sw)
+        local gh, sh = Opt("xp", "barHeight")
+        C:Slider("Bar height", 10, 36, 1, gh, sh)
+        local grg, srg = Opt("xp", "rowGap")
+        C:Slider("Row spacing", 0, 10, 1, grg, srg)
+        local gs, ss = Opt("xp", "scale")
+        C:Slider("Scale", 0.5, 2, 0.05, gs, ss, "%.2f")
+        local gal, sal = Opt("xp", "alpha")
+        C:Slider("Window opacity", 0.2, 1, 0.05, gal, sal, "%.2f")
+        local gb, sb = Opt("xp", "bgAlpha")
+        C:Slider("Background opacity", 0, 1, 0.05, gb, sb, "%.2f")
+        f:SetSize(COL_W + 32, -C.y + 12)
+        f:SetScript("OnShow", function(self) for _, w in ipairs(self.widgets) do w.Refresh() end end)
+        UI.CloseOnEscape(f)
+        xpLook = f
+    end
+    xpLook:ClearAllPoints()
+    xpLook:SetPoint("TOPLEFT", window, "TOPRIGHT", 6, 0)
+    xpLook:Show()
+    for _, w in ipairs(xpLook.widgets) do w.Refresh() end
+end
+
+-- a framed tile with an icon and a title; returns the tile and a column inside it
+local function Tile(parent, x, y, w, h, title, icon)
+    local t = CreateFrame("Frame", nil, parent)
+    t:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
+    t:SetSize(w, h)
+    UI.Fill(t, A[1], A[2], A[3], 0.04)
+    UI.Border(t, A[1], A[2], A[3], 0.30)
+    local ic = t:CreateTexture(nil, "ARTWORK")
+    ic:SetTexture(icon)
+    ic:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    ic:SetSize(22, 22)
+    ic:SetPoint("TOPLEFT", 8, -7)
+    local label = UI.Label(t, title, "GameFontNormalLarge")
+    label:SetPoint("LEFT", ic, "RIGHT", 8, 0)
+    label:SetTextColor(A[1], A[2], A[3])
+    -- a long title that doesn't fit in the large font takes the normal one
+    if (label:GetStringWidth() or 0) > w - 46 and GameFontNormal then label:SetFontObject(GameFontNormal) end
+    local line = t:CreateTexture(nil, "ARTWORK")
+    line:SetColorTexture(A[1], A[2], A[3], 0.35)
+    line:SetHeight(1)
+    line:SetPoint("TOPLEFT", 8, -34)
+    line:SetPoint("TOPRIGHT", -8, -34)
+    return t, UI.Column(t, 8, -42, w - 16)
+end
+ns.ConfigHelpers.Tile = Tile
+
 ns.RegisterPage("xp", "XP Window", function(page)
-    local L = UI.Column(page, 0, 0, COL_W)
-    L:Header("XP window")
-    L:Check("Show window", Opt("xp", "enabled"))
+    local intro = UI.Label(page, "The XP Window is a central part of MMT that is used to show you lots of information about your team.")
+    intro:SetPoint("TOPLEFT", 0, -2)
+    intro:SetWidth(PAGE_W)
+    intro:SetJustifyH("LEFT")
+    intro:SetTextColor(0.75, 0.75, 0.75)
+    local TOP = -26
+    local TOP_H = 42 + 6 * UI.ROW + (UI.ROW + 2) + 8
+    local X2 = TILE_W + TILE_GAP
+    local Y2 = TOP - TOP_H - TILE_GAP
+    local PIECE_ROWS, PIECE_H = 7, 20
+    local BOTTOM_H = 42 + PIECE_ROWS * PIECE_H + 6 + 2 * (UI.ROW + 2) + 8
+
+    -- Basics ----------------------------------------------------------------
+    local _, B = Tile(page, 0, TOP, TILE_W, TOP_H, "Basics", "Interface\\Icons\\INV_Misc_Gear_01")
+    B:Check("Show window", Opt("xp", "enabled"))
     local glk, slk = Opt("xp", "locked")
-    L:Check("Lock position", glk, slk, "Unlocked, Shift + drag or the tab above the window's corner (shown while the mouse is over the window) moves it.")
+    B:Check("Lock position", glk, slk, "Unlocked, Shift + drag or the tab above the window's corner (shown while the mouse is over the window) moves it.")
     local gct, sct = Opt("xp", "clickThrough")
-    L:Check("Click-through", gct, sct, "Clicks go through the window to the game world. No mouseover details or click actions then. Otherwise: click a member to make them the FTL leader, right-click to invite, Ctrl-click to inspect, Ctrl-right-click for talents, middle-click to invite the whole team, Shift-right-click for settings.")
-    L:Check("Show your own character", Opt("xp", "showSelf"))
-    L:Check("Show bars", Opt("xp", "showBars"))
+    B:Check("Click-through", gct, sct, "Clicks go through the window to the game world. No mouseover details or click actions then. Otherwise: click a member to make them the FTL leader, right-click to invite, Ctrl-click to inspect, Ctrl-right-click for talents, middle-click to invite the whole team, Shift-right-click for settings.")
+    B:Check("Show your own character", Opt("xp", "showSelf"))
+    B:Check("Class colors", Opt("xp", "classColors"))
+    B:Check("Show bars", Opt("xp", "showBars"))
     local gbm, sbm = Opt("xp", "barMode")
-    L:Cycle("Bar shows", {
+    B:Cycle("Bars show", {
         { value = "XP", text = "Experience" },
         { value = "REP", text = "Reputation (watched faction)" },
     }, gbm, sbm)
-    L:Check("Class colours", Opt("xp", "classColors"))
 
-    -- pieces of a row (XPPieces.lua), left to right, the name among them: drag the dots
-    -- to move one, "on" / "off" shows it
-    L:Header("Pieces (left to right)")
+    -- General Look & Feel ---------------------------------------------------
+    local _, G = Tile(page, X2, TOP, TILE_W, TOP_H, "General Look & Feel", "Interface\\Icons\\INV_Misc_Ribbon_01")
+    local lookButton = G:Button("Fonts, Bars, Scale, Opacity", function() ns.ToggleXPLook(page:GetParent()) end)
+    UI.Tooltip(lookButton, "Fonts, Bars, Scale, Opacity", "Opens a window beside this one: font, outline, font size, width, bar height, row spacing, scale, window and background opacity.")
+    G:Space(4)
+    local gcs, scs = Opt("ftl", "crownSide")
+    G:Cycle("Leader crown", {
+        { value = "LEFT", text = "Left of the name" },
+        { value = "RIGHT", text = "Right of the name" },
+    }, gcs, scs)
+    local ga, sa = Opt("xp", "align")
+    G:Cycle("Layout", {
+        { value = "SPLIT", text = "Name takes the free space" },
+        { value = "LEFT", text = "Left" },
+        { value = "CENTER", text = "Center" },
+        { value = "RIGHT", text = "Right" },
+    }, ga, sa)
+    local gpa, spa = Opt("xp", "pieceAlign")
+    local lineUp = G:Cycle("Column alignment behavior", {
+        { value = "CENTER", text = "Centred" },
+        { value = "ICONS", text = "Icons lined up" },
+        { value = "LEFT", text = "Left" },
+        { value = "RIGHT", text = "Right" },
+        { value = "OFF", text = "Off (each row on its own)" },
+    }, gpa, spa)
+    UI.Tooltip(lineUp, "Column alignment behavior",
+        "Each piece (durability, bags, gold, name, level, ...) gets its own column, as wide as its widest value, so it sits in the same place on every row.\n\n"
+        .. "Centred / left / right: where a value sits inside its column. Icons lined up: the bag and durability icons line up on the left, the gold coins on the right.\n"
+        .. "Off: every row puts its pieces side by side on its own.\n\n"
+        .. "|cffaaaaaaWhen all rows show the same pieces with values of similar width, the choices look nearly the same. It shows when a row misses a piece (offline member, max level without rested XP): with columns the other pieces stay in place, with Off they move into the gap.|r")
+    G:Space(4)
+    G:Button("Reset window position", function() ns.ResetXPPosition() end)
+
+    -- Column Visibility & Order (left to right) ------------------------------
+    -- pieces of a row (XPPieces.lua), the name among them: drag the dots to move one, "on" / "off" shows it
+    local ctile, V = Tile(page, 0, Y2, TILE_W, BOTTOM_H, "Column Visibility & Order (left to right)", "Interface\\Icons\\INV_Misc_Note_01")
     local pieces
     local function Shown()
         local out = {}
@@ -583,8 +719,7 @@ ns.RegisterPage("xp", "XP Window", function(page)
         return out
     end
     local function Redraw() pieces:Render(Shown()) end
-    local PIECE_ROWS, PIECE_H = 7, 20
-    pieces = List(page, COL_W, PIECE_ROWS, PIECE_H, function(parent, i)
+    pieces = List(ctile, TILE_IN, PIECE_ROWS, PIECE_H, function(parent, i)
         local row = CreateFrame("Frame", nil, parent)
         RowBackground(row, i)
         row.tint = row:CreateTexture(nil, "BACKGROUND", nil, 1)
@@ -631,113 +766,51 @@ ns.RegisterPage("xp", "XP Window", function(page)
         row.tint:SetColorTexture(c[1], c[2], c[3], e.id == "name" and 0.12 or 0.05)
         row.toggle.label:SetText((d and d.fixed) and "|cff999999always|r" or (on and "|cff55ff55on|r" or "|cff777777off|r"))
     end)
-    L:Add(pieces, PIECE_ROWS * PIECE_H + 6)
+    V:Add(pieces, PIECE_ROWS * PIECE_H + 6)
     DragReorder(pieces, PIECE_ROWS, PIECE_H, function(from, before)
         local data = pieces.data
         ns.MoveXPPiece(data[from].id, nil, before and data[before].id or nil)
         Redraw()
     end)
-    local resetOrder = UI.Button(page, COL_W, "Default order", function() ns.ResetXPPieceOrder(); Redraw() end)
-    L:Add(resetOrder, UI.ROW + 2)
-    UI.Tooltip(resetOrder, "Default order", "Durability, Free bag slots, Gold, Name, Level, Bar value, Rested XP, then the others. On / off stays as it is.")
+    local resetOrder = V:Button("Restore Default Column Order", function() ns.ResetXPPieceOrder(); Redraw() end)
+    UI.Tooltip(resetOrder, "Restore Default Column Order", "Durability, Free bag slots, Gold, Name, Level, Bar value, Rested XP, then the others. On / off stays as it is.")
     local arrange
-    arrange = UI.Button(page, COL_W, "", function() ns.ToggleXPArrange() end)
+    arrange = V:Button("", function() ns.ToggleXPArrange() end)
     local function ArrangeText()
-        arrange.label:SetText(ns.xpArrange and "Stop arranging the window" or "Arrange in the window (drag pieces and rows)")
+        arrange.label:SetText(ns.xpArrange and "Stop drag&drop mode" or "Enable drag&drop mode for the XP window")
     end
     ArrangeText()
-    L:Add(arrange, UI.ROW + 2)
-    UI.Tooltip(arrange, "Arrange in the window", "Every switched-on piece, the name too, shows in the XP window with dots: drag a piece along its row, or a row up or down to change the team order. Until you click again or /reload. Also /mmt xp arrange.")
+    UI.Tooltip(arrange, "Drag&drop mode", "Every switched-on piece, the name too, shows in the XP window with dots: drag a piece along its row, or a row up or down to change the team order. Until you click again or /reload. Also /mmt xp arrange.")
     page.OnRefresh = function()
         Redraw()
         ArrangeText()
     end
+
+    -- Miscellaneous ---------------------------------------------------------
+    local _, M = Tile(page, X2, Y2, TILE_W, BOTTOM_H, "Miscellaneous", "Interface\\Icons\\INV_Misc_Bag_08")
     local function Now(set) return function(v) set(v); if ns.UpdateXPWindow then ns.UpdateXPWindow() end end end
     local gdm, sdm = Opt("xp", "durability")
-    sdm = Now(sdm)
-    L:Cycle("Durability", {
+    M:Cycle("Durability show as:", {
         { value = "LOWEST", text = "Lowest item" },
         { value = "AVERAGE", text = "Average of all items" },
-    }, gdm, sdm)
+    }, gdm, Now(sdm))
     local ggf, sgf = Opt("xp", "goldFormat")
-    sgf = Now(sgf)
-    L:Cycle("Gold", {
+    M:Cycle("Gold show as:", {
         { value = "GOLD", text = "Gold only" },
         { value = "FULL", text = "Gold, silver, copper" },
-    }, ggf, sgf)
-
-    L:Header("Layer hop")
+    }, ggf, Now(sgf))
+    M:Header("Layer hop")
     local gn, sn = Opt("xp", "layerHopNotify")
-    L:Check("Notify when layer/phase switch is pending", gn, sn,
+    M:Check("Notify when layer/phase switch is pending", gn, sn,
         "Shows a pulsing red \"Layer Hop\" left of the name when the game offers to move that character to another layer. Click it to accept in 3 seconds (for a teammate, their client accepts).")
     local gau, sau = Opt("xp", "layerHopAuto")
-    L:Check("Accept the layer hop automatically", gau, sau, "Counts down in chat, then accepts.")
+    M:Check("Accept the layer hop automatically", gau, sau, "Counts down in chat, then accepts.")
     local gd, sd = Opt("xp", "layerHopDelay")
-    L:Slider("Accept after (seconds)", 1, 30, 1, gd, sd)
+    M:Slider("Accept after (seconds)", 1, 30, 1, gd, sd)
 
-    local R = UI.Column(page, COL2_X, 0, COL_W)
-    R:Header("Look")
-    local gf, sf = Opt("xp", "font")
-    R:Cycle("Font", function()
-        local l = {}
-        for _, f in ipairs(ns.fonts) do l[#l + 1] = { value = f.name, text = f.name } end
-        local cur = ns.db.xp.font
-        local known = false
-        for _, c in ipairs(l) do if c.value == cur then known = true end end
-        if not known then l[#l + 1] = { value = cur, text = "Custom" } end
-        return l
-    end, gf, sf)
-    local go, so = Opt("xp", "outline")
-    R:Cycle("Outline", {
-        { value = "NONE", text = "None" },
-        { value = "OUTLINE", text = "Thin" },
-        { value = "THICKOUTLINE", text = "Thick" },
-        { value = "MONOCHROME,OUTLINE", text = "Mono" },
-    }, go, so)
-    local ga, sa = Opt("xp", "align")
-    R:Cycle("Layout", {
-        { value = "SPLIT", text = "Name takes the free space" },
-        { value = "LEFT", text = "Left" },
-        { value = "CENTER", text = "Center" },
-        { value = "RIGHT", text = "Right" },
-    }, ga, sa)
-    local gpa, spa = Opt("xp", "pieceAlign")
-    local lineUp = R:Cycle("Line up pieces", {
-        { value = "CENTER", text = "In columns, centred" },
-        { value = "ICONS", text = "In columns, icons lined up" },
-        { value = "LEFT", text = "In columns, left" },
-        { value = "RIGHT", text = "In columns, right" },
-        { value = "OFF", text = "Off (each row on its own)" },
-    }, gpa, spa)
-    UI.Tooltip(lineUp, "Line up pieces",
-        "Each piece (durability, bags, gold, name, level, ...) gets its own column, as wide as its widest value, so it sits in the same place on every row.\n\n"
-        .. "Centred / left / right: where a value sits inside its column. Icons lined up: the bag and durability icons line up on the left, the gold coins on the right.\n"
-        .. "Off: every row puts its pieces side by side on its own.\n\n"
-        .. "|cffaaaaaaWhen all rows show the same pieces with values of similar width, the choices look nearly the same. It shows when a row misses a piece (offline member, max level without rested XP): with columns the other pieces stay in place, with Off they move into the gap.|r")
-    local gcs, scs = Opt("ftl", "crownSide")
-    R:Cycle("Leader crown", {
-        { value = "LEFT", text = "Left of the name" },
-        { value = "RIGHT", text = "Right of the name" },
-    }, gcs, scs)
-    local gz, sz = Opt("xp", "size")
-    R:Slider("Font size", 8, 24, 1, gz, sz)
-    local gw, sw = Opt("xp", "width")
-    R:Slider("Width", 100, 400, 5, gw, sw)
-    local gh, sh = Opt("xp", "barHeight")
-    R:Slider("Bar height", 10, 36, 1, gh, sh)
-    local grg, srg = Opt("xp", "rowGap")
-    R:Slider("Row spacing", 0, 10, 1, grg, srg)
-    local gs, ss = Opt("xp", "scale")
-    R:Slider("Scale", 0.5, 2, 0.05, gs, ss, "%.2f")
-    local gal, sal = Opt("xp", "alpha")
-    R:Slider("Window opacity", 0.2, 1, 0.05, gal, sal, "%.2f")
-    local gb, sb = Opt("xp", "bgAlpha")
-    R:Slider("Background opacity", 0, 1, 0.05, gb, sb, "%.2f")
-    R:Button("Reset window position", function() ns.ResetXPPosition() end)
-
-    R:Space(6)
-    R:Note("Follow and crowd control warnings: Alerts page.")
-
+    local hint = UI.Label(page, "Follow and crowd control warnings: Alerts page.")
+    hint:SetPoint("TOPLEFT", 0, Y2 - BOTTOM_H - 8)
+    hint:SetTextColor(0.6, 0.6, 0.6)
 end)
 
 ---------------------------------------------------------------------------

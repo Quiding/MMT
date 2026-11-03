@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.51: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.52: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -77,17 +77,20 @@ Saved data from MMT 0.1.x is converted automatically.
   Opening a trade with a team member puts the matching items in (switch on the Trade /
   Mail / Vendor page). You accept yourself.
 - **XP Window**: XP %, rested XP %, gold, free bag slots, durability (lowest item or
-  average), level, reputation and layer, plus font, layout, size, scale and opacity. Each of
+  average), level, reputation and layer. The settings page has four tiles: Basics, General
+  Look & Feel (with a "Fonts, Bars, Scale, Opacity" side window), Column Visibility & Order
+  and Miscellaneous (durability and gold format, Layer Hop). Each of
   these is a piece, and so is the name: one order left to right (default: Durability, Free
   bag slots, Gold, Name, Level, Bar value, Rested XP), the bar behind the whole row. Switch
   pieces on or off (the name is always shown) and drag them into place in the XP Window
-  page's list ("Default order" resets it) or in the window itself ("Arrange" /
+  page's list ("Restore Default Column Order" resets it) or in the window itself
+  ("Enable drag&drop mode for the XP window" /
   `/mmt xp arrange`: every piece shows with dots, drag pieces along a row and rows up or
-  down to change the team order). "Line up pieces" puts each piece in its own column
+  down to change the team order). "Column alignment behavior" puts each piece in its own column
   (centred, left or right in it, or "icons lined up": bag and durability icons at the
   column's start, the gold coins at its end), so it sits in the same place on every row; "Layout":
   the name takes the free space, or all pieces left / centred / right. Modules can add pieces
-  (`MMT.RegisterXPPiece`, CreateModules.md). "Bar shows": experience
+  (`MMT.RegisterXPPiece`, CreateModules.md). "Bars show": experience
   or the reputation of each character's watched faction (standing and %, faction in
   the tooltip). "Layer Hop": when the game
   offers a layer/phase switch, a pulsing red "Layer Hop" appears left of the name.
