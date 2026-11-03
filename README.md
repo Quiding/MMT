@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.47: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.48: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -23,7 +23,9 @@ Saved data from MMT 0.1.x is converted automatically.
   Distribution, Quest Tracker and Statistics are on by default, the others off (`## DefaultState:
   disabled` and `## X-MMT-DefaultState: disabled` in their TOC) until switched on in /mmt > Modules or the AddOns list. They
   appear in the game's AddOns list and under MODULES in /mmt (header "MODULES (4 of 11)":
-  switched on of installed), switched-on modules first, switched-off ones greyed out below. Switching one off in /mmt stops it right away and disables
+  switched on of installed), switched-on modules first, switched-off ones greyed out below. With
+  modules from both, MODULES splits into "Official" (MMT's own repository) and "Community"
+  (everyone else's), each with its own count and collapsible on its own. Switching one off in /mmt stops it right away and disables
   it for the next login; switching one on starts it right away, or after a reload if
   it wasn't loaded. "Manage modules" lists all installed modules with version, author and
   repository link (TOC fields `## Version`, `## Author`, `## X-Repository`; click the link
@@ -57,7 +59,8 @@ Saved data from MMT 0.1.x is converted automatically.
   "Keep full names in debug logs" (on by default): off replaces them in the debug log
   and report. "Hide names outside MMT too" (off by default, not with "Full name"):
   replaces your team's names in chat (all chat windows; clicking a name still whispers
-  the right character), unit frames, raid frames, nameplates, unit tooltips and the
+  the right character), unit frames, raid frames, nameplates, unit tooltips, lines other
+  addons add to any tooltip (e.g. Syndicator's character counts on item tooltips) and the
   text of other addons' frames (e.g. their raid frames), where the game allows it.
   Changing the setting updates what is already shown, chat lines included.
   Switching "Hide names outside MMT too" on or off (or switching to or from "Full name"
@@ -81,7 +84,8 @@ Saved data from MMT 0.1.x is converted automatically.
   page's list ("Default order" resets it) or in the window itself ("Arrange" /
   `/mmt xp arrange`: every piece shows with dots, drag pieces along a row and rows up or
   down to change the team order). "Line up pieces" puts each piece in its own column
-  (centred, left or right in it), so it sits in the same place on every row; "Layout":
+  (centred, left or right in it, or "icons lined up": bag and durability icons at the
+  column's start, the gold coins at its end), so it sits in the same place on every row; "Layout":
   the name takes the free space, or all pieces left / centred / right. Modules can add pieces
   (`MMT.RegisterXPPiece`, CreateModules.md). "Bar shows": experience
   or the reputation of each character's watched faction (standing and %, faction in
