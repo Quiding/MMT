@@ -843,7 +843,7 @@ end)
 -- Distance window format: small side window next to the settings window
 ---------------------------------------------------------------------------
 local distanceFormat
-function ns.ToggleDistanceFormat(window)
+function ns.ToggleDistanceFormat(window, anchor)
     if distanceFormat and distanceFormat:IsShown() then distanceFormat:Hide() return end
     if not distanceFormat then
         local f = CreateFrame("Frame", "MMTDistanceFormatFrame", window)   -- scales and hides with the settings window
@@ -890,7 +890,7 @@ function ns.ToggleDistanceFormat(window)
         distanceFormat = f
     end
     distanceFormat:ClearAllPoints()
-    distanceFormat:SetPoint("TOPLEFT", window, "TOPRIGHT", 6, 0)
+    distanceFormat:SetPoint("TOPLEFT", anchor or window, "TOPRIGHT", 6, 0)
     distanceFormat:Show()
     for _, w in ipairs(distanceFormat.widgets) do w.Refresh() end
 end
@@ -1105,10 +1105,59 @@ end)
 ---------------------------------------------------------------------------
 -- Automations (formerly OMT)
 ---------------------------------------------------------------------------
-ns.RegisterPage("automations", "Automations", function(page)
-    local L = UI.Column(page, 0, 0, COL_W)
+-- Automations > Miscellaneous: camera and distance window in a side window
+local autoMisc
+function ns.ToggleAutomationsMisc(window)
+    if autoMisc and autoMisc:IsShown() then autoMisc:Hide() return end
+    if not autoMisc then
+        local f = CreateFrame("Frame", "MMTAutomationsMiscFrame", window)   -- scales and hides with the settings window
+        f:SetFrameStrata(window:GetFrameStrata())
+        f:SetFrameLevel(window:GetFrameLevel() + 50)
+        f:EnableMouse(true)
+        f:SetClampedToScreen(true)
+        UI.Fill(f, 0.05, 0.05, 0.06, 0.96)
+        UI.Border(f, 0.22, 0.22, 0.24, 1)
+        f.widgets = {}
+        local title = UI.Label(f, "Automations: miscellaneous", "GameFontNormal")
+        title:SetPoint("TOPLEFT", 16, -14)
+        local close = UI.TextButton(f, "x", function() f:Hide() end, 20)
+        close:SetPoint("TOPRIGHT", -8, -8)
 
-    L:Header("Gossip")
+        local C = UI.Column(f, 16, -34, COL_W)
+        C:Header("Camera")
+        C:Check("Maximum camera distance", Opt("camera", "enabled"))
+        local gf, sf = Opt("camera", "factor")
+        C:Slider("Zoom factor", 1, 2.6, 0.1, gf, sf, "%.1f")
+
+        C:Header("Distance window")
+        local gde, sde = Opt("distance", "enabled")
+        C:Check("Show window", gde, sde,
+            "Shows a small window with distance information to your target. Mostly useful for hunters that want to avoid their deadzone.")
+        C:Check("Lock (click-through)", Opt("distance", "locked"))
+        local gh, sh = Opt("distance", "hideNoTarget")
+        C:Check("Hide without target", gh, sh, "Only applies while the window is locked.")
+        local gc, sc = Opt("distance", "colorize")
+        C:Check("Colour by distance", gc, sc, "Green melee, yellow up to 30, orange up to 40, red beyond.")
+        C:Button("Format window", function() ns.ToggleDistanceFormat(window, f) end)
+        C:Button("Reset window position", function() ns.ResetDistancePosition() end)
+        f:SetSize(COL_W + 32, -C.y + 12)
+        f:SetScript("OnShow", function(self) for _, w in ipairs(self.widgets) do w.Refresh() end end)
+        UI.CloseOnEscape(f)
+        autoMisc = f
+    end
+    autoMisc:ClearAllPoints()
+    autoMisc:SetPoint("TOPLEFT", window, "TOPRIGHT", 6, 0)
+    autoMisc:Show()
+    for _, w in ipairs(autoMisc.widgets) do w.Refresh() end
+end
+
+ns.RegisterPage("automations", "Automations", function(page)
+    local TOP = Intro(page, "Features to get away from puny hoomanz faster!")
+    local X2 = TILE_W + TILE_GAP
+
+    -- NPC Interactions (top left) -------------------------------------------------------
+    local NPC_H = 42 + 4 * UI.ROW + 4 + 40
+    local _, L = Tile(page, 0, TOP, TILE_W, NPC_H, "NPC Interactions", "Interface\\GossipFrame\\GossipGossipIcon")
     local gv, sv = Opt("gossip", "vendor")
     L:Check("Go straight to the vendor", gv, sv,
         "Opens the vendor pane even when the NPC has other options, e.g. an innkeeper.")
@@ -1122,18 +1171,22 @@ ns.RegisterPage("automations", "Automations", function(page)
         function() return ns.db.shiftBypass end,
         function(v) ns.db.shiftBypass = v end,
         "Hold Shift while an NPC window opens to keep that page manual. Pick an option without Shift and the next page is automated again.")
-    L:Note("Quest automation (accept, turn in, share) is in the Quest Tracker module.")
+    L:Space(4)
+    L:Note("If you are looking for Quest related automations and tracking, see the Quest Tracker-module.")
 
-    L:Header("Group invites")
-    L:Check("Accept from team members", Opt("invites", "team"))
-    L:Check("Accept from friends", Opt("invites", "friends"))
-    L:Check("Accept from Battle.net friends", Opt("invites", "bnet"))
-    L:Check("Accept from guild members", Opt("invites", "guild"))
+    -- Socializing (bottom left) ------------------------------------------------------------
+    local SY = TOP - NPC_H - 8
+    local st, S = Tile(page, 0, SY, TILE_W, 564 + SY, "Socializing", "Interface\\Icons\\Spell_Holy_Resurrection")
+    S:Header("Group invites")
+    S:Check("Accept from team members", Opt("invites", "team"))
+    S:Check("Accept from friends", Opt("invites", "friends"))
+    S:Check("Accept from Battle.net friends", Opt("invites", "bnet"))
+    S:Check("Accept from guild members", Opt("invites", "guild"))
     local gw, sw = Opt("invites", "whisper")
-    L:Check("Invite people who whisper the keyword", gw, sw,
+    S:Check("Invite people who whisper the keyword", gw, sw,
         "Anyone who whispers you exactly this word (not case-sensitive) gets a group invite.")
     -- keyword: saved on Enter or when the box loses focus
-    local keyword = UI.EditBox(page, COL_W - 24, "keyword", function(text, box)
+    local keyword = UI.EditBox(st, TILE_IN - 24, "keyword", function(text, box)
         local word = ns.Trim(text)
         if word ~= "" then ns.db.invites.keyword = word end
         box:SetText(ns.db.invites.keyword)
@@ -1149,63 +1202,40 @@ ns.RegisterPage("automations", "Automations", function(page)
         if not keyword:HasFocus() then keyword:SetText(ns.db.invites.keyword or "") keyword:UpdatePlaceholder() end
     end
     table.insert(page.widgets, keyword)
-    L:Add(keyword, UI.ROW + 2, 24)
+    S:Add(keyword, UI.ROW + 2, 24)
 
-    L:Header("When you die")
-    local grl, srl = Opt("death", "release")
-    L:Check("Release as team", grl, srl,
-        "When a character dies, a \"Release as team\" button appears under the game's death dialog on every dead character. Clicking it releases every dead team member. It lists who is dead or a ghost.")
-    local grv, srv = Opt("death", "revive")
-    L:Check("Revive as team", grv, srv,
-        "When a ghost reaches its corpse, a \"Revive as team\" button appears under the game's dialog. Clicking it revives every ghost that is at its corpse; one whose corpse still has a delay revives when it ends; one that isn't at its corpse says so. The list shows who can revive now.")
-
-    L:Header("Accept automatically")
+    S:Header("Accept automatically")
     -- sources x (resurrections, summons): any combination
-    local gridY = L.y
-    local resLabel = UI.Label(page, "Resurrections")
-    resLabel:SetPoint("TOPLEFT", page, "TOPLEFT", 110, gridY)
+    local gridY = S.y
+    local resLabel = UI.Label(st, "Resurrections")
+    resLabel:SetPoint("TOPLEFT", st, "TOPLEFT", 8 + 110, gridY)
     resLabel:SetTextColor(0.6, 0.6, 0.6)
-    local sumLabel = UI.Label(page, "Summons")
-    sumLabel:SetPoint("TOPLEFT", page, "TOPLEFT", 196, gridY)
+    local sumLabel = UI.Label(st, "Summons")
+    sumLabel:SetPoint("TOPLEFT", st, "TOPLEFT", 8 + 196, gridY)
     sumLabel:SetTextColor(0.6, 0.6, 0.6)
-    L:Space(16)
+    S:Space(16)
     local SOURCES = { { "team", "From team" }, { "friends", "From friends" }, { "guild", "From guild" }, { "anyone", "From anyone" } }
     for _, src in ipairs(SOURCES) do
         local key, text = src[1], src[2]
-        local label = UI.Label(page, text)
-        label:SetPoint("TOPLEFT", page, "TOPLEFT", 0, L.y - 4)
-        local res = UI.Check(page, 24, "", function() return ns.db.death.acceptRes[key] end,
+        local label = UI.Label(st, text)
+        label:SetPoint("TOPLEFT", st, "TOPLEFT", 8, S.y - 4)
+        local res = UI.Check(st, 24, "", function() return ns.db.death.acceptRes[key] end,
             function(v) ns.db.death.acceptRes[key] = v end,
             "Accept resurrections " .. text:lower() .. ".")
-        res:SetPoint("TOPLEFT", page, "TOPLEFT", 126, L.y)
-        local sum = UI.Check(page, 24, "", function() return ns.db.death.acceptSummon[key] end,
+        res:SetPoint("TOPLEFT", st, "TOPLEFT", 8 + 126, S.y)
+        local sum = UI.Check(st, 24, "", function() return ns.db.death.acceptSummon[key] end,
             function(v) ns.db.death.acceptSummon[key] = v end,
             "Accept warlock summons " .. text:lower() .. ".")
-        sum:SetPoint("TOPLEFT", page, "TOPLEFT", 204, L.y)
-        L:Space(UI.ROW)
+        sum:SetPoint("TOPLEFT", st, "TOPLEFT", 8 + 204, S.y)
+        S:Space(UI.ROW)
     end
 
-    local R = UI.Column(page, COL2_X, 0, COL_W)
-    R:Header("Camera")
-    R:Check("Maximum camera distance", Opt("camera", "enabled"))
-    local gf, sf = Opt("camera", "factor")
-    R:Slider("Zoom factor", 1, 2.6, 0.1, gf, sf, "%.1f")
-
-    R:Header("Distance window")
-    local gde, sde = Opt("distance", "enabled")
-    R:Check("Show window", gde, sde,
-        "Shows a small window with distance information to your target. Mostly useful for hunters that want to avoid their deadzone.")
-    R:Check("Lock (click-through)", Opt("distance", "locked"))
-    local gh, sh = Opt("distance", "hideNoTarget")
-    R:Check("Hide without target", gh, sh, "Only applies while the window is locked.")
-    local gc, sc = Opt("distance", "colorize")
-    R:Check("Colour by distance", gc, sc, "Green melee, yellow up to 30, orange up to 40, red beyond.")
-    R:Button("Format window", function() ns.ToggleDistanceFormat(page:GetParent()) end)
-    R:Button("Reset window position", function() ns.ResetDistancePosition() end)
-
+    -- Group-wide Interactions (right, taller: no tile below it) --------------------------------
+    local GROUP_H = 42 + 3 * 28 + 7 * UI.ROW + 12
+    local _, R = Tile(page, X2, TOP, TILE_W, GROUP_H, "Group-wide Interactions", "Interface\\Icons\\Ability_Mount_RidingHorse")
     R:Header("Flight paths")
-    local gt, st = Opt("taxi", "enabled")
-    R:Check("Take flight paths with the team", gt, st,
+    local gt, stt = Opt("taxi", "enabled")
+    R:Check("Take flight paths with the team", gt, stt,
         "When a team member picks a destination at a flight master, every team member that is talking to a flight master too (flight map open, or opened within 5 seconds) flies to the same destination. Needs MMT on every client.")
     R:Check("Print to chat", Opt("taxi", "report"))
     local gtl, stl = Opt("taxi", "tellLeader")
@@ -1218,6 +1248,21 @@ ns.RegisterPage("automations", "Automations", function(page)
     local gdm, sdm = Opt("mount", "dismount")
     R:Check("Dismount with the leader", gdm, sdm,
         "When the leader dismounts, every team member dismounts too, never in the air. Hold Shift while dismounting to do it alone.")
+
+    R:Header("When you die")
+    local grl, srl = Opt("death", "release")
+    R:Check("Release as team", grl, srl,
+        "When a character dies, a \"Release as team\" button appears under the game's death dialog on every dead character. Clicking it releases every dead team member. It lists who is dead or a ghost.")
+    local grv, srv = Opt("death", "revive")
+    R:Check("Revive as team", grv, srv,
+        "When a ghost reaches its corpse, a \"Revive as team\" button appears under the game's dialog. Clicking it revives every ghost that is at its corpse; one whose corpse still has a delay revives when it ends; one that isn't at its corpse says so. The list shows who can revive now.")
+
+    -- below it, where a fourth tile would go: a pointer to the other pages and the side window
+    local O = UI.Column(page, X2 + 8, TOP - GROUP_H - 14, TILE_IN)
+    O:Note("For automations around trading/vendoring, Looting or Quests, see the respective section in the left navigation.")
+    O:Space(4)
+    local misc = O:Button("Miscellaneous", function() ns.ToggleAutomationsMisc(page:GetParent()) end)
+    UI.Tooltip(misc, "Miscellaneous", "Opens a window beside this one: maximum camera distance and the distance window.")
 end)
 
 ---------------------------------------------------------------------------

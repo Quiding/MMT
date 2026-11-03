@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.57: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.58: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -284,7 +284,8 @@ Saved data from MMT 0.1.x is converted automatically.
   [Item] - it starts a quest!", on by default), and abandon a quest on the whole team (asks first:
   "Do you want to abort this quest on your entire team?"). The quest settings of
   Core > Automations are copied over once.
-- **Automations**: gossip to vendor or flight map, click through dialog-only NPCs (plain
+- **Automations** (tiles: NPC Interactions, Socializing, Group-wide Interactions; camera
+  and distance window in the "Miscellaneous" side window): gossip to vendor or flight map, click through dialog-only NPCs (plain
   dialog lines; anything that could cost gold, teleport, train or start a fight stays
   manual), invites (team, friends, guild, and anyone who whispers the keyword, default
   "mybox"), camera zoom, distance window (distance to your target, mostly for hunters
