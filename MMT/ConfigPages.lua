@@ -647,16 +647,17 @@ ns.ConfigHelpers.Tile = Tile
 
 ns.RegisterPage("xp", "XP Window", function(page)
     local intro = UI.Label(page, "The XP Window is a central part of MMT that is used to show you lots of information about your team.")
-    intro:SetPoint("TOPLEFT", 0, -2)
+    intro:SetPoint("TOPLEFT", 0, 0)
     intro:SetWidth(PAGE_W)
     intro:SetJustifyH("LEFT")
     intro:SetTextColor(0.75, 0.75, 0.75)
-    local TOP = -26
-    local TOP_H = 42 + 6 * UI.ROW + (UI.ROW + 2) + 8
+    local TOP = -22
+    local PIECE_ROWS, PIECE_H = 9, 20   -- every piece visible without scrolling
+    local EXTRA = 2 * PIECE_H           -- every tile two rows taller
+    local TOP_H = 42 + 6 * UI.ROW + (UI.ROW + 2) + 8 + EXTRA
     local X2 = TILE_W + TILE_GAP
-    local Y2 = TOP - TOP_H - TILE_GAP
-    local PIECE_ROWS, PIECE_H = 7, 20
-    local BOTTOM_H = 42 + PIECE_ROWS * PIECE_H + 6 + 2 * (UI.ROW + 2) + 8
+    local Y2 = TOP - TOP_H - 8
+    local BOTTOM_H = 42 + 7 * PIECE_H + 6 + 2 * (UI.ROW + 2) + 8 + EXTRA
 
     -- Basics ----------------------------------------------------------------
     local _, B = Tile(page, 0, TOP, TILE_W, TOP_H, "Basics", "Interface\\Icons\\INV_Misc_Gear_01")
@@ -676,9 +677,6 @@ ns.RegisterPage("xp", "XP Window", function(page)
 
     -- General Look & Feel ---------------------------------------------------
     local _, G = Tile(page, X2, TOP, TILE_W, TOP_H, "General Look & Feel", "Interface\\Icons\\INV_Misc_Ribbon_01")
-    local lookButton = G:Button("Fonts, Bars, Scale, Opacity", function() ns.ToggleXPLook(page:GetParent()) end)
-    UI.Tooltip(lookButton, "Fonts, Bars, Scale, Opacity", "Opens a window beside this one: font, outline, font size, width, bar height, row spacing, scale, window and background opacity.")
-    G:Space(4)
     local gcs, scs = Opt("ftl", "crownSide")
     G:Cycle("Leader crown", {
         { value = "LEFT", text = "Left of the name" },
@@ -705,11 +703,13 @@ ns.RegisterPage("xp", "XP Window", function(page)
         .. "Off: every row puts its pieces side by side on its own.\n\n"
         .. "|cffaaaaaaWhen all rows show the same pieces with values of similar width, the choices look nearly the same. It shows when a row misses a piece (offline member, max level without rested XP): with columns the other pieces stay in place, with Off they move into the gap.|r")
     G:Space(4)
+    local lookButton = G:Button("Fonts, Bars, Scale, Opacity", function() ns.ToggleXPLook(page:GetParent()) end)
+    UI.Tooltip(lookButton, "Fonts, Bars, Scale, Opacity", "Opens a window beside this one: font, outline, font size, width, bar height, row spacing, scale, window and background opacity.")
     G:Button("Reset window position", function() ns.ResetXPPosition() end)
 
-    -- Column Visibility & Order (left to right) ------------------------------
+    -- Column Visibility & Order (left to right in the window) -----------------
     -- pieces of a row (XPPieces.lua), the name among them: drag the dots to move one, "on" / "off" shows it
-    local ctile, V = Tile(page, 0, Y2, TILE_W, BOTTOM_H, "Column Visibility & Order (left to right)", "Interface\\Icons\\INV_Misc_Note_01")
+    local ctile, V = Tile(page, 0, Y2, TILE_W, BOTTOM_H, "Column Visibility & Order", "Interface\\Icons\\INV_Misc_Note_01")
     local pieces
     local function Shown()
         local out = {}
@@ -808,9 +808,8 @@ ns.RegisterPage("xp", "XP Window", function(page)
     local gd, sd = Opt("xp", "layerHopDelay")
     M:Slider("Accept after (seconds)", 1, 30, 1, gd, sd)
 
-    local hint = UI.Label(page, "Follow and crowd control warnings: Alerts page.")
-    hint:SetPoint("TOPLEFT", 0, Y2 - BOTTOM_H - 8)
-    hint:SetTextColor(0.6, 0.6, 0.6)
+    M:Space(6)
+    M:Note("Follow and crowd control warnings: Alerts page.")
 end)
 
 ---------------------------------------------------------------------------
