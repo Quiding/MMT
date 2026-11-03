@@ -5,7 +5,9 @@
 --     "Keep full names in debug logs" is off.
 --   * "Hide names outside MMT too": chat (every chat window), unit frames
 --     (player, target, focus, target of target, party, raid), nameplates,
---     unit tooltips and any text other addons show in their own frames (raid
+--     unit tooltips, lines other addons add to any tooltip (Syndicator's
+--     character counts on item tooltips, ...) and any text other addons show
+--     in their own frames (raid
 --     frames of other addons), as far as the game allows: values the game
 --     hands out as secrets can't be read and stay as they are.
 --
@@ -356,6 +358,36 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
     TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, FixTooltip)
 elseif GameTooltip and GameTooltip.HookScript then
     pcall(GameTooltip.HookScript, GameTooltip, "OnTooltipSetUnit", FixTooltip)
+end
+
+---------------------------------------------------------------------------
+-- Lines other addons add to any tooltip (item tooltips too): Syndicator's /
+-- Baganator's "Caleron Kerals-PvP: Bags 56", Questie, ... The game fills
+-- tooltip lines itself, so the FontString hook above never sees them: after
+-- every AddLine / AddDoubleLine the line just added is checked (both sides).
+---------------------------------------------------------------------------
+local function FixLastLine(tt)
+    if not Active() or not tt or not tt.NumLines or not tt.GetName then return end
+    local name, n = tt:GetName(), tt:NumLines()
+    if not name or not n or n < 1 then return end
+    for _, side in ipairs({ "TextLeft", "TextRight" }) do
+        local fs = _G[name .. side .. n]
+        local text = fs and fs:GetText()
+        if type(text) == "string" and not ns.IsSecret(text) then
+            local new = ns.ReplaceNames(text)
+            if new ~= text then fs:SetText(new) end
+        end
+    end
+end
+
+do
+    -- every tooltip shares these methods (GameTooltip, ItemRefTooltip, the shopping tooltips, addons' own)
+    local meta = GameTooltip and getmetatable(GameTooltip)
+    local methods = meta and meta.__index
+    if hooksecurefunc and type(methods) == "table" then
+        if methods.AddLine then hooksecurefunc(methods, "AddLine", FixLastLine) end
+        if methods.AddDoubleLine then hooksecurefunc(methods, "AddDoubleLine", FixLastLine) end
+    end
 end
 
 ns.OnLogin(function()
