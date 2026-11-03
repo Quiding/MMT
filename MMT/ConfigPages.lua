@@ -702,13 +702,18 @@ ns.RegisterPage("xp", "XP Window", function(page)
         { value = "RIGHT", text = "Right" },
     }, ga, sa)
     local gpa, spa = Opt("xp", "pieceAlign")
-    R:Cycle("Line up pieces", {
+    local lineUp = R:Cycle("Line up pieces", {
         { value = "CENTER", text = "In columns, centred" },
         { value = "ICONS", text = "In columns, icons lined up" },
         { value = "LEFT", text = "In columns, left" },
         { value = "RIGHT", text = "In columns, right" },
         { value = "OFF", text = "Off (each row on its own)" },
     }, gpa, spa)
+    UI.Tooltip(lineUp, "Line up pieces",
+        "Each piece (durability, bags, gold, name, level, ...) gets its own column, as wide as its widest value, so it sits in the same place on every row.\n\n"
+        .. "Centred / left / right: where a value sits inside its column. Icons lined up: the bag and durability icons line up on the left, the gold coins on the right.\n"
+        .. "Off: every row puts its pieces side by side on its own.\n\n"
+        .. "|cffaaaaaaWhen all rows show the same pieces with values of similar width, the choices look nearly the same. It shows when a row misses a piece (offline member, max level without rested XP): with columns the other pieces stay in place, with Off they move into the gap.|r")
     local gcs, scs = Opt("ftl", "crownSide")
     R:Cycle("Leader crown", {
         { value = "LEFT", text = "Left of the name" },
