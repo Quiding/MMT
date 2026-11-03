@@ -69,7 +69,10 @@ local function GroupMembers()
     end
     local guild = {}   -- [normKey] = in my guild
     for _, unit in ipairs(units) do
-        if UnitExists(unit) and not UnitIsUnit(unit, "player") then
+        -- offline members aren't recipients: whispering them fails, and one outside the guild kept the
+        -- module settings out of a guild-mode profile sync ("every recipient in the guild")
+        local connected = not UnitIsConnected or ns.Safe(UnitIsConnected, unit) ~= false
+        if UnitExists(unit) and not UnitIsUnit(unit, "player") and connected then
             local name = ns.NameFromGUID(ns.Safe(UnitGUID, unit), ns.Safe(UnitName, unit))
             if name and name ~= "?" then
                 local key = ns.Resolve(name)
