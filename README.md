@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.60: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.61: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -338,7 +338,7 @@ Saved data from MMT 0.1.x is converted automatically.
 
 - **Shift**: hold it while an NPC window opens to keep that page manual; pick an option
   without Shift and the next page (dialog, quest, reward) is automated again.
-- **Profiles**: per character; copy, reset, delete, export/import. After a reset or a new
+- **Profiles** (tiles: Active Profile, New & Copy, Share with the Team, Export / Import): per character; copy, reset, delete, export/import. After a reset or a new
   empty profile, MMT asks whether to switch the modules back to their default (on or off) too.
 - **Sync to team**: `/mmt sync` (or the blue button in the bottom right of Profiles) sends
   the core settings of the active profile: team, roles, XP window incl. its position,
@@ -362,7 +362,7 @@ Saved data from MMT 0.1.x is converted automatically.
   When a sync switches a module on or off, or changes "Hide names outside MMT too", the
   recipient is asked to reload the UI (Yes / No), and the sender's chat names the
   characters that need a reload.
-- **Help**: debug tools with a how-to, guides for writing modules and using the team
+- **Help** (tabs: Debugging, Writing modules, Team communication, Appearance): debug tools with a how-to, guides for writing modules and using the team
   communication (with copyable example code), and **Appearance**: a background for the
   settings window (plain looks such as Dark, Dusk, Vignette, Accent or Class glow, Grid,
   Glass, or the game's talent tree paintings: one per class and spec, or "My class", which
@@ -377,7 +377,7 @@ Saved data from MMT 0.1.x is converted automatically.
 The page list on the left shows up to 16 pages; scroll it with the mouse wheel. Click
 CORE or MODULES to collapse or expand that section (remembered per account).
 
-The settings window has its own scale (- / + at the bottom left, right-click resets,
+The settings window has its own scale (- / + at the bottom left, right-click resets, Help > Appearance,
 or `/mmt scale 130`), kept per account and sent along with the profile sync. The XP window's scale is under XP Window > Look.
 
 Names follow Team > Privacy (first name by default) in windows and chat messages;

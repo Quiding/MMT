@@ -187,30 +187,60 @@ local function CodeBox(parent, width, height, text)
 end
 
 ns.RegisterPage("help", "Help", function(page)
+    local Tile, Intro, TILE_W, TILE_GAP = H.Tile, H.Intro, H.TILE_W, H.TILE_GAP
+    local TILE_IN = TILE_W - 16
+    local X2 = TILE_W + TILE_GAP
+    local TOP = Intro(page, "Tools for when something goes wrong, guides for writing your own modules, and the look of this window.")
+
+    -- sub pages as a tab strip: the chosen one in the accent colour, underlined
     local panels, buttons = {}, {}
     local function Show(key)
         for k, p in pairs(panels) do p:SetShown(k == key) end
         for k, b in pairs(buttons) do
-            if k == key then b.label:SetTextColor(A[1], A[2], A[3]) else b.label:SetTextColor(0.7, 0.7, 0.7) end
+            local on = k == key
+            b.label:SetTextColor(on and A[1] or 0.7, on and A[2] or 0.7, on and A[3] or 0.7)
+            b.bar:SetShown(on)
         end
     end
-
-    local tabs = { { "debug", "Debugging" }, { "modules", "Writing modules" }, { "comm", "Team communication" },
-                   { "look", "Appearance" } }
+    local tabs = { { "debug", "Debugging", "INV_Misc_Wrench_01" }, { "modules", "Writing modules", "Trade_Engineering" },
+                   { "comm", "Team communication", "Ability_Warrior_BattleShout" }, { "look", "Appearance", "INV_Misc_Ribbon_01" } }
+    local TAB_W = math.floor((PAGE_W - 3 * 6) / 4)
+    local strip = page:CreateTexture(nil, "ARTWORK")
+    strip:SetColorTexture(1, 1, 1, 0.08)
+    strip:SetHeight(1)
+    strip:SetPoint("TOPLEFT", 0, TOP - 26)
+    strip:SetPoint("TOPRIGHT", 0, TOP - 26)
+    local PANEL_Y = TOP - 34
+    local PANEL_H = 564 + PANEL_Y
     for i, t in ipairs(tabs) do
-        local b = UI.Button(page, 166, t[2], function() Show(t[1]) end)
-        b:SetPoint("TOPLEFT", (i - 1) * 176, 0)
+        local b = CreateFrame("Button", nil, page)
+        b:SetSize(TAB_W, 26)
+        b:SetPoint("TOPLEFT", (i - 1) * (TAB_W + 6), TOP)
+        local hl = b:CreateTexture(nil, "HIGHLIGHT")
+        hl:SetAllPoints(); hl:SetColorTexture(1, 1, 1, 0.04)
+        local icon = b:CreateTexture(nil, "ARTWORK")
+        icon:SetSize(16, 16)
+        icon:SetPoint("LEFT", 6, 0)
+        icon:SetTexture("Interface\\Icons\\" .. t[3])
+        icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+        b.label = UI.Label(b, t[2], "GameFontNormal")
+        b.label:SetPoint("LEFT", icon, "RIGHT", 6, 0)
+        b.bar = b:CreateTexture(nil, "OVERLAY")
+        b.bar:SetColorTexture(A[1], A[2], A[3], 0.9)
+        b.bar:SetHeight(2)
+        b.bar:SetPoint("BOTTOMLEFT"); b.bar:SetPoint("BOTTOMRIGHT")
+        b:SetScript("OnClick", function() Show(t[1]) end)
         buttons[t[1]] = b
         local p = CreateFrame("Frame", nil, page)
-        p:SetPoint("TOPLEFT", 0, -30)
-        p:SetSize(PAGE_W, page:GetHeight() - 30)
+        p:SetPoint("TOPLEFT", 0, PANEL_Y)
+        p:SetSize(PAGE_W, PANEL_H)
         panels[t[1]] = p
     end
 
-    -- Debugging --------------------------------------------------------------
+    -- Debugging: tools and actions side by side, the how-to below -----------------------
     local d = panels.debug
-    local L = UI.Column(d, 0, 0, COL_W)
-    L:Header("Debug tools")
+    local TOOLS_H = 42 + 3 * UI.ROW + 12
+    local _, L = Tile(d, 0, 0, TILE_W, TOOLS_H, "Debug Tools", "Interface\\Icons\\INV_Misc_Wrench_01")
     L:Check("Debug log", function() return MMTDB.debug end, function(v) MMTDB.debug = v end,
         "Logs what MMT detects and does. The log keeps the last 300 lines.")
     L:Check("Also print log lines to chat", function() return MMTDB.debugChat end,
@@ -218,58 +248,66 @@ ns.RegisterPage("help", "Help", function(page)
     L:Check("Debug mode (ignore online requirements)", function() return ns.DebugMode() end,
         function(v) ns.SetDebugMode(v) end,
         "Shows every team member where MMT normally shows only those online with MMT: the XP window (offline members in grey, with their last known values) and the Quest Tracker. Only for testing: at every login MMT asks whether to switch it off.")
-    local R = UI.Column(d, COL2_X, -28, COL_W)
-    local half = (COL_W - 8) / 2
-    local report = UI.Button(d, half, "Debug report", function() ns.HandleDebugCommand("dump") end)
+    local at, R = Tile(d, X2, 0, TILE_W, TOOLS_H, "Actions", "Interface\\Icons\\INV_Misc_Note_01")
+    local half = math.floor((TILE_IN - 8) / 2)
+    local report = UI.Button(at, half, "Debug report", function() ns.HandleDebugCommand("dump") end)
     R:Add(report, 0)
-    local log = UI.Button(d, half, "Show log", function() ns.HandleDebugCommand("log") end)
+    UI.Tooltip(report, "Debug report", "A copyable report: characters, team, layer, modules, the last addon messages and the log.")
+    local log = UI.Button(at, half, "Show log", function() ns.HandleDebugCommand("log") end)
     log:SetPoint("LEFT", report, "RIGHT", 8, 0)
-    R:Space(UI.ROW + 2)
-    local clear = UI.Button(d, half, "Clear log", function() ns.HandleDebugCommand("clear") end)
+    R:Space(UI.ROW + 6)
+    local clear = UI.Button(at, half, "Clear log", function() ns.HandleDebugCommand("clear") end)
     R:Add(clear, 0)
-    local ping = UI.Button(d, half, "Ping team", function() ns.Ping() end)
+    local ping = UI.Button(at, half, "Ping team", function() ns.Ping() end)
     ping:SetPoint("LEFT", clear, "RIGHT", 8, 0)
     UI.Tooltip(ping, "Ping team", "Whispers every team member with three spellings of the name and prints which one answered.")
 
-    local col = UI.Column(d, 0, L.y - 8, PAGE_W)
-    col:Header("How to report a problem")
+    local hy = -(TOOLS_H + 8)
+    local ht, col = Tile(d, 0, hy, PAGE_W, PANEL_H + hy, "How to Report a Problem", "Interface\\Icons\\INV_Misc_Book_09")
     col:Note(DEBUG_STEPS)
     col:Header("Commands")
-    col:Add(CodeBox(d, PAGE_W, 100, DEBUG_COMMANDS), 108)
+    col:Add(CodeBox(ht, PAGE_W - 16, 100, DEBUG_COMMANDS), 108)
     col:Note("The report contains your character names, team, layer, modules, the last addon messages and the log. Blocked game actions are logged too and announced in chat.")
 
-    -- Writing modules ----------------------------------------------------------
-    local m = panels.modules
-    local mc = UI.Column(m, 0, 0, PAGE_W)
-    mc:Header("Add a module")
+    -- Writing modules ----------------------------------------------------------------------
+    local mt, mc = Tile(panels.modules, 0, 0, PAGE_W, PANEL_H, "Add a Module", "Interface\\Icons\\Trade_Engineering")
     mc:Note(MODULE_TEXT)
-    mc:Add(CodeBox(m, PAGE_W, 400, MODULE_CODE), 408)
+    local mh = PANEL_H + mc.y - 10
+    mc:Add(CodeBox(mt, PAGE_W - 16, mh, MODULE_CODE), mh)
 
-    -- Team communication ---------------------------------------------------------
-    local c = panels.comm
-    local cc = UI.Column(c, 0, 0, PAGE_W)
-    cc:Header("Talking to the other clients")
+    -- Team communication ----------------------------------------------------------------------
+    local ct, cc = Tile(panels.comm, 0, 0, PAGE_W, PANEL_H, "Talking to the Other Clients", "Interface\\Icons\\Ability_Warrior_BattleShout")
     cc:Note(COMM_TEXT)
-    cc:Add(CodeBox(c, PAGE_W, 400, COMM_CODE), 408)
+    local ch = PANEL_H + cc.y - 10
+    cc:Add(CodeBox(ct, PAGE_W - 16, ch, COMM_CODE), ch)
 
-    -- Appearance (per account, like the window scale; sent with Profiles > Sync to team) ----
+    -- Appearance (per account; sent with Profiles > Sync to team) ----------------------------------
     local lk = panels.look
-    local col = UI.Column(lk, 0, 0, COL_W)
-    col:Header("Settings window")
-    col:Note("How this window looks. The choice belongs to this account (all its characters and profiles). Profiles > Sync to team (/mmt sync) sends it along, with the window size.")
-    col:Cycle("Background", ns.BackgroundChoices, ns.ConfigBackground, ns.SetConfigBackground)
-    col:Space(4)
-    local desc = col:Note("")
-    col:Space(4)
-    local opacity = col:Slider("Artwork opacity", 10, 60, 5,
+    local LOOK_H = 260
+    local bt, B = Tile(lk, 0, 0, TILE_W, LOOK_H, "Background", "Interface\\Icons\\INV_Misc_Ribbon_01")
+    B:Cycle("Background", ns.BackgroundChoices, ns.ConfigBackground, ns.SetConfigBackground)
+    B:Space(4)
+    local desc = B:Note("")
+    desc:SetHeight(44)
+    desc:SetJustifyV("TOP")
+    B:Space(22)
+    local opacity = B:Slider("Artwork opacity", 10, 60, 5,
         function() return math.floor(ns.ArtAlpha() * 100 + 0.5) end,
         function(v) ns.SetArtAlpha(v / 100) end, "%d%%")
-    local tint = col:Check("Artwork in the accent colour",
+    local tint = B:Check("Artwork in the accent colour",
         ns.ArtTint, ns.SetArtTint,
         "Shows the painting in shades of MMT's accent colour instead of its own colours.")
-    col:Space(6)
-    col:Note("Window size: + and - at the bottom left of this window, or /mmt scale <percent>.")
-    local missing = col:Note("")
+    B:Space(4)
+    local missing = B:Note("")
+
+    local _, W = Tile(lk, X2, 0, TILE_W, LOOK_H, "Window Size", "Interface\\Icons\\INV_Misc_Spyglass_02")
+    W:Slider("Settings window scale", 60, 200, 5,
+        function() return math.floor(ns.ConfigScale() * 100 + 0.5) end,
+        function(v) ns.SetConfigScale(v / 100) end, "%d%%")
+    W:Button("Back to 100%", function() ns.SetConfigScale(1) ns.RefreshConfig() end)
+    W:Space(4)
+    W:Note("Also: + and - at the bottom left of this window (right-click resets), or /mmt scale <percent>. The XP window's scale is under XP Window > Fonts, Bars, Scale, Opacity.")
+    W:Note("The look and size belong to this account (all its characters and profiles). Profiles > Sync to team (/mmt sync) sends them along.")
 
     page.OnRefresh = function()
         local key, isArt = ns.ConfigBackground(), false

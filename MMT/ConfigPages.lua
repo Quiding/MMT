@@ -212,6 +212,8 @@ local function Intro(page, text)
     local h = math.ceil(fs:GetStringHeight() or 0)
     return -math.max(22, h + 10), fs
 end
+ns.ConfigHelpers.Intro = Intro
+ns.ConfigHelpers.TILE_W, ns.ConfigHelpers.TILE_GAP = TILE_W, TILE_GAP
 
 ---------------------------------------------------------------------------
 -- Team
@@ -1632,26 +1634,49 @@ ns.RegisterPage("trade", "Trade / Mail / Vendor", function(page)
 end)
 
 ns.RegisterPage("profiles", "Profiles", function(page)
-    local col = UI.Column(page, 0, 0, PAGE_W)
+    local TOP = Intro(page, "A profile holds all core settings: team, roles, XP window, automations and more. Profiles are shared by all characters on this account; each character uses one, new characters start with \"Default\".")
+    local X2 = TILE_W + TILE_GAP
+    local TOP_H = 42 + 4 * (UI.ROW + 6) + 8
+    local Y2 = TOP - TOP_H - 8
+    local BOTTOM_H = 564 + Y2 - (UI.ROW + 4)   -- the status line goes below the tiles
+    local half = math.floor((TILE_IN - 8) / 2)
     local copySource
+    local status
+    local function AskModules(done) ns.AskResetModules(done, function(msg) status.Show_(msg) end) end
 
-    col:Header("Profile")
-    col:Note("Profiles are shared by all characters on this account. Each character uses one profile; new characters start with \"Default\".")
-
+    -- Active Profile (top left) ---------------------------------------------------------------
+    local at, P = Tile(page, 0, TOP, TILE_W, TOP_H, "Active Profile", "Interface\\Icons\\INV_Misc_Book_11")
     local function ProfileChoices()
         local l = {}
         for _, name in ipairs(ns.ProfileNames()) do l[#l + 1] = { value = name, text = name } end
         return l
     end
-    local active = UI.Cycle(page, 360, "Active profile", ProfileChoices,
+    local active = UI.Cycle(at, TILE_IN, "Profile", ProfileChoices,
         function() return ns.CurrentProfileName() end,
         function(v) ns.SetProfile(v) end)
-    col:Add(active, UI.ROW + 6)
+    P:Add(active, UI.ROW + 6)
+    local usedBy = UI.Label(at, "")
+    usedBy:SetTextColor(0.6, 0.6, 0.6)
+    P:Add(usedBy, UI.ROW + 6)
+    P:Space(UI.ROW + 6)
+    local reset = ConfirmButton(at, half, "Reset profile", function()
+        ns.ResetProfile()
+        status.Show_("Profile reset to defaults.")
+        AskModules("Profile reset to defaults.")
+    end)
+    P:Add(reset, 0)
+    UI.Tooltip(reset, "Reset profile", "Puts every core setting of the active profile back to its default. Click twice to confirm.")
+    local delete = ConfirmButton(at, half, "Delete profile", function()
+        local name = ns.CurrentProfileName()
+        if ns.DeleteProfile(name) then status.Show_(("Deleted \"%s\"."):format(name)) ns.Refresh() end
+    end)
+    delete:SetPoint("LEFT", reset, "RIGHT", 8, 0)
+    UI.Tooltip(delete, "Delete profile", "Deletes the active profile. Default can't be deleted. Characters using it go back to Default.")
 
-    local status
-    local function AskModules(done) ns.AskResetModules(done, function(msg) status.Show_(msg) end) end
-    local newName = UI.EditBox(page, 230, "New profile name", nil)
-    col:Add(newName, 0)
+    -- New & Copy (top right) ----------------------------------------------------------------------
+    local nt, N = Tile(page, X2, TOP, TILE_W, TOP_H, "New & Copy", "Interface\\Icons\\INV_Misc_Note_02")
+    local newName = UI.EditBox(nt, TILE_IN, "New profile name", nil)
+    N:Add(newName, UI.ROW + 6)
     local function Create(copy)
         local name = ns.Trim(newName:GetText())
         if ns.CreateProfile(name, copy and ns.db or nil) then
@@ -1665,13 +1690,14 @@ ns.RegisterPage("profiles", "Profiles", function(page)
         ns.Refresh()
     end
     newName:SetScript("OnEnterPressed", function() Create(true) end)
-    local copyCurrent = UI.Button(page, 130, "Copy current", function() Create(true) end)
-    copyCurrent:SetPoint("LEFT", newName, "RIGHT", 8, 0)
-    local empty = UI.Button(page, 130, "New (empty)", function() Create(false) end)
+    local copyCurrent = UI.Button(nt, half, "Copy current", function() Create(true) end)
+    N:Add(copyCurrent, 0)
+    UI.Tooltip(copyCurrent, "Copy current", "Creates the profile with the name above as a copy of the active one and switches to it.")
+    local empty = UI.Button(nt, half, "New (empty)", function() Create(false) end)
     empty:SetPoint("LEFT", copyCurrent, "RIGHT", 8, 0)
-    col:Space(UI.ROW + 6)
-
-    local source = UI.Cycle(page, 230, "Copy from", function()
+    UI.Tooltip(empty, "New (empty)", "Creates the profile with the name above with default settings and switches to it.")
+    N:Space(UI.ROW + 6)
+    local source = UI.Cycle(nt, TILE_IN, "Copy from", function()
         local l = {}
         for _, name in ipairs(ns.ProfileNames()) do
             if name ~= ns.CurrentProfileName() then l[#l + 1] = { value = name, text = name } end
@@ -1679,42 +1705,46 @@ ns.RegisterPage("profiles", "Profiles", function(page)
         if #l == 0 then l[1] = { value = nil, text = "-" } end
         return l
     end, function() return copySource end, function(v) copySource = v end)
-    col:Add(source, 0)
-    local copy = ConfirmButton(page, 130, "Copy into active", function()
+    N:Add(source, UI.ROW + 6)
+    local copy = ConfirmButton(nt, TILE_IN, "Copy into active profile", function()
         if copySource and ns.CopyProfileInto(copySource) then
             status.Show_(("Copied \"%s\" into \"%s\"."):format(copySource, ns.CurrentProfileName()))
         end
     end)
-    copy:SetPoint("LEFT", source, "RIGHT", 8, 0)
-    col:Space(UI.ROW + 6)
+    N:Add(copy, UI.ROW + 6)
+    UI.Tooltip(copy, "Copy into active profile", "Overwrites the active profile with the settings of the profile chosen above. Click twice to confirm.")
 
-    local reset = ConfirmButton(page, 120, "Reset profile", function()
-        ns.ResetProfile()
-        status.Show_("Profile reset to defaults.")
-        AskModules("Profile reset to defaults.")
-    end)
-    col:Add(reset, 0)
-    local delete = ConfirmButton(page, 120, "Delete profile", function()
-        local name = ns.CurrentProfileName()
-        if ns.DeleteProfile(name) then status.Show_(("Deleted \"%s\"."):format(name)) ns.Refresh() end
-    end)
-    delete:SetPoint("LEFT", reset, "RIGHT", 8, 0)
-    UI.Tooltip(delete, "Delete profile", "Deletes the active profile. Default can't be deleted. Characters using it go back to Default.")
-    col:Space(UI.ROW + 6)
+    -- Share with the Team (bottom left) ---------------------------------------------------------
+    local stile, S = Tile(page, 0, Y2, TILE_W, BOTTOM_H, "Share with the Team", "Interface\\Icons\\Spell_Arcane_Blink")
+    S:Note("Sends the active profile to your group and online team members (same as /mmt sync): team, roles, XP window incl. its position, automations, which modules are on or off, and the look and size of the settings window.")
+    S:Note("With \"Use guild channel\" (Team page) and every recipient in your guild, the settings of the modules go along too; otherwise every module page has its own Sync button.")
+    S:Space(4)
+    local syncButton = UI.SyncButton(page, "Sync to team", function() ns.SendProfileToTeam() end, "Sync core settings",
+        "Same as /mmt sync: sends the core settings of the active profile (team, roles, XP window incl. its position, automations, distance window), which modules are on or off and the settings window's look and size (Help > Appearance) to your group and online team members. With \"Use guild channel\" and every recipient in your guild, the settings of the modules go along too; otherwise every module page has its own Sync button. Each recipient gets a dialog to accept them (or accepts on its own, see the option below the button).")
+    syncButton:ClearAllPoints()
+    syncButton:SetParent(stile)
+    syncButton:SetWidth(TILE_IN)
+    S:Add(syncButton, 32)
+    local autoAccept = UI.Check(stile, TILE_IN, "Auto-accept synced settings",
+        function() return MMTDB.autoAcceptSync and true or false end,
+        function(v) MMTDB.autoAcceptSync = v or nil end,
+        "Settings a team member syncs to this client (core settings and module settings) are applied without the dialog. Only team members can sync. This option belongs to this account (all its characters) and is never synced itself.")
+    S:Add(autoAccept, UI.ROW)
 
-    col:Header("Export / import")
-    col:Note("Export, copy the text (Ctrl+A, Ctrl+C) and import it on the other account. Import uses the name box if filled, overwrites a profile of that name and activates it.")
-    local area = UI.TextArea(page, PAGE_W, 110)
-    col:Add(area, 118)
-
-    local export = UI.Button(page, 120, "Export", function()
+    -- Export / Import (bottom right) ------------------------------------------------------------------
+    local et, E = Tile(page, X2, Y2, TILE_W, BOTTOM_H, "Export / Import", "Interface\\Icons\\INV_Scroll_04")
+    E:Note("For another account or a backup: Export, copy the text (Ctrl+A, Ctrl+C) and paste it there, then Import. Import uses the name in New & Copy if filled, overwrites a profile of that name and activates it.")
+    local areaH = BOTTOM_H + E.y - (UI.ROW + 6) - 10
+    local area = UI.TextArea(et, TILE_IN, areaH)
+    E:Add(area, areaH + 6)
+    local export = UI.Button(et, half, "Export", function()
         area.edit:SetText(ns.ExportProfile())
         area.edit:SetFocus()
         area.edit:HighlightText()
         status.Show_(("Exported \"%s\"."):format(ns.CurrentProfileName()))
     end)
-    col:Add(export, 0)
-    local import = UI.Button(page, 120, "Import", function()
+    E:Add(export, 0)
+    local import = UI.Button(et, half, "Import", function()
         local name, data = ns.ParseExport(area.edit:GetText())
         if not name then
             status.Show_("That text is not a valid MMT profile export.", true)
@@ -1729,19 +1759,11 @@ ns.RegisterPage("profiles", "Profiles", function(page)
         ns.Refresh()
     end)
     import:SetPoint("LEFT", export, "RIGHT", 8, 0)
-    col:Space(UI.ROW + 8)
 
+    -- one status line for the whole page, below the tiles
     status = StatusLine(page)
     status:SetWidth(PAGE_W)
-    col:Add(status, UI.ROW)
-
-    local syncButton = UI.SyncButton(page, "Sync to team", function() ns.SendProfileToTeam() end, "Sync core settings",
-        "Same as /mmt sync: sends the core settings of the active profile (team, roles, XP window incl. its position, automations, distance window), which modules are on or off and the settings window's look and size (Help > Appearance) to your group and online team members. With \"Use guild channel\" and every recipient in your guild, the settings of the modules go along too; otherwise every module page has its own Sync button. Each recipient gets a dialog to accept them (or accepts on its own, see the option beside this button).")
-    local autoAccept = UI.Check(page, 250, "Auto-accept synced settings",
-        function() return MMTDB.autoAcceptSync and true or false end,
-        function(v) MMTDB.autoAcceptSync = v or nil end,
-        "Settings a team member syncs to this client (core settings and module settings) are applied without the dialog. Only team members can sync. This option belongs to this account (all its characters) and is never synced itself.")
-    autoAccept:SetPoint("RIGHT", syncButton, "LEFT", -16, 0)
+    status:SetPoint("TOPLEFT", page, "TOPLEFT", 4, Y2 - BOTTOM_H - 6)
 
     page.OnRefresh = function()
         if not copySource or copySource == ns.CurrentProfileName() or not MMTDB.profiles[copySource] then
@@ -1754,6 +1776,10 @@ ns.RegisterPage("profiles", "Profiles", function(page)
         local canDelete = ns.CurrentProfileName() ~= "Default"
         delete:SetEnabled(canDelete)
         delete:SetAlpha(canDelete and 1 or 0.4)
+        local n = 0
+        for _, prof in pairs(MMTDB.profileKeys or {}) do if prof == ns.CurrentProfileName() then n = n + 1 end end
+        usedBy:SetText(("Used by %d character%s on this account."):format(n, n == 1 and "" or "s"))
+        copy:SetAlpha(copySource and 1 or 0.4)
     end
 end)
 
