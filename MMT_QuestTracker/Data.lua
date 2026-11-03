@@ -387,3 +387,105 @@ function mod.QuestCount(rec)
     if rec then for _ in pairs(rec.quests) do n = n + 1 end end
     return n
 end
+
+---------------------------------------------------------------------------
+-- Completed elsewhere: quests a team member has open that this character
+-- already completed (the game's completed flag, as the Statistics module's
+-- quest scan reads it). Each client checks the team's open quests against
+-- its own flags and sends the list when it changes:
+--   QTC:<id>,<id>,...   (the whole list; QTC+: continues a long one)
+-- Stored in M.store.questsDone[teamKey] = { [questID] = true }.
+---------------------------------------------------------------------------
+local function DoneDB()
+    M.store.questsDone = M.store.questsDone or {}
+    return M.store.questsDone
+end
+
+function mod.CompletedBy(key, questID)
+    local d = M.store and M.store.questsDone and M.store.questsDone[key]
+    return d and d[questID] or false
+end
+
+local function FlaggedCompleted(id)
+    local f = (C_QuestLog and C_QuestLog.IsQuestFlaggedCompleted) or IsQuestFlaggedCompleted
+    if not f then return false end
+    local ok, done = pcall(f, id)
+    return ok and done == true
+end
+
+-- this character's completed quests among the team's open ones
+local function OwnDone()
+    local me = MMT.PlayerFull()
+    local own = me and DB()[me] and DB()[me].quests or {}
+    local ids = {}
+    for key, rec in pairs(DB()) do
+        if key ~= me then
+            for id in pairs(rec.quests or {}) do
+                if not own[id] and not ids[id] and FlaggedCompleted(id) then ids[id] = true end
+            end
+        end
+    end
+    return ids
+end
+
+local function ListText(set)
+    local t = {}
+    for id in pairs(set) do t[#t + 1] = id end
+    table.sort(t)
+    return t
+end
+
+local function SendDone(list, target)
+    local parts, cur = {}, ""
+    for _, id in ipairs(list) do
+        local s = tostring(id)
+        if #cur + #s + 1 > 230 then parts[#parts + 1] = cur; cur = s
+        else cur = (cur == "") and s or (cur .. "," .. s) end
+    end
+    parts[#parts + 1] = cur
+    for i, p in ipairs(parts) do
+        local msg = (i == 1 and "QTC:" or "QTC+:") .. p
+        if target then MMT.SendAddon(msg, "WHISPER", target, "BULK", nil, MMT.bulkPrefix)
+        else MMT.SendToTeam(msg, true, "BULK", MMT.bulkPrefix) end
+    end
+end
+
+local lastSent   -- the list sent last ("1,2,3")
+function mod.CheckCompleted(force, target)
+    local me = MMT.PlayerFull()
+    if not me then return end
+    local set = OwnDone()
+    DoneDB()[me] = set
+    local list = ListText(set)
+    local text = table.concat(list, ",")
+    if target then SendDone(list, target) return end
+    if text == lastSent and not force then return end
+    lastSent = text
+    M:Debug("completed quests the team has open: %s", text ~= "" and text or "none")
+    SendDone(list)
+    MMT.Fire("QUESTS_CHANGED", me)
+end
+
+-- the team's quests changed: check again (debounced)
+local checkPending = false
+M:Listen("QUESTS_CHANGED", function(key)
+    if checkPending or key == "__done" then return end
+    checkPending = true
+    C_Timer.After(2, function()
+        checkPending = false
+        if M.enabled then mod.CheckCompleted() end
+    end)
+end)
+
+M:Listen("TEAM_MESSAGE", function(key, sender, text)
+    if text == "QTREQ" then
+        C_Timer.After(1, function() if M.enabled then mod.CheckCompleted(false, sender) end end)
+        return
+    end
+    local more, list = text:match("^QTC(%+?):(.*)$")
+    if not list then return end
+    local set = (more == "+" and DoneDB()[key]) or {}
+    for id in list:gmatch("%d+") do set[tonumber(id)] = true end
+    DoneDB()[key] = set
+    MMT.Fire("QUESTS_CHANGED", "__done")
+end)

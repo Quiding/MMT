@@ -93,7 +93,7 @@ M.Page = function(_, page)
     local gtq, stq = Opt("teamQuests")
     L:Check("Include quests only teammates have", gtq, stq, "Quests your current character doesn't have, but someone in the team does.")
     local gm, sm = Opt("showMissing")
-    L:Check("Show members not on the quest", gm, sm, "Adds \"not on quest\" for team members who don't have it.")
+    L:Check("Show members not on the quest", gm, sm, "Adds \"not on quest\" for team members who don't have it. Members who already completed it always show \"completed\".")
     local go, so = Opt("showOffline")
     L:Check("Include offline members", go, so, "Shows their last known progress.")
     L:Check("Class colours for names", Opt("classColors"))
@@ -218,5 +218,11 @@ function M.Report(_, add)
     end
     for key, rec in pairs(mod.AllData()) do
         add(("quests %s: %d, hash %s, %s"):format(MMT.Repr(key), mod.QuestCount(rec), tostring(rec.hash), MMT.Ago(rec.time)))
+    end
+    for key, set in pairs(M.store.questsDone or {}) do
+        local ids = {}
+        for id in pairs(set) do ids[#ids + 1] = id end
+        table.sort(ids)
+        add(("completed (of the team's open quests) %s: %s"):format(MMT.Repr(key), #ids > 0 and table.concat(ids, ",") or "none"))
     end
 end

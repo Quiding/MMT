@@ -249,6 +249,9 @@ function mod.BuildEntries()
                                 local status, done
                                 if mq then
                                     status, done = Progress(mq, o and oi or nil)
+                                elseif mod.CompletedBy(key, id) then
+                                    -- not in the log: this character already completed it
+                                    status, done = GREEN .. "completed|r", true
                                 elseif cfg.showMissing then
                                     status = GREY .. "not on quest|r"
                                 end
