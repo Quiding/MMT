@@ -30,6 +30,7 @@ local _, ns = ...
 
 local CHUNK      = 225   -- payload bytes per message (whole message stays under 255)
 local RECV_TIMEOUT = 25  -- recipient: seconds without a new part = incomplete
+local MAX_PARTS  = 200   -- recipients drop a transfer with more parts (see ns.OnSyncMessage)
 local ACK_TIMEOUT  = 20  -- sender: seconds after the last part to wait for answers
 
 local HL = "|cff4fb3ff"   -- accent colour for names in chat
@@ -168,8 +169,10 @@ local function Start(kind, label, payload)
     end
 
     -- guild mode and every recipient in the guild: the payload may carry more
+    local payloadFn = type(payload) == "function" and payload or nil
+    local all = false
     if type(payload) == "function" then
-        local all = ns.GuildMode()
+        all = ns.GuildMode()
         if all then
             for key in pairs(ns.db.team) do
                 local nk = ns.NormKey(key)
@@ -186,6 +189,21 @@ local function Start(kind, label, payload)
     local plainSize = #payload
     payload = ns.Pack(payload)   -- compressed when the client can
     local parts = math.ceil(#payload / CHUNK)
+    -- recipients drop anything over MAX_PARTS without a word: the profile with every module's settings
+    -- falls back to the core settings alone (each module page has its own Sync button), anything else stops here
+    if parts > MAX_PARTS and payloadFn and all then
+        ns.Print("%sToo big to send in one go|r (%d parts, at most %d): sending the core settings and which modules are on, without the module settings. Sync those on each module's page.",
+            BAD, parts, MAX_PARTS)
+        payload = payloadFn(false)
+        label = KindLabel(kind, ns.CurrentProfileName())
+        plainSize = #payload
+        payload = ns.Pack(payload)
+        parts = math.ceil(#payload / CHUNK)
+    end
+    if parts > MAX_PARTS then
+        ns.Print("%sToo big to send:|r the %s needs %d parts, recipients take at most %d.", BAD, label, parts, MAX_PARTS)
+        return false
+    end
     -- outside instances every recipient gets whispers (not throttled there);
     -- inside, one copy to the group plus whispers for those outside it.
     -- Guild mode outside instances: one copy on the guild channel for the
@@ -665,7 +683,7 @@ function ns.OnSyncMessage(key, sender, text, channel)
     if not hid then hid, hparts, kind, profile = text:match("^SYNCHI:(%d+):(%d+):(%a+):(.*)$") end
     if hid then
         local parts = tonumber(hparts)
-        if not parts or parts < 1 or parts > 200 then return end
+        if not parts or parts < 1 or parts > MAX_PARTS then return end
         local t = Transfer(nk, key, sender, hid, parts, channel)
         t.kind, t.profile = kind, profile
         Announce(t)
@@ -676,7 +694,7 @@ function ns.OnSyncMessage(key, sender, text, channel)
     local id, idx, total, chunk = text:match("^SYNC:(%d+):(%d+):(%d+):(.*)$")
     if not id then return end
     idx, total = tonumber(idx), tonumber(total)
-    if not idx or not total or total < 1 or total > 200 or idx < 1 or idx > total then return end
+    if not idx or not total or total < 1 or total > MAX_PARTS or idx < 1 or idx > total then return end
     local t = Transfer(nk, key, sender, id, total, channel)
     if not t.kind and idx == 1 then
         -- sender without SYNCHI (MMT 0.6.3): the first part tells what it is
