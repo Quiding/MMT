@@ -138,14 +138,31 @@ local function ItemCount(id)
     return count
 end
 
+-- buy list entry: the characters it is for (a list of team keys), nil = every character
+function ns.BuyEntryChars(entry)
+    if type(entry.chars) == "table" and #entry.chars > 0 then return entry.chars end
+    if type(entry.who) == "string" and entry.who ~= "" then return { entry.who } end   -- before 0.9.60
+    return nil
+end
+
+-- is the entry for this character?
+function ns.BuyEntryFor(entry, key)
+    local chars = ns.BuyEntryChars(entry)
+    if not chars then return true end
+    for _, k in ipairs(chars) do
+        if ns.IsSelf(k) or (key and ns.NormKey(k) == ns.NormKey(key)) then return true end
+    end
+    return false
+end
+
 local function BuyList()
     local m = ns.db.merchant
     if not m.buy then return end
     local bought = {}
     for _, entry in ipairs(m.buyList or {}) do
         local id, want = entry.itemID, entry.count or 0
-        -- an item for one character is bought only there
-        if entry.who and entry.who ~= "" and not ns.IsSelf(entry.who) then id = nil end
+        -- an item for some characters is bought only on those
+        if not ns.BuyEntryFor(entry, ns.PlayerFull()) then id = nil end
         local need = id and (want - ItemCount(id)) or 0
         if need > 0 then
             for i = 1, (GetMerchantNumItems and GetMerchantNumItems() or 0) do

@@ -124,7 +124,7 @@ ns.defaults = {
     gossip   = { vendor = true, taxi = true, dialog = true },
     merchant = { sellGrey = true, repair = true, guildRepair = false, report = true, tellLeader = true, moneyFormat = "text",
                  sellRole = "", neverRole = "",          -- sell list / never-sell list (role names)
-                 buy = false, buyList = {} },            -- buy list: { itemID, name, count, who }
+                 buy = false, buyList = {} },            -- buy list: { itemID, name, count, chars = { teamKey, ... } or nil = every character }
     mail     = { enabled = true, goldTo = "", keepGold = 100 },     -- mailbox button: role items to the team, gold above keepGold
     gbank    = { enabled = true, role = "", tab = 1, gold = false, keepGold = 100 },   -- guild bank button
     -- automations
@@ -267,6 +267,15 @@ local function ConvertProfile(p)
         local max = 0
         for _, m in pairs(p.team) do if type(m) == "table" and m.order and m.order > max then max = m.order end end
         for _, key in ipairs(keys) do max = max + 1; p.team[key].order = max end
+    end
+    -- buy list (MMT 0.9.60): one character ("who") becomes a list of characters ("chars")
+    if type(p.merchant) == "table" and type(p.merchant.buyList) == "table" then
+        for _, e in ipairs(p.merchant.buyList) do
+            if type(e) == "table" and e.who ~= nil then
+                if e.who ~= "" and e.chars == nil then e.chars = { e.who } end
+                e.who = nil
+            end
+        end
     end
 end
 ns.ConvertProfile = ConvertProfile

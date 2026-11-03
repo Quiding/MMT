@@ -1300,6 +1300,165 @@ local function MemberChoices()
     return l
 end
 
+-- Buy list: add / edit one entry (item, quantity, characters) in a window beside the settings
+local buyEditor
+function ns.OpenBuyEditor(window, index, onSave)
+    local f = buyEditor
+    if not f then
+        f = CreateFrame("Frame", "MMTBuyEditorFrame", window)   -- scales and hides with the settings window
+        f:SetFrameStrata(window:GetFrameStrata())
+        f:SetFrameLevel(window:GetFrameLevel() + 50)
+        f:EnableMouse(true)
+        f:SetClampedToScreen(true)
+        UI.Fill(f, 0.05, 0.05, 0.06, 0.96)
+        UI.Border(f, 0.22, 0.22, 0.24, 1)
+        f.widgets = {}
+        f.title = UI.Label(f, "", "GameFontNormal")
+        f.title:SetPoint("TOPLEFT", 16, -14)
+        local close = UI.TextButton(f, "x", function() f:Hide() end, 20)
+        close:SetPoint("TOPRIGHT", -8, -8)
+        local W = COL_W
+        local C = UI.Column(f, 16, -40, W)
+
+        -- the item: drop it on the button, or shift-click / type it into the field
+        f.itemLabel = UI.Label(f, "")
+        f.itemLabel:SetWidth(W)
+        f.itemLabel:SetJustifyH("LEFT")
+        f.itemLabel:SetWordWrap(false)
+        C:Add(f.itemLabel, 20)
+        local function SetItem(id, name)
+            f.itemID, f.itemName = id, name or (id and ns.ItemInfo(id)) or (id and ("item " .. id))
+            f.itemLabel:SetText(f.itemID and ("Item: |cffffffff" .. f.itemName .. "|r") or "|cff999999Item: none yet|r")
+        end
+        f.SetItem = SetItem
+        local drop = UI.Button(f, W, "Drop an item from your bags here", function()
+            local kind, id = GetCursorInfo()
+            if kind == "item" then SetItem(id) ClearCursor() end
+        end)
+        drop:SetScript("OnReceiveDrag", drop:GetScript("OnClick"))
+        C:Add(drop, UI.ROW + 4)
+        f.itemBox = UI.EditBox(f, W, "or click here, then shift-click an item", function(text, box)
+            local rule = ns.RuleFromText(text)
+            if rule and rule.itemID then SetItem(rule.itemID, rule.name) box:SetText("") box:ClearFocus()
+            else f.status.Show_("Item not known: use an item link or its ID.", true) end
+        end)
+        UI.AcceptItemLinks(f.itemBox, function(link, box)
+            local id = tonumber(link:match("item:(%d+)"))
+            if id then SetItem(id, link:match("%[(.-)%]")) box:SetText("") end
+        end)
+        UI.Tooltip(f.itemBox, "Item", "Click into the field, then shift-click an item (bags, vendor, chat link) or type its ID and press Enter.")
+        C:Add(f.itemBox, UI.ROW + 6)
+
+        -- quantity
+        local qLabel = UI.Label(f, "Quantity to carry")
+        C:Add(qLabel, 0, 0)
+        f.countBox = UI.EditBox(f, 60, "20")
+        f.countBox:SetNumeric(true)
+        f.countBox:SetPoint("TOPLEFT", f, "TOPLEFT", 16 + W - 60, C.y + 4)
+        C:Space(UI.ROW + 6)
+
+        -- characters
+        C:Header("Characters")
+        f.all = UI.Check(f, W, "Every character (also ones added later)",
+            function() return f.allChars end,
+            function(v) f.allChars = v and true or false; f.Layout() end)
+        C:Add(f.all, UI.ROW)
+        f.checks, f.keys = {}, {}
+        local half = W / 2
+        local top = C.y
+        for i = 1, 10 do
+            local cb = UI.Check(f, half - 8, "",
+                function() return f.keys[i] and f.chosen[f.keys[i]] end,
+                function(v) if f.keys[i] then f.chosen[f.keys[i]] = v or nil end end)
+            cb:SetPoint("TOPLEFT", f, "TOPLEFT", 16 + ((i - 1) % 2) * half, top - math.floor((i - 1) / 2) * 22)
+            ns.HoverMember(cb, function() return f.keys[i] end)
+            f.checks[i] = cb
+        end
+        C:Space(5 * 22 + 6)
+
+        f.status = StatusLine(f)
+        f.status:SetWidth(W)
+        C:Add(f.status, UI.ROW)
+        local save = UI.Button(f, 120, "Save", function() f.Save() end)
+        C:Add(save, 0)
+        local cancel = UI.Button(f, 120, "Cancel", function() f:Hide() end)
+        cancel:SetPoint("LEFT", save, "RIGHT", 8, 0)
+        C:Space(UI.ROW + 4)
+        f:SetSize(W + 32, -C.y + 10)
+
+        f.Layout = function()
+            local members = ns.SortedMembers()
+            for i, cb in ipairs(f.checks) do
+                f.keys[i] = members[i]
+                cb.label:SetText(members[i] and ns.ShownName(members[i]) or "")
+                cb:SetShown(members[i] ~= nil)
+                cb:SetAlpha(f.allChars and 0.4 or 1)
+                if cb.SetEnabled then cb:SetEnabled(not f.allChars) end
+                cb.Refresh()
+            end
+            f.all.Refresh()
+        end
+        f.Save = function()
+            local list = ns.db.merchant.buyList
+            if not f.itemID then
+                local rule = ns.RuleFromText(f.itemBox:GetText())
+                if rule and rule.itemID then SetItem(rule.itemID, rule.name) end
+            end
+            if not f.itemID then f.status.Show_("Pick an item first.", true) return end
+            local n = tonumber(f.countBox:GetText()) or 0
+            if n <= 0 then f.status.Show_("Enter how many to carry.", true) return end
+            local chars
+            if not f.allChars then
+                chars = {}
+                for _, key in ipairs(ns.SortedMembers()) do if f.chosen[key] then chars[#chars + 1] = key end end
+                -- chosen characters no longer in the team stay chosen
+                for key in pairs(f.chosen) do
+                    local found = false
+                    for _, k in ipairs(chars) do if k == key then found = true end end
+                    if not found then chars[#chars + 1] = key end
+                end
+                if #chars == 0 then f.status.Show_("Choose at least one character, or \"Every character\".", true) return end
+            end
+            -- the same item twice: the existing entry is replaced
+            local at = f.index
+            for i, e in ipairs(list) do
+                if e.itemID == f.itemID and i ~= f.index then
+                    local j = i
+                    if f.index then table.remove(list, f.index) if j > f.index then j = j - 1 end end
+                    at = j
+                    break
+                end
+            end
+            local entry = { itemID = f.itemID, name = f.itemName, count = n, chars = chars }
+            if at then list[at] = entry else list[#list + 1] = entry; at = #list end
+            f:Hide()
+            if f.onSave then f.onSave(at) end
+        end
+        f:SetScript("OnShow", function(self) for _, w in ipairs(self.widgets) do w.Refresh() end end)
+        UI.CloseOnEscape(f)
+        buyEditor = f
+    end
+
+    ns.db.merchant.buyList = ns.db.merchant.buyList or {}
+    local entry = index and ns.db.merchant.buyList[index]
+    f.index, f.onSave = entry and index or nil, onSave
+    f.title:SetText(entry and "Buy list: edit item" or "Buy list: add item")
+    f.chosen = {}
+    f.SetItem(entry and entry.itemID, entry and entry.name)
+    f.itemBox:SetText("") f.itemBox:UpdatePlaceholder()
+    f.countBox:SetText(tostring(entry and entry.count or 20))
+    local chars = entry and ns.BuyEntryChars(entry)
+    f.allChars = entry ~= nil and chars == nil
+    if chars then for _, k in ipairs(chars) do f.chosen[k] = true end end
+    local own = not entry and ns.Resolve(ns.PlayerFull())
+    if own then f.chosen[own] = true end
+    f.status.Show_("")
+    f.Layout()
+    f:ClearAllPoints()
+    f:SetPoint("TOPLEFT", window, "TOPRIGHT", 6, 0)
+    f:Show()
+end
+
 ns.RegisterPage("trade", "Trade / Mail / Vendor", function(page)
     local TOP = Intro(page, "I hate clicking all the stuff... make it staahp!")
     local X2 = TILE_W + TILE_GAP
@@ -1324,69 +1483,85 @@ ns.RegisterPage("trade", "Trade / Mail / Vendor", function(page)
     V:Header("Buy List")
     local gby, sby = Opt("merchant", "buy")
     V:Check("Buy up to the count at vendors", gby, sby,
-        "At a vendor that sells them, the items below are bought until you carry the count (gold only). Each character buys for itself, or only the character chosen for the item.")
-    local buyFor = ""
-    local function BuyerChoices()
-        local l = { { value = "", text = "Every character" } }
-        for _, key in ipairs(ns.SortedMembers()) do l[#l + 1] = { value = key, text = ns.ShownName(key) } end
-        return l
-    end
+        "At a vendor that sells them, the items below are bought until the character carries the quantity (gold only). Each item is bought by the characters chosen for it.")
     local function BuyList() ns.db.merchant.buyList = ns.db.merchant.buyList or {} return ns.db.merchant.buyList end
+    local buySel   -- selected row (index)
+    local COL_QTY, COL_CHARS = TILE_IN - 170, TILE_IN - 120   -- column starts: Quantity, Characters
+    local head = CreateFrame("Frame", nil, vt)
+    head:SetSize(TILE_IN, 16)
+    for _, c in ipairs({ { "Item", 6 }, { "Quantity", COL_QTY }, { "Characters", COL_CHARS } }) do
+        local l = UI.Label(head, c[1], "GameFontNormalSmall")
+        l:SetPoint("LEFT", c[2], 0)
+        l:SetTextColor(0.6, 0.6, 0.6)
+    end
+    V:Add(head, 16)
     local list = List(vt, TILE_IN, 4, 20, function(parent, i)
-        local row = CreateFrame("Frame", nil, parent)
+        local row = CreateFrame("Button", nil, parent)
         RowBackground(row, i)
+        row.sel = UI.Fill(row, A[1], A[2], A[3], 0.18, "BORDER")
+        local hl = row:CreateTexture(nil, "HIGHLIGHT")
+        hl:SetAllPoints(); hl:SetColorTexture(1, 1, 1, 0.05)
         row.name = UI.Label(row, "")
         row.name:SetPoint("LEFT", 6, 0)
-        row.name:SetWidth(TILE_IN - 90)
+        row.name:SetWidth(COL_QTY - 12)
         row.name:SetJustifyH("LEFT")
         row.name:SetWordWrap(false)
         row.count = UI.Label(row, "")
-        row.count:SetPoint("RIGHT", -30, 0)
-        row.del = UI.TextButton(row, "x", function()
-            table.remove(BuyList(), row.index)
-            page.OnRefresh()
+        row.count:SetPoint("LEFT", COL_QTY, 0)
+        row.chars = UI.Label(row, "")
+        row.chars:SetPoint("LEFT", COL_CHARS, 0)
+        row.chars:SetPoint("RIGHT", -4, 0)
+        row.chars:SetJustifyH("LEFT")
+        row.chars:SetWordWrap(false)
+        row:SetScript("OnClick", function() buySel = row.index; page.OnRefresh() end)
+        row:SetScript("OnDoubleClick", function() buySel = row.index; ns.OpenBuyEditor(page:GetParent(), row.index, page.OnRefresh) end)
+        row:SetScript("OnEnter", function(self)
+            local e = self.entry
+            if not e then return end
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetText(e.name or ("item " .. tostring(e.itemID)))
+            GameTooltip:AddLine(("Buy up to %d"):format(e.count or 0), 1, 1, 1)
+            local chars = ns.BuyEntryChars(e)
+            if not chars then
+                GameTooltip:AddLine("On every character", 0.7, 0.7, 0.7)
+            else
+                for _, k in ipairs(chars) do GameTooltip:AddLine(ns.ShownName(k), 0.7, 0.7, 0.7) end
+            end
+            GameTooltip:AddLine("Click to select, double-click to edit.", 0.5, 0.5, 0.5)
+            GameTooltip:Show()
         end)
-        row.del:SetPoint("RIGHT", -4, 0)
+        row:SetScript("OnLeave", function() GameTooltip:Hide() end)
         return row
     end, function(row, entry, index)
-        row.index = index
-        local who = entry.who and entry.who ~= "" and ns.ShownName(entry.who)
-        row.name:SetText((entry.name or ("item " .. tostring(entry.itemID))) .. (who and ("  |cff999999" .. who .. "|r") or ""))
-        row.count:SetText(tostring(entry.count))
+        row.index, row.entry = index, entry
+        row.sel:SetShown(index == buySel)
+        row.name:SetText(entry.name or ("item " .. tostring(entry.itemID)))
+        row.count:SetText(tostring(entry.count or 0))
+        local chars = ns.BuyEntryChars(entry)
+        row.chars:SetText(not chars and "|cff999999all characters|r"
+            or (#chars == 1 and ns.ShownName(chars[1]))
+            or ("on " .. #chars .. " characters"))
     end)
     V:Add(list, 4 * 20 + 4)
-    V:Cycle("Buy on", BuyerChoices, function() return buyFor end, function(v) buyFor = v end)
-    local buyStatus
-    local countBox
-    local itemBox = UI.EditBox(vt, TILE_IN - 96, "Shift-click an item", function(text, box)
-        local rule = ns.RuleFromText(text)
-        local n = tonumber(countBox:GetText()) or 0
-        if not (rule and rule.itemID) then buyStatus.Show_("Item not known: use an item link or its ID.", true) return end
-        if n <= 0 then buyStatus.Show_("Enter how many to carry.", true) return end
-        local entries = BuyList()
-        for _, e in ipairs(entries) do
-            if e.itemID == rule.itemID then
-                e.count, e.who = n, buyFor ~= "" and buyFor or nil
-                box:SetText(""); page.OnRefresh(); return
-            end
-        end
-        entries[#entries + 1] = { itemID = rule.itemID, name = rule.name, count = n, who = buyFor ~= "" and buyFor or nil }
-        box:SetText("")
-        box:ClearFocus()
-        page.OnRefresh()
+    local noBuy = UI.Label(vt, "Nothing on the buy list yet.")
+    noBuy:SetPoint("TOPLEFT", list, "TOPLEFT", 6, -4)
+    noBuy:SetTextColor(0.5, 0.5, 0.5)
+    local third = math.floor((TILE_IN - 12) / 3)
+    local addItem = UI.Button(vt, third, "Add Item", function() ns.OpenBuyEditor(page:GetParent(), nil, function(i) buySel = i; page.OnRefresh() end) end)
+    V:Add(addItem, 0)
+    local editItem = UI.Button(vt, third, "Edit", function()
+        if buySel and BuyList()[buySel] then ns.OpenBuyEditor(page:GetParent(), buySel, page.OnRefresh) end
     end)
-    UI.AcceptItemLinks(itemBox)
-    UI.Tooltip(itemBox, "Add to the buy list", "Click into the field, then shift-click an item (bags, vendor, chat link) or type its ID. Enter the count beside it, then Add. \"Buy on\" above picks the character that buys it. Adding an item again changes its count and character.")
-    V:Add(itemBox, 0)
-    countBox = UI.EditBox(vt, 40, "20", function() itemBox:GetScript("OnEnterPressed")(itemBox) end)
-    countBox:SetNumeric(true)
-    countBox:SetPoint("LEFT", itemBox, "RIGHT", 6, 0)
-    local add = UI.Button(vt, 44, "Add", function() itemBox:GetScript("OnEnterPressed")(itemBox) end)
-    add:SetPoint("LEFT", countBox, "RIGHT", 6, 0)
-    V:Space(UI.ROW + 2)
-    buyStatus = StatusLine(vt)
-    buyStatus:SetWidth(TILE_IN)
-    V:Add(buyStatus, 16)
+    editItem:SetPoint("LEFT", addItem, "RIGHT", 6, 0)
+    local delItem = ConfirmButton(vt, third, "Delete", function()
+        if buySel and BuyList()[buySel] then
+            table.remove(BuyList(), buySel)
+            buySel = nil
+            page.OnRefresh()
+        end
+    end)
+    delItem:SetPoint("LEFT", editItem, "RIGHT", 6, 0)
+    V:Space(UI.ROW + 6)
 
     V:Header("Sell List")
     local gsr, ssr = Opt("merchant", "sellRole")
@@ -1446,7 +1621,12 @@ ns.RegisterPage("trade", "Trade / Mail / Vendor", function(page)
     B:Slider("Keep gold (guild bank)", 0, 1000, 10, gbk, sbk)
 
     page.OnRefresh = function()
-        list:Render(BuyList())
+        local entries = BuyList()
+        if buySel and not entries[buySel] then buySel = nil end
+        list:Render(entries)
+        noBuy:SetShown(#entries == 0)
+        editItem:SetAlpha(buySel and 1 or 0.4)
+        delItem:SetAlpha(buySel and 1 or 0.4)
         shareInfo:SetText(ns.ShareSummary and ns.ShareSummary() or "")
     end
 end)

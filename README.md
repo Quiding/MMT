@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.59: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.60: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -325,9 +325,11 @@ Saved data from MMT 0.1.x is converted automatically.
     Example: members 1, 2 and 4 carry 50, 0 and 40 water: 30 each; 1 trading with 2
     gives 20, 1 with 4 gives nothing, 4 with 2 gives 10. An item in several shared roles
     is shared by the first of them (alphabetical).
-  - Buy list: items and a count; at a vendor that sells them, each character buys up to
-    that count (gold only). "Buy on" picks one character for an item; then only that
-    character buys it.
+  - Buy list: a table of Item | Quantity | Characters. "Add Item" (or Edit / double-click
+    a row) opens a window beside the settings: the item (drop it, shift-click it or type
+    its ID), the quantity to carry and the characters that buy it (any of the team, or
+    "Every character", also ones added later). At a vendor that sells it, each of those
+    characters buys up to the quantity (gold only). Delete removes the selected row.
   - Mail: a "Mail to team" button beside the mail window sends every item another team
     member's role wants to that member (items your own role wants stay), 12 per mail,
     and optionally the gold above an amount to one team member.
