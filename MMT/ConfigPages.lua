@@ -964,13 +964,12 @@ end)
 -- FTL
 ---------------------------------------------------------------------------
 ns.RegisterPage("ftl", "FTL", function(page)
-    local L = UI.Column(page, 0, 0, COL_W)
-    L:Header("FTL")
-    L:Note("FTL is short for Focusless, Targetless, Leaderless. It allows you to create macros that will always target the character you are controlling right now; like for follow or assist.")
-    local warn = L:Note("Important: this feature originates from the software ISBoxer, but is inferior to it. The FTL target in MMT CANNOT be changed during combat.")
-    warn:SetTextColor(1, 0.45, 0.4)
+    local TOP = Intro(page, "FTL is short for Focusless, Targetless, Leaderless. It allows you to create macros that will always target the character you are controlling right now; like for follow or assist.\n"
+        .. "|cffff7366Important: this feature originates from the software ISBoxer, but is inferior to it. The FTL target in MMT CANNOT be changed during combat.|r")
+    local FULL_H = 564 + TOP
 
-    L:Header("Settings")
+    -- Settings (left) ----------------------------------------------------------------
+    local _, L = Tile(page, 0, TOP, TILE_W, FULL_H, "Settings", "Interface\\Icons\\INV_Misc_Gear_01")
     L:Check("Use FTL macros", Opt("ftl", "enabled"))
     local gd, sd = Opt("ftl", "detect")
     L:Cycle("Leader", {
@@ -994,16 +993,19 @@ ns.RegisterPage("ftl", "FTL", function(page)
     L:Header("Changing the leader")
     L:Note("- Click the character in the XP window\n- Key binding \"Make this character the leader\" (Esc > Options > Keybindings > MMT (Manage My Team))\n- /mmt leader (this character) or /mmt leader <name>\n- Automatically when you move a character on its own (setting above). Not when several team characters start moving at once (movement keys or Interact with Target broadcast to every window: the leader stays), and not while following, feared or charmed.")
     local current = L:Note("")
+    L:Header("Sending the macros to the team")
+    L:Note("Same account and profile: nothing to do. Other accounts: log them in, then click "
+        .. "Profiles > Sync to team (or /mmt sync) here and accept on each client. This sends all core "
+        .. "settings, not only the macros. Put the macros on each character's bar once (Drag to bar).")
 
     -- right: the macros ---------------------------------------------------
-    local R = UI.Column(page, COL2_X, 0, COL_W)
-    R:Header("Macros")
+    local mt, R = Tile(page, TILE_W + TILE_GAP, TOP, TILE_W, FULL_H, "Macros", "Interface\\Icons\\INV_Misc_QuestionMark")
     local selected = 1
     local status
     local nameBox, bodyBox, preview
     local function Macros() return ns.db.ftl.macros end
 
-    local list = List(page, COL_W, 5, 22, function(parent, i)
+    local list = List(mt, TILE_IN, 5, 22, function(parent, i)
         local row = CreateFrame("Button", nil, parent)
         RowBackground(row, i)
         row.text = UI.Label(row, "")
@@ -1027,10 +1029,10 @@ ns.RegisterPage("ftl", "FTL", function(page)
     end)
     R:Add(list, 5 * 22 + 6)
 
-    nameBox = UI.EditBox(page, COL_W, "Macro name (max. 16 characters)")
+    nameBox = UI.EditBox(mt, TILE_IN, "Macro name (max. 16 characters)")
     nameBox:SetMaxLetters(16)
     R:Add(nameBox, UI.ROW + 4)
-    bodyBox = UI.TextArea(page, COL_W, 92)
+    bodyBox = UI.TextArea(mt, TILE_IN, 92)
     bodyBox.edit:SetMaxLetters(255)
     R:Add(bodyBox, 98)
     bodyBox.edit:HookScript("OnTextChanged", function(self)
@@ -1054,9 +1056,9 @@ ns.RegisterPage("ftl", "FTL", function(page)
         page.OnRefresh()
     end
 
-    local save = UI.Button(page, 120, "Save", Save)
+    local save = UI.Button(mt, 120, "Save", Save)
     R:Add(save, 0)
-    local new = UI.Button(page, 120, "New", function()
+    local new = UI.Button(mt, 120, "New", function()
         table.insert(Macros(), { name = "FTL " .. (#Macros() + 1), body = "/follow {FTL}" })
         selected = #Macros()
         page.OnRefresh()
@@ -1065,7 +1067,7 @@ ns.RegisterPage("ftl", "FTL", function(page)
     end)
     new:SetPoint("LEFT", save, "RIGHT", 8, 0)
     R:Space(UI.ROW + 4)
-    local delete = ConfirmButton(page, 120, "Delete", function()
+    local delete = ConfirmButton(mt, 120, "Delete", function()
         local m = Macros()[selected]
         if not m then return end
         table.remove(Macros(), selected)
@@ -1075,22 +1077,17 @@ ns.RegisterPage("ftl", "FTL", function(page)
         page.OnRefresh()
     end)
     R:Add(delete, 0)
-    local pickup = UI.Button(page, 120, "Drag to bar", function()
+    local pickup = UI.Button(mt, 120, "Drag to bar", function()
         local m = Macros()[selected]
         if m then ns.FTLPickup(m.name) end
     end)
     UI.Tooltip(pickup, "Drag to bar", "Puts the macro on your cursor: click an action bar slot to place it. The macro is also in the game's macro window (account macros).")
     pickup:SetPoint("LEFT", delete, "RIGHT", 8, 0)
     R:Space(UI.ROW + 4)
-    status = StatusLine(page)
-    status:SetWidth(COL_W)
+    status = StatusLine(mt)
+    status:SetWidth(TILE_IN)
     R:Add(status, UI.ROW)
     R:Note("Write {FTL} where the leader's name goes. Every client keeps these macros up to date.")
-    R:Space(6)
-    R:Header("Sending the macros to the team")
-    R:Note("Same account and profile: nothing to do. Other accounts: log them in, then click "
-        .. "Profiles > Sync to team (or /mmt sync) here and accept on each client. This sends all core "
-        .. "settings, not only the macros. Put the macros on each character's bar once (Drag to bar).")
 
     page.OnRefresh = function()
         local macros = Macros()
