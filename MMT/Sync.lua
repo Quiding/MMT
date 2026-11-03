@@ -30,6 +30,7 @@ local _, ns = ...
 
 local CHUNK      = 225   -- payload bytes per message (whole message stays under 255)
 local RECV_TIMEOUT = 25  -- recipient: seconds without a new part = incomplete
+local MAX_PARTS  = 200   -- recipients drop a transfer with more parts (see ns.OnSyncMessage)
 local ACK_TIMEOUT  = 20  -- sender: seconds after the last part to wait for answers
 
 local HL = "|cff4fb3ff"   -- accent colour for names in chat
@@ -68,7 +69,10 @@ local function GroupMembers()
     end
     local guild = {}   -- [normKey] = in my guild
     for _, unit in ipairs(units) do
-        if UnitExists(unit) and not UnitIsUnit(unit, "player") then
+        -- offline members aren't recipients: whispering them fails, and one outside the guild kept the
+        -- module settings out of a guild-mode profile sync ("every recipient in the guild")
+        local connected = not UnitIsConnected or ns.Safe(UnitIsConnected, unit) ~= false
+        if UnitExists(unit) and not UnitIsUnit(unit, "player") and connected then
             local name = ns.NameFromGUID(ns.Safe(UnitGUID, unit), ns.Safe(UnitName, unit))
             if name and name ~= "?" then
                 local key = ns.Resolve(name)
@@ -168,8 +172,10 @@ local function Start(kind, label, payload)
     end
 
     -- guild mode and every recipient in the guild: the payload may carry more
+    local payloadFn = type(payload) == "function" and payload or nil
+    local all = false
     if type(payload) == "function" then
-        local all = ns.GuildMode()
+        all = ns.GuildMode()
         if all then
             for key in pairs(ns.db.team) do
                 local nk = ns.NormKey(key)
@@ -186,6 +192,21 @@ local function Start(kind, label, payload)
     local plainSize = #payload
     payload = ns.Pack(payload)   -- compressed when the client can
     local parts = math.ceil(#payload / CHUNK)
+    -- recipients drop anything over MAX_PARTS without a word: the profile with every module's settings
+    -- falls back to the core settings alone (each module page has its own Sync button), anything else stops here
+    if parts > MAX_PARTS and payloadFn and all then
+        ns.Print("%sToo big to send in one go|r (%d parts, at most %d): sending the core settings and which modules are on, without the module settings. Sync those on each module's page.",
+            BAD, parts, MAX_PARTS)
+        payload = payloadFn(false)
+        label = KindLabel(kind, ns.CurrentProfileName())
+        plainSize = #payload
+        payload = ns.Pack(payload)
+        parts = math.ceil(#payload / CHUNK)
+    end
+    if parts > MAX_PARTS then
+        ns.Print("%sToo big to send:|r the %s needs %d parts, recipients take at most %d.", BAD, label, parts, MAX_PARTS)
+        return false
+    end
     -- outside instances every recipient gets whispers (not throttled there);
     -- inside, one copy to the group plus whispers for those outside it.
     -- Guild mode outside instances: one copy on the guild channel for the
@@ -352,6 +373,104 @@ end
 ---------------------------------------------------------------------------
 local incoming = {}   -- [senderNK] = transfer
 
+---------------------------------------------------------------------------
+-- Recipient progress: a small window with a bar per incoming transfer, so the
+-- receiving client sees the parts arrive (before, only "X is sharing ..." and
+-- then nothing until it was complete or timed out). A finished transfer shows
+-- green for a moment, an incomplete one red.
+---------------------------------------------------------------------------
+local BAR_W, BAR_ROWS, ENDED_FOR = 280, 4, 6
+local ended = {}      -- { t = transfer, ok = true|false, untilT = GetTime() + ENDED_FOR }, newest last
+local progressFrame
+
+local function ProgressFrame()
+    if progressFrame then return progressFrame end
+    local UI, A = ns.UI, ns.UI.ACCENT
+    local f = CreateFrame("Frame", "MMTSyncReceiveFrame", UIParent)
+    f:SetSize(BAR_W, 30)
+    f:SetPoint("TOP", UIParent, "TOP", 0, -140)
+    f:SetFrameStrata("HIGH")
+    f:SetClampedToScreen(true)
+    f:EnableMouse(true)
+    f:SetMovable(true)
+    f:RegisterForDrag("LeftButton")
+    f:SetScript("OnDragStart", f.StartMoving)
+    f:SetScript("OnDragStop", f.StopMovingOrSizing)
+    UI.Fill(f, 0.05, 0.05, 0.06, 0.92)
+    UI.Border(f, 0.22, 0.24, 0.28, 1)
+    f.rows = {}
+    for i = 1, BAR_ROWS do
+        local r = CreateFrame("Frame", nil, f)
+        r:SetSize(BAR_W - 16, 26)
+        r:SetPoint("TOPLEFT", 8, -6 - (i - 1) * 28)
+        r.text = UI.Label(r, "")
+        r.text:SetPoint("TOPLEFT", 0, 0)
+        r.text:SetPoint("TOPRIGHT", 0, 0)
+        r.text:SetJustifyH("LEFT")
+        r.text:SetWordWrap(false)
+        r.bar = CreateFrame("StatusBar", nil, r)
+        r.bar:SetPoint("BOTTOMLEFT", 0, 2)
+        r.bar:SetPoint("BOTTOMRIGHT", 0, 2)
+        r.bar:SetHeight(7)
+        r.bar:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
+        r.bar:SetStatusBarColor(A[1], A[2], A[3], 1)
+        UI.Fill(r.bar, 1, 1, 1, 0.08, "BACKGROUND")
+        f.rows[i] = r
+    end
+    f:Hide()
+    progressFrame = f
+    return f
+end
+
+local RefreshProgress
+RefreshProgress = function()
+    local now = GetTime()
+    local list = {}
+    for _, t in pairs(incoming) do if t.announced then list[#list + 1] = { t = t } end end
+    table.sort(list, function(a, b) return (a.t.started or 0) < (b.t.started or 0) end)
+    for i = #ended, 1, -1 do if ended[i].untilT <= now then table.remove(ended, i) end end
+    for _, e in ipairs(ended) do list[#list + 1] = e end
+    if #list == 0 then
+        if progressFrame then progressFrame:Hide() end
+        return
+    end
+    local f = ProgressFrame()
+    local A = ns.UI.ACCENT
+    local shown = math.min(#list, BAR_ROWS)
+    for i, r in ipairs(f.rows) do
+        local e = list[#list - shown + i]   -- the newest ones when there are more than fit
+        if i <= shown and e then
+            local t = e.t
+            local parts = math.max(1, t.parts or 1)
+            r.bar:SetMinMaxValues(0, parts)
+            r.bar:SetValue(e.ok == true and parts or t.got or 0)
+            local what = ("%s from %s"):format(KindLabel(t.kind, t.profile), Name(t.who))
+            if e.ok == true then
+                r.bar:SetStatusBarColor(0.4, 1, 0.4, 1)
+                r.text:SetText(("%s: %sreceived|r"):format(what, OK))
+            elseif e.ok == false then
+                r.bar:SetStatusBarColor(1, 0.4, 0.4, 1)
+                r.text:SetText(("%s: %sstopped at %d / %d|r"):format(what, BAD, t.got or 0, parts))
+            else
+                r.bar:SetStatusBarColor(A[1], A[2], A[3], 1)
+                r.text:SetText(("%s: %d / %d parts"):format(what, t.got or 0, parts))
+            end
+            r:Show()
+        else
+            r:Hide()
+        end
+    end
+    f:SetHeight(8 + shown * 28)
+    f:Show()
+end
+
+-- a transfer ended (ok = received / false = incomplete): shown a few seconds, then gone
+local function Ended(t, ok)
+    ended[#ended + 1] = { t = t, ok = ok, untilT = GetTime() + ENDED_FOR }
+    RefreshProgress()
+    C_Timer.After(ENDED_FOR + 0.1, RefreshProgress)
+end
+
 local function Answer(t, status)
     local msg = ("SYNCACK:%s:%s"):format(t.id, status)
     if t.channel == "WHISPER" then
@@ -364,7 +483,9 @@ end
 local function Announce(t)
     if t.announced then return end
     t.announced = true
+    t.started = GetTime()
     ns.Print("%s is sharing %s with you (%d part(s)) ...", Name(t.who), KindLabel(t.kind, t.profile), t.parts)
+    RefreshProgress()
 end
 
 local function Timeout(nk, t)
@@ -375,6 +496,7 @@ local function Timeout(nk, t)
         ns.Print("%sIncomplete:|r the %s from %s stopped at %d of %d parts. Ask them to send it again.",
             BAD, KindLabel(t.kind, t.profile), Name(t.who), t.got, t.parts)
         Answer(t, ("FAIL:%d/%d"):format(t.got, t.parts))
+        Ended(t, false)
     end)
 end
 
@@ -564,7 +686,7 @@ function ns.OnSyncMessage(key, sender, text, channel)
     if not hid then hid, hparts, kind, profile = text:match("^SYNCHI:(%d+):(%d+):(%a+):(.*)$") end
     if hid then
         local parts = tonumber(hparts)
-        if not parts or parts < 1 or parts > 200 then return end
+        if not parts or parts < 1 or parts > MAX_PARTS then return end
         local t = Transfer(nk, key, sender, hid, parts, channel)
         t.kind, t.profile = kind, profile
         Announce(t)
@@ -575,7 +697,7 @@ function ns.OnSyncMessage(key, sender, text, channel)
     local id, idx, total, chunk = text:match("^SYNC:(%d+):(%d+):(%d+):(.*)$")
     if not id then return end
     idx, total = tonumber(idx), tonumber(total)
-    if not idx or not total or total < 1 or total > 200 or idx < 1 or idx > total then return end
+    if not idx or not total or total < 1 or total > MAX_PARTS or idx < 1 or idx > total then return end
     local t = Transfer(nk, key, sender, id, total, channel)
     if not t.kind and idx == 1 then
         -- sender without SYNCHI (MMT 0.6.3): the first part tells what it is
@@ -590,8 +712,10 @@ function ns.OnSyncMessage(key, sender, text, channel)
     if t.got >= t.parts then
         if t.timer then t.timer:Cancel() end
         incoming[nk] = nil
+        Ended(t, true)
         Complete(t)
     else
         Timeout(nk, t)
+        RefreshProgress()
     end
 end
