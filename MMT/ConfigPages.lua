@@ -1301,57 +1301,29 @@ local function MemberChoices()
 end
 
 ns.RegisterPage("trade", "Trade / Mail / Vendor", function(page)
-    local L = UI.Column(page, 0, 0, COL_W)
-    L:Header("Vendor")
-    L:Check("Sell grey items", Opt("merchant", "sellGrey"))
-    L:Check("Repair automatically", Opt("merchant", "repair"))
+    local TOP = Intro(page, "I hate clicking all the stuff... make it staahp!")
+    local X2 = TILE_W + TILE_GAP
+
+    -- Vendor: Buy & Sell (left, full height) ----------------------------------------------
+    local vt, V = Tile(page, 0, TOP, TILE_W, 564 + TOP, "Vendor: Buy & Sell", "Interface\\Icons\\INV_Misc_Coin_01")
+    V:Header("Vendor")
+    V:Check("Sell grey items", Opt("merchant", "sellGrey"))
+    V:Check("Repair automatically", Opt("merchant", "repair"))
     local gg, sg = Opt("merchant", "guildRepair")
-    L:Check("Use guild funds if allowed", gg, sg, "Falls back to your own gold.")
-    L:Check("Print results to chat", Opt("merchant", "report"))
+    V:Check("Use guild funds if allowed", gg, sg, "Falls back to your own gold.")
+    V:Check("Print results to chat", Opt("merchant", "report"))
     local gml, sml = Opt("merchant", "tellLeader")
-    L:Check("Tell the leader", gml, sml, "Items sold and repairs of the other characters are posted in the leader's chat (the FTL leader; without one online, the group leader if in the team, else the first online team member).")
+    V:Check("Tell the leader", gml, sml, "Items sold and repairs of the other characters are posted in the leader's chat (the FTL leader; without one online, the group leader if in the team, else the first online team member).")
     local gm, sm = Opt("merchant", "moneyFormat")
-    L:Cycle("Money format", {
+    V:Cycle("Money format", {
         { value = "text",  text = "1 gold 2 silver" },
         { value = "short", text = "1g 2s 3c" },
         { value = "coins", text = "Coin icons" },
     }, gm, sm)
 
-    L:Header("Trade")
-    local gtr, str = Opt("trade", "enabled")
-    L:Check("Fill trades from role rules", gtr, str,
-        "When you open a trade with a team member, the items their roles ask for go into the trade window. You still accept the trade yourself. /mmt trade fills it again.")
-    local function ShareChoices()
-        local l = {}
-        for _, c in ipairs(RoleChoices()) do if c.value ~= "" then l[#l + 1] = c end end
-        return l
-    end
-    L:Add(UI.MultiDropdown(page, COL_W, "Share among team", ShareChoices,
-        function(role) ns.ShareRoles() return ns.db.trade.shareRoles[role] and true or false end,
-        function(role)
-            ns.ShareRoles()
-            ns.db.trade.shareRoles[role] = not ns.db.trade.shareRoles[role] or nil
-        end), UI.ROW + 2)
-    L:Note("Pick any number of roles. The items of each are split evenly among the members that have that role. In a trade between two of them, the one above the even share gives what the other is missing.")
-    local shareInfo = UI.Label(page, "")
-    shareInfo:SetWidth(COL_W)
-    shareInfo:SetJustifyH("LEFT")
-    shareInfo:SetJustifyV("TOP")
-    shareInfo:SetTextColor(0.75, 0.75, 0.75)
-    L:Add(shareInfo, 80)
-
-    L:Header("Sell list")
-    local gsr, ssr = Opt("merchant", "sellRole")
-    L:Cycle("Also sell items of role", RoleChoices, gsr, ssr)
-    local gnr, snr = Opt("merchant", "neverRole")
-    L:Cycle("Never sell items of role", RoleChoices, gnr, snr)
-    L:Note("Lists are roles from the Roles page: create e.g. \"Sell\" and \"Keep\" with their items and rules (item, quality, Bind on Equip, item group). The never-sell list wins, greys included.")
-
-    -- right: buy list, mail, guild bank ------------------------------------
-    local R = UI.Column(page, COL2_X, 0, COL_W)
-    R:Header("Buy list")
+    V:Header("Buy List")
     local gby, sby = Opt("merchant", "buy")
-    R:Check("Buy up to the count at vendors", gby, sby,
+    V:Check("Buy up to the count at vendors", gby, sby,
         "At a vendor that sells them, the items below are bought until you carry the count (gold only). Each character buys for itself, or only the character chosen for the item.")
     local buyFor = ""
     local function BuyerChoices()
@@ -1360,12 +1332,12 @@ ns.RegisterPage("trade", "Trade / Mail / Vendor", function(page)
         return l
     end
     local function BuyList() ns.db.merchant.buyList = ns.db.merchant.buyList or {} return ns.db.merchant.buyList end
-    local list = List(page, COL_W, 4, 20, function(parent, i)
+    local list = List(vt, TILE_IN, 4, 20, function(parent, i)
         local row = CreateFrame("Frame", nil, parent)
         RowBackground(row, i)
         row.name = UI.Label(row, "")
         row.name:SetPoint("LEFT", 6, 0)
-        row.name:SetWidth(COL_W - 90)
+        row.name:SetWidth(TILE_IN - 90)
         row.name:SetJustifyH("LEFT")
         row.name:SetWordWrap(false)
         row.count = UI.Label(row, "")
@@ -1382,11 +1354,11 @@ ns.RegisterPage("trade", "Trade / Mail / Vendor", function(page)
         row.name:SetText((entry.name or ("item " .. tostring(entry.itemID))) .. (who and ("  |cff999999" .. who .. "|r") or ""))
         row.count:SetText(tostring(entry.count))
     end)
-    R:Add(list, 4 * 20 + 4)
-    R:Cycle("Buy on", BuyerChoices, function() return buyFor end, function(v) buyFor = v end)
+    V:Add(list, 4 * 20 + 4)
+    V:Cycle("Buy on", BuyerChoices, function() return buyFor end, function(v) buyFor = v end)
     local buyStatus
     local countBox
-    local itemBox = UI.EditBox(page, COL_W - 96, "Shift-click an item", function(text, box)
+    local itemBox = UI.EditBox(vt, TILE_IN - 96, "Shift-click an item", function(text, box)
         local rule = ns.RuleFromText(text)
         local n = tonumber(countBox:GetText()) or 0
         if not (rule and rule.itemID) then buyStatus.Show_("Item not known: use an item link or its ID.", true) return end
@@ -1405,38 +1377,73 @@ ns.RegisterPage("trade", "Trade / Mail / Vendor", function(page)
     end)
     UI.AcceptItemLinks(itemBox)
     UI.Tooltip(itemBox, "Add to the buy list", "Click into the field, then shift-click an item (bags, vendor, chat link) or type its ID. Enter the count beside it, then Add. \"Buy on\" above picks the character that buys it. Adding an item again changes its count and character.")
-    R:Add(itemBox, 0)
-    countBox = UI.EditBox(page, 40, "20", function() itemBox:GetScript("OnEnterPressed")(itemBox) end)
+    V:Add(itemBox, 0)
+    countBox = UI.EditBox(vt, 40, "20", function() itemBox:GetScript("OnEnterPressed")(itemBox) end)
     countBox:SetNumeric(true)
     countBox:SetPoint("LEFT", itemBox, "RIGHT", 6, 0)
-    local add = UI.Button(page, 44, "Add", function() itemBox:GetScript("OnEnterPressed")(itemBox) end)
+    local add = UI.Button(vt, 44, "Add", function() itemBox:GetScript("OnEnterPressed")(itemBox) end)
     add:SetPoint("LEFT", countBox, "RIGHT", 6, 0)
-    R:Space(UI.ROW + 2)
-    buyStatus = StatusLine(page)
-    buyStatus:SetWidth(COL_W)
-    R:Add(buyStatus, 16)
+    V:Space(UI.ROW + 2)
+    buyStatus = StatusLine(vt)
+    buyStatus:SetWidth(TILE_IN)
+    V:Add(buyStatus, 16)
 
-    R:Header("Mail")
+    V:Header("Sell List")
+    local gsr, ssr = Opt("merchant", "sellRole")
+    V:Cycle("Also sell items of role", RoleChoices, gsr, ssr)
+    local gnr, snr = Opt("merchant", "neverRole")
+    V:Cycle("Never sell items of role", RoleChoices, gnr, snr)
+    V:Note("Lists are roles from the Roles page: create e.g. \"Sell\" and \"Keep\" with their items and rules (item, quality, Bind on Equip, item group). The never-sell list wins, greys included.")
+
+    -- Trading (top right) ----------------------------------------------------------------
+    local TRADE_H = 42 + UI.ROW + (UI.ROW + 2) + 58 + 64 + 8
+    local tt, T = Tile(page, X2, TOP, TILE_W, TRADE_H, "Trading", "Interface\\Icons\\INV_Misc_Bag_07")
+    local gtr, str = Opt("trade", "enabled")
+    T:Check("Fill trades from role rules", gtr, str,
+        "When you open a trade with a team member, the items their roles ask for go into the trade window. You still accept the trade yourself. /mmt trade fills it again.")
+    local function ShareChoices()
+        local l = {}
+        for _, c in ipairs(RoleChoices()) do if c.value ~= "" then l[#l + 1] = c end end
+        return l
+    end
+    T:Add(UI.MultiDropdown(tt, TILE_IN, "Share among team", ShareChoices,
+        function(role) ns.ShareRoles() return ns.db.trade.shareRoles[role] and true or false end,
+        function(role)
+            ns.ShareRoles()
+            ns.db.trade.shareRoles[role] = not ns.db.trade.shareRoles[role] or nil
+        end), UI.ROW + 2)
+    T:Note("Pick any number of roles. The items of each are split evenly among the members that have that role. In a trade between two of them, the one above the even share gives what the other is missing.")
+    local shareInfo = UI.Label(tt, "")
+    shareInfo:SetWidth(TILE_IN)
+    shareInfo:SetJustifyH("LEFT")
+    shareInfo:SetJustifyV("TOP")
+    shareInfo:SetTextColor(0.75, 0.75, 0.75)
+    T:Add(shareInfo, 64)
+
+    -- Bank & Mailing (bottom right) ---------------------------------------------------------
+    local BY = TOP - TRADE_H - 8
+    local _, B = Tile(page, X2, BY, TILE_W, 564 + BY, "Bank & Mailing", "Interface\\Icons\\INV_Letter_15")
+    B:Header("Mail")
     local gme, sme = Opt("mail", "enabled")
-    R:Check("\"Mail to team\" button at the mailbox", gme, sme,
+    B:Check("\"Mail to team\" button at the mailbox", gme, sme,
         "Sends every item in your bags that another team member's role wants to that member (team order; items your own role wants stay), 12 items per mail.")
     local ggt, sgt = Opt("mail", "goldTo")
-    R:Cycle("Also mail gold to", MemberChoices, ggt, sgt)
+    B:Cycle("Also mail gold to", MemberChoices, ggt, sgt)
     local gkg, skg = Opt("mail", "keepGold")
-    R:Slider("Keep gold", 0, 1000, 10, gkg, skg)
+    B:Slider("Keep gold", 0, 1000, 10, gkg, skg)
 
-    R:Header("Guild bank")
+    B:Header("Guild bank")
     local gge, sge = Opt("gbank", "enabled")
-    R:Check("\"Deposit\" button at the guild bank", gge, sge,
+    B:Check("\"Deposit\" button at the guild bank", gge, sge,
         "Puts the items of the role below into the chosen tab, and optionally the gold above the amount to keep.")
     local ggr, sgr = Opt("gbank", "role")
-    R:Cycle("Deposit items of role", RoleChoices, ggr, sgr)
+    B:Cycle("Deposit items of role", RoleChoices, ggr, sgr)
     local gtb, stb = Opt("gbank", "tab")
-    R:Slider("Tab", 1, 8, 1, gtb, stb)
+    B:Slider("Tab", 1, 8, 1, gtb, stb)
     local ggg, sgg = Opt("gbank", "gold")
-    R:Check("Also deposit gold above \"Keep gold\"", ggg, sgg)
+    B:Check("Also deposit gold above \"Keep gold\"", ggg, sgg)
     local gbk, sbk = Opt("gbank", "keepGold")
-    R:Slider("Keep gold (guild bank)", 0, 1000, 10, gbk, sbk)
+    B:Slider("Keep gold (guild bank)", 0, 1000, 10, gbk, sbk)
 
     page.OnRefresh = function()
         list:Render(BuyList())

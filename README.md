@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.58: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.59: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -305,7 +305,7 @@ Saved data from MMT 0.1.x is converted automatically.
   - "Accept automatically": resurrections and warlock summons, each from team, friends,
     guild and/or anyone.
   The leader is the FTL leader; without one online, the group leader if in the team, else the first online team member (team order).
-- **Trade / Mail / Vendor**:
+- **Trade / Mail / Vendor** (tiles: Vendor: Buy & Sell, Trading, Bank & Mailing):
   - Vendor: repair (optionally with guild funds), sell grey items, print results, tell
     the leader (sales and repairs of the other characters), money format.
   - Sell list / never-sell list: roles from the Roles page (items and rules: item,
