@@ -34,7 +34,7 @@ local M = MMT.NewModule({
         autoMethod   = true,
         outsiderGroup = false,     -- Group Loot while a player outside the team is in the group
         method       = "master",   -- freeforall | roundrobin | master
-        threshold    = 2,          -- item quality (2 = Uncommon)
+        threshold    = 0,          -- item quality (0 = Poor, 2 = Uncommon)
         looter       = "LEADER",   -- master looter: "LEADER" or a team key
         byRoles      = true,
         reserve      = 2,          -- free bag slots every member keeps
