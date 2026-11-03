@@ -352,6 +352,104 @@ end
 ---------------------------------------------------------------------------
 local incoming = {}   -- [senderNK] = transfer
 
+---------------------------------------------------------------------------
+-- Recipient progress: a small window with a bar per incoming transfer, so the
+-- receiving client sees the parts arrive (before, only "X is sharing ..." and
+-- then nothing until it was complete or timed out). A finished transfer shows
+-- green for a moment, an incomplete one red.
+---------------------------------------------------------------------------
+local BAR_W, BAR_ROWS, ENDED_FOR = 280, 4, 6
+local ended = {}      -- { t = transfer, ok = true|false, untilT = GetTime() + ENDED_FOR }, newest last
+local progressFrame
+
+local function ProgressFrame()
+    if progressFrame then return progressFrame end
+    local UI, A = ns.UI, ns.UI.ACCENT
+    local f = CreateFrame("Frame", "MMTSyncReceiveFrame", UIParent)
+    f:SetSize(BAR_W, 30)
+    f:SetPoint("TOP", UIParent, "TOP", 0, -140)
+    f:SetFrameStrata("HIGH")
+    f:SetClampedToScreen(true)
+    f:EnableMouse(true)
+    f:SetMovable(true)
+    f:RegisterForDrag("LeftButton")
+    f:SetScript("OnDragStart", f.StartMoving)
+    f:SetScript("OnDragStop", f.StopMovingOrSizing)
+    UI.Fill(f, 0.05, 0.05, 0.06, 0.92)
+    UI.Border(f, 0.22, 0.24, 0.28, 1)
+    f.rows = {}
+    for i = 1, BAR_ROWS do
+        local r = CreateFrame("Frame", nil, f)
+        r:SetSize(BAR_W - 16, 26)
+        r:SetPoint("TOPLEFT", 8, -6 - (i - 1) * 28)
+        r.text = UI.Label(r, "")
+        r.text:SetPoint("TOPLEFT", 0, 0)
+        r.text:SetPoint("TOPRIGHT", 0, 0)
+        r.text:SetJustifyH("LEFT")
+        r.text:SetWordWrap(false)
+        r.bar = CreateFrame("StatusBar", nil, r)
+        r.bar:SetPoint("BOTTOMLEFT", 0, 2)
+        r.bar:SetPoint("BOTTOMRIGHT", 0, 2)
+        r.bar:SetHeight(7)
+        r.bar:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
+        r.bar:SetStatusBarColor(A[1], A[2], A[3], 1)
+        UI.Fill(r.bar, 1, 1, 1, 0.08, "BACKGROUND")
+        f.rows[i] = r
+    end
+    f:Hide()
+    progressFrame = f
+    return f
+end
+
+local RefreshProgress
+RefreshProgress = function()
+    local now = GetTime()
+    local list = {}
+    for _, t in pairs(incoming) do if t.announced then list[#list + 1] = { t = t } end end
+    table.sort(list, function(a, b) return (a.t.started or 0) < (b.t.started or 0) end)
+    for i = #ended, 1, -1 do if ended[i].untilT <= now then table.remove(ended, i) end end
+    for _, e in ipairs(ended) do list[#list + 1] = e end
+    if #list == 0 then
+        if progressFrame then progressFrame:Hide() end
+        return
+    end
+    local f = ProgressFrame()
+    local A = ns.UI.ACCENT
+    local shown = math.min(#list, BAR_ROWS)
+    for i, r in ipairs(f.rows) do
+        local e = list[#list - shown + i]   -- the newest ones when there are more than fit
+        if i <= shown and e then
+            local t = e.t
+            local parts = math.max(1, t.parts or 1)
+            r.bar:SetMinMaxValues(0, parts)
+            r.bar:SetValue(e.ok == true and parts or t.got or 0)
+            local what = ("%s from %s"):format(KindLabel(t.kind, t.profile), Name(t.who))
+            if e.ok == true then
+                r.bar:SetStatusBarColor(0.4, 1, 0.4, 1)
+                r.text:SetText(("%s: %sreceived|r"):format(what, OK))
+            elseif e.ok == false then
+                r.bar:SetStatusBarColor(1, 0.4, 0.4, 1)
+                r.text:SetText(("%s: %sstopped at %d / %d|r"):format(what, BAD, t.got or 0, parts))
+            else
+                r.bar:SetStatusBarColor(A[1], A[2], A[3], 1)
+                r.text:SetText(("%s: %d / %d parts"):format(what, t.got or 0, parts))
+            end
+            r:Show()
+        else
+            r:Hide()
+        end
+    end
+    f:SetHeight(8 + shown * 28)
+    f:Show()
+end
+
+-- a transfer ended (ok = received / false = incomplete): shown a few seconds, then gone
+local function Ended(t, ok)
+    ended[#ended + 1] = { t = t, ok = ok, untilT = GetTime() + ENDED_FOR }
+    RefreshProgress()
+    C_Timer.After(ENDED_FOR + 0.1, RefreshProgress)
+end
+
 local function Answer(t, status)
     local msg = ("SYNCACK:%s:%s"):format(t.id, status)
     if t.channel == "WHISPER" then
@@ -364,7 +462,9 @@ end
 local function Announce(t)
     if t.announced then return end
     t.announced = true
+    t.started = GetTime()
     ns.Print("%s is sharing %s with you (%d part(s)) ...", Name(t.who), KindLabel(t.kind, t.profile), t.parts)
+    RefreshProgress()
 end
 
 local function Timeout(nk, t)
@@ -375,6 +475,7 @@ local function Timeout(nk, t)
         ns.Print("%sIncomplete:|r the %s from %s stopped at %d of %d parts. Ask them to send it again.",
             BAD, KindLabel(t.kind, t.profile), Name(t.who), t.got, t.parts)
         Answer(t, ("FAIL:%d/%d"):format(t.got, t.parts))
+        Ended(t, false)
     end)
 end
 
@@ -590,8 +691,10 @@ function ns.OnSyncMessage(key, sender, text, channel)
     if t.got >= t.parts then
         if t.timer then t.timer:Cancel() end
         incoming[nk] = nil
+        Ended(t, true)
         Complete(t)
     else
         Timeout(nk, t)
+        RefreshProgress()
     end
 end
