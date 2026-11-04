@@ -448,9 +448,14 @@ local function FillRow(row, e, y, width)
     row.text:SetTextColor(c.r, c.g, c.b)
     row.marker:SetTextColor(0.55, 0.55, 0.55)
 
+    -- Text alignment: LEFT, or RIGHT = the whole tracker mirrored (indents, +/- and text
+    -- from the right edge, the header's [-] / [+] on the left)
+    local mirror = cfg.align == "RIGHT"
+    local side, other = mirror and "RIGHT" or "LEFT", mirror and "LEFT" or "RIGHT"
+    local dir = mirror and -1 or 1
     local left = (e.indent or 0) * cfg.indent
     row.toggle:ClearAllPoints()
-    row.toggle:SetPoint("LEFT", left - 2, 0)
+    row.toggle:SetPoint(side, dir * (left - 2), 0)
     row.toggle:SetSize(MARKER_W + 2, h)
     row.marker:SetText(e.collapsible and (e.collapsed and "+" or "-") or "")
     row.toggle:SetShown(e.collapsible and true or false)
@@ -458,23 +463,25 @@ local function FillRow(row, e, y, width)
     if not e.collapsible then row.marker:SetText("") end
     local textLeft = left + ((e.collapsible or e.kind == "member") and MARKER_W or 0)
     if e.kind == "header" then textLeft = 0 end
-    local right = 0
+    local far = 0   -- room kept free at the other edge (the header's [-] / [+])
     if e.kind == "header" then
         MMT.ApplyFont(row.all.text, st.font, st.size, cfg.outline)
         row.all.text:SetText(e.allCollapsed and "[+]" or "[-]")
         row.all.text:SetTextColor(0.7, 0.7, 0.7)
+        row.all.text:ClearAllPoints()
+        row.all.text:SetPoint(other)
         row.all:ClearAllPoints()
-        row.all:SetPoint("RIGHT", 0, 0)
+        row.all:SetPoint(other, 0, 0)
         row.all:SetSize(row.all.text:GetStringWidth() + 6, h)
         row.all:SetShown(not cfg.clickThrough)
-        right = -(row.all:GetWidth() + 4)
+        far = row.all:GetWidth() + 4
     else
         row.all:Hide()
     end
     row.text:ClearAllPoints()
-    row.text:SetPoint("LEFT", textLeft, 0)
-    row.text:SetPoint("RIGHT", right, 0)
-    row.text:SetJustifyH(cfg.align or "LEFT")
+    row.text:SetPoint(side, dir * textLeft, 0)
+    row.text:SetPoint(other, -dir * far, 0)
+    row.text:SetJustifyH(side)
     row.text:SetText(e.text)
     row:Show()
     return h

@@ -51,7 +51,7 @@ local M = MMT.NewModule({
         maxHeight     = 450,
         scale         = 1,
         indent        = 10,
-        align         = "LEFT",
+        align         = "LEFT",     -- LEFT | RIGHT (the whole tracker mirrored); an old CENTER shows as LEFT
         outline       = "OUTLINE",
         bg            = { r = 0, g = 0, b = 0 },
         bgAlpha       = 0.35,

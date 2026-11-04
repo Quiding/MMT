@@ -91,11 +91,11 @@ M.Page = function(_, page)
     local gsc, ssc = Opt("scale")
     R:Slider("Scale", 0.5, 2, 0.05, gsc, ssc, "%.2f")
     local gal, sal = Opt("align")
-    R:Cycle("Text alignment", {
+    local alignCycle = R:Cycle("Text alignment", {
         { value = "LEFT", text = "Left" },
-        { value = "CENTER", text = "Center" },
         { value = "RIGHT", text = "Right" },
-    }, gal, sal)
+    }, function() return gal() == "RIGHT" and "RIGHT" or "LEFT" end, sal)
+    UI.Tooltip(alignCycle, "Text alignment", "The whole tracker: Right lines up every row at the right edge, with the indents and the +/- coming from the right too.")
     local gol, sol = Opt("outline")
     R:Cycle("Outline", {
         { value = "NONE", text = "None" },
