@@ -479,9 +479,21 @@ local function FillRow(row, e, y, width)
         row.all:Hide()
     end
     row.text:ClearAllPoints()
-    row.text:SetPoint(side, dir * textLeft, 0)
-    row.text:SetPoint(other, -dir * far, 0)
     row.text:SetJustifyH(side)
+    if mirror then
+        -- one anchor on the right: the text grows to the left from there, as wide as it is
+        -- (a text held between two anchors kept starting on the left in the game)
+        local room = math.max(10, width - textLeft - far)
+        row.text:SetPoint("RIGHT", -textLeft, 0)
+        row.text:SetWidth(0)
+        row.text:SetText(e.text)
+        local w = row.text:GetStringWidth() or 0
+        row.text:SetWidth(math.min(math.ceil(w) + 1, room))
+    else
+        row.text:SetWidth(0)   -- no width left over from Right: the two anchors decide
+        row.text:SetPoint("LEFT", textLeft, 0)
+        row.text:SetPoint("RIGHT", -far, 0)
+    end
     row.text:SetText(e.text)
     row:Show()
     return h
@@ -538,7 +550,12 @@ local function Draw()
     f.more = more
     if header and (more or f.offset > 0) then
         -- scroll hint: more rows above / below
-        Row(1).text:SetText(header.text .. GREY .. "  " .. (f.offset > 0 and "^" or "") .. (more and "v" or "") .. "|r")
+        local fs = Row(1).text
+        fs:SetText(header.text .. GREY .. "  " .. (f.offset > 0 and "^" or "") .. (more and "v" or "") .. "|r")
+        if cfg.align == "RIGHT" then   -- right aligned: the text is as wide as it is (see FillRow)
+            fs:SetWidth(0)
+            fs:SetWidth(math.min(math.ceil(fs:GetStringWidth() or 0) + 1, math.max(10, width - Row(1).all:GetWidth() - 4)))
+        end
     end
 
     f:SetScale(cfg.scale)
