@@ -194,7 +194,7 @@ function ns.ToFull(name, realm)
     return name .. "-" .. realm
 end
 
--- lower-case, letters/digits only: "Anna Schmidt" == "anna-schmidt"
+-- lower-case, letters/digits only: "Monika Songspike" == "monika-songspike"
 function ns.NormKey(s)
     return ((s or ""):lower():gsub("[^%w\128-\255]", ""))
 end
@@ -261,7 +261,7 @@ end
 
 ---------------------------------------------------------------------------
 -- Privacy: how characters are shown (Team > Privacy)
---   FIRST "Catsi", LAST "Purrita", FULL "Catsi Purrita",
+--   FIRST "Apple", LAST "Bikini", FULL "Apple Bikini",
 --   CLASS "Druid 1", "Druid 2" (team order), SLOT "Slot 1", "Slot 2" ...
 ---------------------------------------------------------------------------
 local function NameMode()

@@ -1,5 +1,5 @@
 -- MMT: privacy. Replaces the names of your team's characters in text with the
--- name chosen in Team > Privacy ("Catsi", "Purrita", "Druid 1", "Slot 2").
+-- name chosen in Team > Privacy ("Apple", "Bikini", "Druid 1", "Slot 2").
 --
 --   * ns.ReplaceNames(text, forDebug): used for debug logs and reports when
 --     "Keep full names in debug logs" is off.
@@ -31,8 +31,8 @@ function ns.PrivacyHidesOutside() return Active() and true or false end
 ---------------------------------------------------------------------------
 local LETTER = "%w\128-\255"
 local function Esc(s) return (s:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1")) end
--- upper / lower case don't matter: the game reports "Mcquiding", other
--- addons may show "McQuiding"
+-- upper / lower case don't matter: the game reports "Lookingglass", other
+-- addons may show "LookingGlass"
 local function Caseless(pattern)
     return (pattern:gsub("%a", function(c) return "[" .. c:lower() .. c:upper() .. "]" end))
 end
@@ -70,7 +70,7 @@ local function Rules(forDebug)
         r.repl = r.alias:gsub("%%", "%%%%")
     end
     -- first name + space/hyphen + the start of the last name: other addons
-    -- shorten names to fit ("Gunter Mcquidin", "Gunter Mcq", "Gunter M.").
+    -- shorten names to fit ("John Multiboxe", "John Mul", "John M.").
     -- These go first, before the single names.
     local shortened = {}
     for key in pairs(team) do
@@ -148,7 +148,7 @@ end
 
 -- escape sequences that are not shown text: links (data part), textures,
 -- atlases, Battle.net names, colour codes, "|r", "||", "|n". They separate
--- words, so "|cffaad372Gunter McQuiding|r" is found as a whole name.
+-- words, so "|cffaad372John Multiboxer|r" is found as a whole name.
 local ESCAPES = { "^|H.-|h", "^|T.-|t", "^|A.-|a", "^|K.-|k", "^|c%x%x%x%x%x%x%x%x", "^|cn[^:]*:", "^|r", "^||", "^|n" }
 
 local function Contains(text, needles)
@@ -362,7 +362,7 @@ end
 
 ---------------------------------------------------------------------------
 -- Lines other addons add to any tooltip (item tooltips too): Syndicator's /
--- Baganator's "Caleron Kerals-PvP: Bags 56", Questie, ... The game fills
+-- Baganator's "Salsa Berry-PvP: Bags 56", Questie, ... The game fills
 -- tooltip lines itself, so the FontString hook above never sees them: after
 -- every AddLine / AddDoubleLine the line just added is checked (both sides).
 ---------------------------------------------------------------------------

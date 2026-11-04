@@ -44,7 +44,7 @@ function ns.AddMember(key, class, name, last)
     return true
 end
 
--- Renames an entry, e.g. "Catsi" -> "Catsi-Purrita" once the last name is known.
+-- Renames an entry, e.g. "Apple" -> "Apple-Bikini" once the last name is known.
 function ns.MigrateKey(old, new)
     local team = ns.db.team
     if old == new or not team[old] or team[new] then return false end
@@ -141,7 +141,7 @@ function ns.AddManual(text)
     local first, last = tokens[1], tokens[2]
     if not first then return false, "Enter a name." end
     if not last then
-        return false, "Use the full name: first and last name (e.g. Gunter McQuiding)."
+        return false, "Use the full name: first and last name (e.g. John Multiboxer)."
     end
     local key = first .. "-" .. last
     local existing = ns.Resolve(key)

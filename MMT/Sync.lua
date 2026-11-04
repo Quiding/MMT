@@ -543,7 +543,7 @@ local function ReportStates(who, changed, reload, missing)
     end
 end
 
--- "Gunter: on Loot Distribution, Quest Tracker; off Item Bar"
+-- "John: on Loot Distribution, Quest Tracker; off Item Bar"
 local function StatesText(states)
     local on, off = {}, {}
     for _, e in ipairs(ns.InstalledModules()) do
