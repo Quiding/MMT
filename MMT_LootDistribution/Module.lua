@@ -224,10 +224,14 @@ local function Evaluate()
     if not (M.enabled and M.db.autoMethod) then return end
     if not IsInGroup() or not IsLeader() then handledFor = nil return end
     local method = mod.WantedMethod()
+    local outsider, who = mod.HasOutsider()
+    M:Debug("group check: outsider=%s%s wanted=%s from %s, game has %s from %s, handled=%s",
+        tostring(outsider), who and (" (" .. MMT.Repr(who) .. ")") or "", tostring(method),
+        tostring(mod.WantedThreshold(method)), tostring((mod.GetMethod())), tostring(mod.GetThreshold()), tostring(handledFor))
     -- an outsider joining or leaving changes the method: apply again
     if handledFor and handledFor == method then return end
     local ok, changed = mod.ApplyLootSettings(false)
-    if not ok then return end   -- e.g. in combat: tried again with the next roster change or check
+    if not ok then M:Debug("group check: not applied (%s)", tostring(changed)) return end   -- e.g. in combat: tried again later
     handledFor = method
     if changed and M.db.report then
         MMT.Print("Loot set to %s%s%s.", mod.METHOD_TEXT[method] or method,
