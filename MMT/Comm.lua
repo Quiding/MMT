@@ -471,13 +471,23 @@ function ns.SendToTeam(msg, onlyOnline, prio, prefix, scope)
             return
         end
     end
-    local channel = guild and "GUILD" or GroupChannel()
-    if channel then Send(msg, channel, nil, prio, nil, prefix) end
+    -- team members in your group always get it on the group channel; the guild
+    -- channel only carries it to guild members outside the group (a guild message
+    -- doesn't reach everybody the roster lists, e.g. across realms), the rest by whisper
+    local group = GroupChannel()
+    local grouped, needGuild = {}, false
     for key in pairs(ns.db.team) do
-        local reached
-        if guild then reached = ns.guildRoster[key] ~= nil
-        else reached = channel and UnitInGroupByKey(key) end
-        if not reached then Whisper(key) end
+        if not ns.IsSelf(key) then
+            if group and UnitInGroupByKey(key) then grouped[key] = true
+            elseif guild and ns.guildRoster[key] ~= nil then needGuild = true end
+        end
+    end
+    if group and next(grouped) then Send(msg, group, nil, prio, nil, prefix) end
+    if needGuild then Send(msg, "GUILD", nil, prio, nil, prefix) end
+    for key in pairs(ns.db.team) do
+        if not ns.IsSelf(key) and not grouped[key] and not (needGuild and ns.guildRoster[key] ~= nil) then
+            Whisper(key)
+        end
     end
 end
 
