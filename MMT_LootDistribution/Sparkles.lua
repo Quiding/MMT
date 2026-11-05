@@ -725,16 +725,36 @@ end)
 M:On("PLAYER_ENTERING_WORLD", function() S.Update() end)
 
 -- the leader changes: sparkles go on or off with it ("Only on Group Leader")
-local lastAllowed
+-- Sparkles moving away from this character (no longer the leader) switches
+-- "Enable Interact Key" off here, without asking; on the new leader the
+-- normal switching on forces it on. Each client does this for itself, so an
+-- old leader that is offline keeps its setting.
+local lastAllowed, keyOffPending
+local function KeyOff()
+    if InCombat() then keyOffPending = true return end
+    keyOffPending = nil
+    if GetCV("SoftTargetInteract") == "3" then
+        SetCV("SoftTargetInteract", 1)
+        M:Debug("sparkles: no longer the leader, \"Enable Interact Key\" switched off")
+    end
+end
 local function LeaderCheck()
     if not M.enabled then return end
     local now = S.Allowed()
     if now ~= lastAllowed then
+        local moved = lastAllowed == true and now == false and M.db.sparkles == true
         lastAllowed = now
+        if now then keyOffPending = nil end
         S.Update()
+        if moved then KeyOff() end
         MMT.Refresh()
     end
 end
+MMT.On("PLAYER_REGEN_ENABLED", function()
+    if keyOffPending and not S.Allowed() then KeyOff() else keyOffPending = nil end
+end)
+-- who leads when you come into the world: the starting point, no switching
+M:On("PLAYER_ENTERING_WORLD", function() if lastAllowed == nil then lastAllowed = S.Allowed() end end)
 M:On("GROUP_ROSTER_UPDATE", LeaderCheck)
 M:On("PARTY_LEADER_CHANGED", LeaderCheck)
 MMT.Listen("FTL_LEADER", LeaderCheck)
