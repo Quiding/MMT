@@ -57,7 +57,8 @@ local M = MMT.NewModule({
         sparkleHerbs   = true,
         sparkleOre     = true,
         sparkleCorpses = true,         -- corpses to skin (or gather with Herbalism / Mining)
-        sparkleObjects = false,        -- any other object the interact key picks
+        sparkleObjects = false,        -- any other object the interact key picks ...
+        sparkleKinds   = { quest = true, mailbox = true, chest = true, fishing = true, loot = true, other = true },  -- ... by kind
         sparkleColors  = true,         -- colour by skill; else sparkleColor
         sparkleColor   = { r = 1, g = 0.84, b = 0.36 },
         sparkleSize    = 100,          -- percent

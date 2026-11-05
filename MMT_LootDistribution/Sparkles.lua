@@ -18,8 +18,9 @@
 --     and the object's tooltip ("Requires Herbalism (65)")
 --   corpses: dead creatures whose tooltip says they can be skinned (or
 --     gathered with Herbalism / Mining), until you did it
---   other world objects (optional): any other object the interact key picks
---     (chests, quest objects, mailboxes, doors, ...), in white
+--   other world objects (optional), each kind on or off: quest objects (blue),
+--     mailboxes, chests & containers, fishing pools, corpses with loot, and
+--     everything else the interact key picks (white)
 -- Colour by skill: orange, yellow, green (like recipes), grey once it gives
 -- no skill-ups any more, red when the skill is too low; or one colour.
 --
@@ -269,17 +270,65 @@ function S.Target()
         if node and skills[skill] then
             return { guid = guid, skill = skill, have = skills[skill], need = need }
         end
-        -- any other object the interact key picks (chests, quest objects, mailboxes, ...);
+        -- any other object the interact key picks, by kind (each on or off);
         -- a node of a profession you don't have (or one switched off) isn't one of them
-        if M.db.sparkleObjects and not skill then return { guid = guid, skill = "Object", other = true } end
+        if M.db.sparkleObjects and not skill then
+            local kind = S.ObjectKind(name)
+            if S.KindOn(kind) then return { guid = guid, skill = "Object", other = kind } end
+        end
         return nil
     end
-    if not M.db.sparkleCorpses or done[guid] then return nil end
-    if not guid:find("^Creature%-") or Safe(UnitIsDead, UNIT) ~= true then return nil end
-    local skill = CorpseSkill()
-    if not skill or not skills[skill] then return nil end
-    local level = Safe(UnitLevel, UNIT)
-    return { guid = guid, skill = skill, have = skills[skill], need = CorpseNeed(level), corpse = true }
+    if done[guid] or not guid:find("^Creature%-") or Safe(UnitIsDead, UNIT) ~= true then return nil end
+    if M.db.sparkleCorpses then
+        local skill = CorpseSkill()
+        if skill and skills[skill] then
+            local level = Safe(UnitLevel, UNIT)
+            return { guid = guid, skill = skill, have = skills[skill], need = CorpseNeed(level), corpse = true }
+        end
+    end
+    -- a corpse with loot left on it
+    if M.db.sparkleObjects and S.KindOn("loot") and CanLootUnit then
+        local hasLoot = Safe(CanLootUnit, guid)
+        if hasLoot == true then return { guid = guid, skill = "Object", other = "loot", corpse = true } end
+    end
+    return nil
+end
+
+-- kinds of other world objects; settings in M.db.sparkleKinds[kind]
+S.KINDS = {
+    { "quest", "Quest objects" }, { "mailbox", "Mailboxes" }, { "chest", "Chests & containers" },
+    { "fishing", "Fishing pools" }, { "loot", "Corpses with loot" }, { "other", "Everything else" },
+}
+local CHEST_WORDS = { "chest", "footlocker", "strongbox", "lockbox", "coffer", "trunk", "cache", "treasure", "crate", "barrel" }
+local FISHING_WORDS = { "school", "pool", "wreckage", "floating debris", "oil spill" }
+
+function S.KindOn(kind)
+    local kinds = M.db.sparkleKinds
+    return kind ~= nil and (type(kinds) ~= "table" or kinds[kind] ~= false)
+end
+
+local function HasWord(lower, words)
+    for _, w in ipairs(words) do
+        if lower:find("%f[%a]" .. w) then return true end
+    end
+    return false
+end
+
+-- what kind of object the interact key points at: quest, mailbox, chest, fishing or other
+function S.ObjectKind(name)
+    if C_QuestLog and C_QuestLog.UnitIsRelatedToActiveQuest and Safe(C_QuestLog.UnitIsRelatedToActiveQuest, UNIT) == true then
+        return "quest"
+    end
+    for _, text in ipairs(TooltipLines()) do
+        local have, need = text:match("(%d+)%s*/%s*(%d+)")
+        if have and tonumber(have) < tonumber(need) then return "quest" end
+    end
+    local lower = type(name) == "string" and name:lower() or ""
+    local mailbox = type(MAILBOX) == "string" and not MMT.IsSecret(MAILBOX) and MAILBOX:lower() or "mailbox"
+    if lower:find(mailbox, 1, true) or lower:find("mailbox", 1, true) then return "mailbox" end
+    if HasWord(lower, FISHING_WORDS) then return "fishing" end
+    if HasWord(lower, CHEST_WORDS) then return "chest" end
+    return "other"
 end
 
 ---------------------------------------------------------------------------
@@ -288,12 +337,13 @@ end
 S.COLORS = {
     red = { 1, 0.25, 0.25 }, orange = { 1, 0.5, 0.25 }, yellow = { 1, 1, 0 },
     green = { 0.25, 0.85, 0.25 }, grey = { 0.65, 0.65, 0.65 }, white = { 1, 1, 1 },
+    quest = { 0.3, 0.65, 1 },
 }
 local GOLD = { r = 1, g = 0.84, b = 0.36 }
 
 function S.ColorFor(t)
     local c = M.db.sparkleColor or GOLD
-    if M.db.sparkleColors and t and t.other then return S.COLORS.white end
+    if M.db.sparkleColors and t and t.other then return t.other == "quest" and S.COLORS.quest or S.COLORS.white end
     if not M.db.sparkleColors or not t or not t.need then return { c.r, c.g, c.b } end
     local over = (t.have or 0) - t.need
     if over < 0 then return S.COLORS.red end
@@ -584,6 +634,9 @@ function S.Report(add)
         tostring(M.db.sparkles), tostring(M.db.sparkleStyle), tostring(M.db.sparkleHerbs), tostring(M.db.sparkleOre),
         tostring(M.db.sparkleCorpses), tostring(M.db.sparkleObjects), tostring(M.db.sparkleColors), tostring(M.db.sparkleSize), tostring(M.db.sparkleHeight),
         tostring(M.db.sparkleHideIcon), lastState))
+    local kinds = {}
+    for _, k in ipairs(S.KINDS) do kinds[#kinds + 1] = k[1] .. "=" .. tostring(S.KindOn(k[1])) end
+    add("  object kinds: " .. table.concat(kinds, " "))
     add(("  skills: Herbalism=%s Mining=%s Skinning=%s  learned nodes=%d  controller=%s"):format(
         tostring(skills.Herbalism), tostring(skills.Mining), tostring(skills.Skinning), learned, tostring(Controller())))
     add("  game: " .. table.concat(cv, " "))

@@ -272,10 +272,12 @@ Saved data from MMT 0.1.x is converted automatically.
   on Loot for every character in a group except that same leader; it is switched off
   again when the character leaves the group or becomes the leader (only if MMT set it).
   Sparkles tab: "Sparkles" (off by default) highlights the herb, ore vein, corpse you
-  can skin (or gather) and, with "Other world objects", anything else you can interact
-  with (chests, quest objects, mailboxes, ...) right in front of you, with twinkling
+  can skin (or gather) and, with "Other world objects", other things you can interact
+  with, each kind on or off (quest objects, mailboxes, chests & containers, fishing
+  pools, corpses with loot, everything else), right in front of you, with twinkling
   sparkles or a beam of light, coloured by your skill (orange / yellow / green / grey,
-  red when too low; other objects white) or in one colour; size and height adjustable.
+  red when too low; quest objects blue, other objects white) or in one colour; size and
+  height adjustable.
   Only for professions you have. The game only tells addons about the one thing the
   interact key would pick (within 15 yards), so only that one is highlighted: MMT
   switches on the game's interact target, its nameplate (the highlight hangs on it;

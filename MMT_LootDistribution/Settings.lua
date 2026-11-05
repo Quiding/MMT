@@ -163,7 +163,24 @@ function mod.SparklesTab(panel, PANEL_H)
     W:Check("Corpses you can skin", function() return M.db.sparkleCorpses end, Set("sparkleCorpses"),
         "A dead creature you can skin (or gather with Herbalism or Mining) is highlighted until you did it.")
     W:Check("Other world objects", function() return M.db.sparkleObjects end, Set("sparkleObjects"),
-        "Also anything else in the world you can interact with: chests, quest objects, mailboxes, doors, ... (white with \"Colour by skill\").")
+        "Also other things in the world you can interact with, each kind on or off below. With \"Colour by skill\": quest objects blue, the rest white.")
+    local omark = H.Mark(wt)
+    local tips = {
+        quest = "Objects a quest in your log still wants (the game says so, or the tooltip shows progress like 3/8).",
+        mailbox = "Mailboxes.",
+        chest = "Chests, footlockers, strongboxes, lockboxes, coffers, trunks, caches, crates, barrels.",
+        fishing = "Fishing schools and pools, floating wreckage and debris.",
+        loot = "Dead creatures with loot left on them (corpses to skin are above).",
+        other = "Everything else the interact key picks: doors, levers, chairs, books, ...",
+    }
+    for _, k in ipairs(mod.Sparkles.KINDS) do
+        local key = k[1]
+        W:Check("    " .. k[2], function() return M.db.sparkleKinds[key] ~= false end, function(v)
+            M.db.sparkleKinds[key] = v and true or false
+            mod.Sparkles.Update() MMT.Refresh()
+        end, tips[key])
+    end
+    local objDep = H.After(omark)
     W:Space(6)
     W:Note("Only one thing at a time: what the interact key would pick, within 15 yards. Gathered nodes are learned, so new names sparkle from then on.")
     for _, w in ipairs(H.After(mark)) do dep[#dep + 1] = w end
@@ -183,7 +200,10 @@ function mod.SparklesTab(panel, PANEL_H)
         "The game's own icon over the object (switched on for the sparkles) is made see-through. Not with a game controller, which needs it.")
     for _, w in ipairs(H.After(lmark)) do dep[#dep + 1] = w end
 
-    return function() H.Depend(dep, function() return M.db.sparkles end) end
+    return function()
+        H.Depend(dep, function() return M.db.sparkles end)
+        H.Depend(objDep, function() return M.db.sparkles and M.db.sparkleObjects end)
+    end
 end
 
 function M.Report(_, add)
