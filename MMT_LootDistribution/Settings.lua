@@ -15,8 +15,16 @@ end
 
 M.Page = function(_, page)
     local status
+    local root = page
     local Tile, TILE_W, X2 = H.Tile, H.TILE_W, H.TILE_W + H.TILE_GAP
-    local TOP = H.Intro(page, "Sets the loot method whenever one of your characters leads the group, and hands out loot by your roles as master looter.")
+    local INTRO = H.Intro(page, "Sets the loot method whenever one of your characters leads the group, hands out loot by your roles as master looter, and highlights what you can gather.")
+    local panels, _, PANEL_H = H.TabStrip(page, INTRO, {
+        { "loot", "Loot", "INV_Misc_Bag_10" },
+        { "sparkles", "Sparkles", "INV_Misc_Herb_10" },
+    }, H.SYNC_RESERVE)
+    local SparklesTab = mod.SparklesTab
+    page = panels.loot
+    local TOP = 0
     local TOP_H, BOTTOM_H = 320, 124
     local Y2 = TOP - TOP_H - 8
 
@@ -111,7 +119,10 @@ M.Page = function(_, page)
     masterOnly[#masterOnly + 1] = R:Check("Auto-Round Robin quest items", gq, sq,
         "As master looter, quest items go to the team members in turns, in team order. Only characters the game offers for the item (on the quest and able to receive it) get a turn. Turns are kept per item, so drops spread evenly. The free bag slots setting doesn't apply: quest items are given even into the last slot.")
 
+    local sparklesRefresh = SparklesTab(panels.sparkles, PANEL_H)
+    page = root
     page.OnRefresh = function()
+        sparklesRefresh()
         local method, partyIndex = mod.GetMethod()
         local text = IsInGroup() and ("Current: " .. (mod.METHOD_TEXT[method] or tostring(method)))
             or "Not in a group."
@@ -135,6 +146,46 @@ M.Page = function(_, page)
     M:On("PARTY_LOOT_METHOD_CHANGED", function() if page:IsVisible() then page.OnRefresh() end end)
 end
 
+-- Sparkles tab: what sparkles (left), how it looks (right)
+function mod.SparklesTab(panel, PANEL_H)
+    local Tile, TILE_W, X2 = H.Tile, H.TILE_W, H.TILE_W + H.TILE_GAP
+    local S = mod.Sparkles
+    local function Set(key) return function(v) M.db[key] = v S.Update() MMT.Refresh() end end
+    local dep = {}
+
+    local wt, W = Tile(panel, 0, 0, TILE_W, PANEL_H, "Highlight in the World", "Interface\\Icons\\INV_Misc_Herb_10")
+    W:Check("Sparkles", function() return M.db.sparkles end, Set("sparkles"),
+        "Highlights the herb, ore vein, corpse or object right in front of you, as long as you have the skill to gather it.\nThe game only tells addons about the one thing the interact key would pick (close by, in front of you), so only that one is highlighted, not everything around you.\nSwitches on (out of combat) the game's interact key target, its nameplate and icon, and a reach of 15 yards all around you; put back as it was when this is off.")
+    local mark = H.Mark(wt)
+    W:Space(4)
+    W:Check("Herbs (Herbalism)", function() return M.db.sparkleHerbs end, Set("sparkleHerbs"))
+    W:Check("Ore veins (Mining)", function() return M.db.sparkleOre end, Set("sparkleOre"))
+    W:Check("Corpses you can skin", function() return M.db.sparkleCorpses end, Set("sparkleCorpses"),
+        "A dead creature you can skin (or gather with Herbalism or Mining) is highlighted until you did it.")
+    W:Check("Other world objects", function() return M.db.sparkleObjects end, Set("sparkleObjects"),
+        "Also anything else in the world you can interact with: chests, quest objects, mailboxes, doors, ... (white with \"Colour by skill\").")
+    W:Space(6)
+    W:Note("Only one thing at a time: what the interact key would pick, within 15 yards. Gathered nodes are learned, so new names sparkle from then on.")
+    for _, w in ipairs(H.After(mark)) do dep[#dep + 1] = w end
+
+    local lt2, Lk = Tile(panel, X2, 0, TILE_W, PANEL_H, "Look", "Interface\\Icons\\Spell_Holy_Aura")
+    local lmark = H.Mark(lt2)
+    Lk:Cycle("Look", {
+        { value = "SPARKLES", text = "Sparkles" },
+        { value = "BEAM", text = "Beam of light" },
+    }, function() return M.db.sparkleStyle end, Set("sparkleStyle"))
+    Lk:Check("Colour by skill", function() return M.db.sparkleColors end, Set("sparkleColors"),
+        "Like recipes: orange, yellow, green (skill-ups likely to rare), grey (no skill-ups any more), red (skill too low). Other objects are white. Off: the colour below.")
+    Lk:Color("Colour", function() return M.db.sparkleColor end, Set("sparkleColor"))
+    Lk:Slider("Size", 50, 200, 10, function() return M.db.sparkleSize end, Set("sparkleSize"), "%d%%")
+    Lk:Slider("Height", -60, 60, 5, function() return M.db.sparkleHeight end, Set("sparkleHeight"))
+    Lk:Check("Hide the game's interact icon", function() return M.db.sparkleHideIcon end, Set("sparkleHideIcon"),
+        "The game's own icon over the object (switched on for the sparkles) is made see-through. Not with a game controller, which needs it.")
+    for _, w in ipairs(H.After(lmark)) do dep[#dep + 1] = w end
+
+    return function() H.Depend(dep, function() return M.db.sparkles end) end
+end
+
 function M.Report(_, add)
     local method, partyIndex, raidIndex = mod.GetMethod()
     add(("-- Loot Distribution  current=%s partyML=%s raidML=%s threshold=%s isMaster=%s leader=%s"):format(
@@ -146,6 +197,7 @@ function M.Report(_, add)
         tostring(M.db.multiRole), tostring(M.db.noRoom), tostring(M.db.autoPass), tostring(M.db.optOut),
         tostring(GetOptOutOfLoot and GetOptOutOfLoot()), tostring(M.db.passExcept)))
     add("quest round robin=" .. tostring(M.db.questRR))
+    if mod.Sparkles then mod.Sparkles.Report(add) end
     for _, c in ipairs(mod.choosers) do
         local on = true
         if c.active then local ok, v = pcall(c.active) on = ok and v and true or false end

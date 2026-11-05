@@ -23,6 +23,8 @@
 -- 5. Loot rolls (Need/Greed): optionally passed automatically on every
 --    character except the group leader (or the FTL leader). Also optional:
 --    the game's "Pass on Loot" while in a group, with the same exception.
+-- 6. Sparkles (Sparkles.lua): sparkles or a beam of light on the herb, ore
+--    vein, skinnable corpse or other object in front of you.
 
 local _, mod = ...
 local MMT = MMT
@@ -49,6 +51,18 @@ local M = MMT.NewModule({
         passExcept   = "GROUP",    -- ... both except on the GROUP leader or the FTL leader
         questRR      = true,       -- quest items round robin across the team
         report       = true,
+        -- sparkles on the node / corpse / object in front of you (Sparkles.lua)
+        sparkles       = false,
+        sparkleStyle   = "SPARKLES",   -- SPARKLES | BEAM
+        sparkleHerbs   = true,
+        sparkleOre     = true,
+        sparkleCorpses = true,         -- corpses to skin (or gather with Herbalism / Mining)
+        sparkleObjects = false,        -- any other object the interact key picks
+        sparkleColors  = true,         -- colour by skill; else sparkleColor
+        sparkleColor   = { r = 1, g = 0.84, b = 0.36 },
+        sparkleSize    = 100,          -- percent
+        sparkleHeight  = 0,            -- pixels up (+) or down (-)
+        sparkleHideIcon = true,        -- the game's interact icon see-through (not with a controller)
     },
 })
 mod.M = M

@@ -271,6 +271,18 @@ Saved data from MMT 0.1.x is converted automatically.
   "Enable 'Pass on Loot' while in a group" (off by default): switches on the game's Pass
   on Loot for every character in a group except that same leader; it is switched off
   again when the character leaves the group or becomes the leader (only if MMT set it).
+  Sparkles tab: "Sparkles" (off by default) highlights the herb, ore vein, corpse you
+  can skin (or gather) and, with "Other world objects", anything else you can interact
+  with (chests, quest objects, mailboxes, ...) right in front of you, with twinkling
+  sparkles or a beam of light, coloured by your skill (orange / yellow / green / grey,
+  red when too low; other objects white) or in one colour; size and height adjustable.
+  Only for professions you have. The game only tells addons about the one thing the
+  interact key would pick (within 15 yards), so only that one is highlighted: MMT
+  switches on the game's interact target, its nameplate (the highlight hangs on it;
+  its name and bar are made see-through) and icon (see-through too, unless a game
+  controller is used), and puts these settings back when the option is off. Herbs and
+  ore are known by name (with words in front, "Wilted Peacebloom"), by the object's
+  tooltip, and by what you gathered before.
 - **Quest Tracker** (module): replaces the Blizzard quest tracker with a team tracker:
   Zone > [Level] Quest > Objective > one row per team member with their progress
   ("3/8", "done", "completed" when that character already turned it in, "not on quest").
