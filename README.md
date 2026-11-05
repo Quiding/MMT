@@ -292,7 +292,8 @@ Saved data from MMT 0.1.x is converted automatically.
   "Sync-Behaviour": "Only on Group Leader" (default) keeps Sparkles on the team's leader
   only (the FTL leader if set, else the group leader) and syncs send it switched off;
   when the leader changes, the old leader switches "Enable Interact Key" off and the
-  new one on, without asking (a client that is offline keeps its setting);
+  new one on, without asking (a client that is offline keeps its setting); the same
+  when a sync (or profile switch) turns Sparkles off on a character;
   "Enable on entire team" lets every character sparkle and syncs it like the rest.
   Only for professions you have. The game only tells addons about the one thing the
   interact key would pick (within 15 yards), so only that one is highlighted: MMT

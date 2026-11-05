@@ -709,7 +709,9 @@ end
 
 -- switched on / off (settings page, profile, module)
 function S.Update()
-    if On() then S.ApplySettings() else Hide() S.UnveilAll() S.RestoreSettings() end
+    local on = On()
+    S.wasActive = on
+    if on then S.ApplySettings() else Hide() S.UnveilAll() S.RestoreSettings() end
     S.Refresh()
 end
 
@@ -760,8 +762,12 @@ do
     local changed = M.OnProfileChanged
     M.OnProfileChanged = function(...)
         if changed then changed(...) end
+        -- active before, not any more (Sparkles off, or "Only on Group Leader"
+        -- on a member): "Enable Interact Key" goes off here, without asking
+        local before = S.wasActive
         local now = S.Allowed()
         if now ~= lastAllowed then LeaderCheck() else S.Update() MMT.Refresh() end
+        if before and not On() then KeyOff() end
     end
 end
 
