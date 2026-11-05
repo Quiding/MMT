@@ -498,11 +498,17 @@ ns.RegisterPage("team", "Team", function(page)
         end,
         "Requires /reload: MMT will try to obfuscate the names of your team on all Blizzard and other addon frames, including chat, tooltips, player/target/group/raid etc. according to the setting made above.\nIf \"Full name\" is selected, this option automatically switches off.")
     local worldMark = Mark(ptile)
-    local gw, sw = Opt("privacy", "hideWorld")
-    P:Check("Hide names above characters", gw, function(v)
-            sw(v) if ns.ApplyWorldNames then ns.ApplyWorldNames() end
-        end,
-        "With nameplates off, the game draws the names above the characters in the world itself, and no addon can change that text. This switches those names off for your own character and other friendly players (Interface > Names) while \"Hide names outside MMT too\" is on, and back on when it is off.\nFriendly nameplates, if you use them, show the hidden names.")
+    local gw, sw = Opt("privacy", "worldNames")
+    local worldDrop = P:Cycle("Name above characters", {
+        { value = "NAMEPLATES", text = "Show nameplates" },
+        { value = "HIDE", text = "Hide friendly player names" },
+    }, function() return gw() or "NAMEPLATES" end, function(v)
+        sw(v) if ns.ApplyWorldNames then ns.ApplyWorldNames() end
+    end)
+    UI.Tooltip(worldDrop, "Name above characters",
+        "MMT can change the names everywhere, EXCEPT for the name right above the character in the 3D-world; it's protected by Blizzard.\nSelect how MMT should handle this:\n\n"
+        .. "1) Show nameplates => will switch on player nameplates (native or addon) which will use MMT's privacy setting\n\n"
+        .. "2) Hide friendly player names => will hide the names for ALL friendly players in the 3D world (unit frames, tooltips etc. will still show)")
     local worldDep = After(worldMark)
     P:Space(4)
     P:Note("All MMT features (core and modules) will use this setting. If \"Hide names outside MMT\" is enabled, the addon will also try to obfuscate the names there.\nMacros will still carry the full name to work, regardless of this setting.")

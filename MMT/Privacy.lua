@@ -11,7 +11,8 @@
 --     frames of other addons), as far as the game allows: values the game
 --     hands out as secrets can't be read and stay as they are. The names the
 --     game draws above characters in the world (nameplates off) can't be
---     changed: those are switched off instead ("Hide names above characters").
+--     changed: friendly nameplates are switched on or those names off instead
+--     ("Name above characters").
 --
 -- Only what is shown changes: player links in chat keep the real name, so
 -- clicking a name still whispers the right character. Addon messages,
@@ -131,14 +132,21 @@ local function CheckReload()
 end
 
 ---------------------------------------------------------------------------
--- Names above characters in the 3D world (nameplates off): the game draws
--- them itself, no addon can change that text. While hiding (and "Hide names
--- above characters" is on) they are switched off: own name and friendly
--- players. The values before are kept per character (MMTDB.worldNames) and
--- put back when hiding is off again. Friendly nameplates still show names
--- (replaced like all other text).
+-- Names above characters in the 3D world: the game draws them itself, no
+-- addon can change that text. While hiding, Team > Privacy > "Name above
+-- characters" picks what to do:
+--   NAMEPLATES: friendly nameplates on (Blizzard's or an addon's, their names
+--               are replaced like all other text); your own character has no
+--               nameplate, so its name above it is switched off
+--   HIDE:       the names of your own character and all friendly players off
+-- The values before are kept per character (MMTDB.worldNames) and put back
+-- when hiding is off again (or the other choice is made), unless they were
+-- changed by hand in the meantime.
 ---------------------------------------------------------------------------
-local WORLD_CVARS = { "UnitNameOwn", "UnitNameFriendlyPlayerName" }
+local WORLD_CVARS = {
+    NAMEPLATES = { nameplateShowFriends = "1", UnitNameOwn = "0" },
+    HIDE       = { UnitNameOwn = "0", UnitNameFriendlyPlayerName = "0" },
+}
 local function GetCV(name)
     if C_CVar and C_CVar.GetCVar then return C_CVar.GetCVar(name) end
     if GetCVar then return GetCVar(name) end
@@ -156,26 +164,25 @@ function ns.ApplyWorldNames()
     worldPending = nil
     MMTDB.worldNames = MMTDB.worldNames or {}
     local me = ns.PlayerFull()
-    local saved = MMTDB.worldNames[me]
+    -- saved[cvar] = { old = value before, set = value MMT put in }
+    local saved = MMTDB.worldNames[me] or {}
     local p = Settings()
-    local hide = Active() and p.hideWorld ~= false
-    for _, cvar in ipairs(WORLD_CVARS) do
-        local cur = GetCV(cvar)
-        if cur ~= nil then
-            if hide then
-                if cur ~= "0" then
-                    saved = saved or {}
-                    saved[cvar] = cur
-                    SetCV(cvar, "0")
-                end
-            elseif saved and saved[cvar] then
-                if cur == "0" then SetCV(cvar, saved[cvar]) end
-                saved[cvar] = nil
-            end
+    local want = Active() and (WORLD_CVARS[p.worldNames] or WORLD_CVARS.NAMEPLATES) or {}
+    -- back what the current choice doesn't need
+    for cvar, s in pairs(saved) do
+        if want[cvar] == nil then
+            if type(s) == "table" and GetCV(cvar) == s.set then SetCV(cvar, s.old) end
+            saved[cvar] = nil
         end
     end
-    if saved and next(saved) == nil then saved = nil end
-    MMTDB.worldNames[me] = saved
+    for cvar, value in pairs(want) do
+        local cur = GetCV(cvar)
+        if cur ~= nil and cur ~= value then
+            if not saved[cvar] then saved[cvar] = { old = cur, set = value } end
+            SetCV(cvar, value)
+        end
+    end
+    MMTDB.worldNames[me] = next(saved) and saved or nil
 end
 ns.OnLogin(function() ns.ApplyWorldNames() end)
 ns.On("PLAYER_REGEN_ENABLED", function() if worldPending then ns.ApplyWorldNames() end end)

@@ -84,7 +84,8 @@ ns.defaults = {
         nameMode    = "FIRST",   -- FIRST | LAST | FULL | CLASS ("Druid 1") | SLOT ("Slot 1"); everywhere in MMT
         debugFull   = true,      -- keep full names in debug logs and reports
         hideOutside = false,     -- also replace names in Blizzard frames, chat and tooltips
-        hideWorld   = true,      -- with hideOutside: switch off the game's names above characters
+        worldNames  = "NAMEPLATES", -- with hideOutside, the game's names above characters:
+                                 -- NAMEPLATES (friendly nameplates on, own name off) | HIDE (friendly player names off)
     },
 
     -- room warnings (Warnings.lua): shown on the leader's client
