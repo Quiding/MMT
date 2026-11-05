@@ -46,7 +46,21 @@ mod.Sparkles = S
 -- settings (M.db), defaults in Module.lua: sparkles, sparkleStyle,
 -- sparkleHerbs, sparkleOre, sparkleCorpses, sparkleObjects, sparkleColors, sparkleColor,
 -- sparkleSize, sparkleHeight, sparkleHideIcon
-local function On() return M.enabled and M.db.sparkles == true end
+-- "Sync-Behaviour" (M.db.sparkleSync): LEADER = only the leader of the team
+-- sparkles (the FTL leader if one is set, else the group leader, alone: you);
+-- the others stay off, and a sync sends Sparkles switched off. TEAM = every
+-- character with Sparkles on, and it travels with the sync like the rest.
+function S.IsLeaderHere()
+    local ftl = MMT.FTLLeader and MMT.FTLLeader()
+    if ftl and ftl ~= "" then return MMT.IsFTLLeader(MMT.PlayerFull()) end
+    if IsInGroup and IsInGroup() then return UnitIsGroupLeader and UnitIsGroupLeader("player") == true end
+    return true
+end
+function S.Allowed()
+    return M.db.sparkleSync == "TEAM" or S.IsLeaderHere()
+end
+local function On() return M.enabled and M.db.sparkles == true and S.Allowed() end
+S.On = On
 
 local function Safe(fn, ...)
     if type(fn) ~= "function" then return nil end
@@ -704,6 +718,59 @@ MMT.On("PLAYER_REGEN_ENABLED", function()
     if M.enabled then RefreshSoon() end
 end)
 M:On("PLAYER_ENTERING_WORLD", function() S.Update() end)
+
+-- the leader changes: sparkles go on or off with it ("Only on Group Leader")
+local lastAllowed
+local function LeaderCheck()
+    if not M.enabled then return end
+    local now = S.Allowed()
+    if now ~= lastAllowed then
+        lastAllowed = now
+        S.Update()
+        MMT.Refresh()
+    end
+end
+M:On("GROUP_ROSTER_UPDATE", LeaderCheck)
+M:On("PARTY_LEADER_CHANGED", LeaderCheck)
+MMT.Listen("FTL_LEADER", LeaderCheck)
+
+---------------------------------------------------------------------------
+-- Switching Sparkles on / off on the settings page (asks first, see below)
+---------------------------------------------------------------------------
+local function InteractKeyOn() return GetCV("SoftTargetInteract") == "3" end
+
+-- on: with Master Looter and "Enable Interact Key" off, ask first.
+-- done(on) is called with the result (to redraw the page).
+function S.SwitchOn(done)
+    local function Go() M.db.sparkles = true S.Update() if done then done(true) end end
+    local method = mod.GetMethod and mod.GetMethod()
+    if method ~= "master" or InteractKeyOn() then Go() return end
+    MMT.UI.Confirm(
+        "You have \"Master Looter\" enabled.\nEnabling \"Sparkles\" will also force-enable the \"Enable Interact key\"-feature of the client.\n\n"
+        .. "This will change how your characters use \"Interact with Target\" (IWT) for world objects.\nSpecifically melee classes may become stuck on a corpse instead of running to/attacking a new target, because they prioritize looting the corpse, which they can't because of Master Looter.\n\n"
+        .. "If you enable it, we recommend to keep the \"Sync-Behaviour\" setting on \"Only on Group Leader\" to reduce IWT issues.\nDo you want to continue and enable \"Sparkles\" regardless?",
+        "Yes", Go, "No", function() if done then done(false) end end)
+end
+
+-- off: ask whether "Enable Interact Key" goes off too (only while it is on)
+function S.SwitchOff(done)
+    local wasOn = InteractKeyOn()
+    M.db.sparkles = false
+    -- everything else goes back now; the interact key waits for the answer
+    local saved = MMTDB.ldSparkleCVars and MMTDB.ldSparkleCVars[MMT.PlayerFull()]
+    local keyOld = saved and saved.SoftTargetInteract and saved.SoftTargetInteract.old
+    if saved then saved.SoftTargetInteract = nil end
+    S.Update()
+    if done then done(false) end
+    if not wasOn then return end
+    MMT.UI.Confirm(
+        "Do you also want to disable the \"Enable Interact Key\"-feature of the client, to restore classic IWT (Interact with Target) behaviour?",
+        "Yes", function()
+            if InCombat() then MMT.Print("In combat: \"Enable Interact Key\" not changed, switch it off in Options > Controls.") return end
+            -- back to what it was before MMT, or gamepad only (the box off)
+            SetCV("SoftTargetInteract", (keyOld and keyOld ~= "3") and keyOld or "1")
+        end, "No")
+end
 MMT.Listen("PROFILE_CHANGED", function() S.Update() end)
 
 -- learning node names, and corpses that are done
@@ -731,6 +798,16 @@ M:On("UNIT_SPELLCAST_SUCCEEDED", function(unit, castGUID)
     end
 end)
 
+-- "Only on Group Leader": a sync sends Sparkles switched off
+do
+    local base = M.SyncData
+    M.SyncData = function(self)
+        local data = base(self)
+        if data.sparkleSync ~= "TEAM" then data.sparkles = false end
+        return data
+    end
+end
+
 -- module on / off
 do
     local enable, disable = M.OnEnable, M.OnDisable
@@ -754,6 +831,7 @@ function S.Report(add)
     local skills = S.Skills()
     local learned = 0
     for _ in pairs(Learned()) do learned = learned + 1 end
+    add(("sparkles: sync=%s leaderHere=%s active=%s"):format(tostring(M.db.sparkleSync), tostring(S.IsLeaderHere()), tostring(On())))
     add(("sparkles: on=%s style=%s herbs=%s ore=%s corpses=%s objects=%s colors=%s size=%s height=%s hideIcon=%s state=%s"):format(
         tostring(M.db.sparkles), tostring(M.db.sparkleStyle), tostring(M.db.sparkleHerbs), tostring(M.db.sparkleOre),
         tostring(M.db.sparkleCorpses), tostring(M.db.sparkleObjects), tostring(M.db.sparkleColors), tostring(M.db.sparkleSize), tostring(M.db.sparkleHeight),

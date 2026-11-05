@@ -780,7 +780,10 @@ function UI.Confirm(text, acceptText, onAccept, cancelText, onCancel)
         confirm.onCancel = nil
         pcall(fn)
     end
+    -- long texts: wider, and as tall as the text needs
+    confirm:SetWidth(#(text or "") > 300 and 470 or 380)
     confirm.text:SetText(text)
+    confirm:SetHeight(math.max(130, (confirm.text:GetStringHeight() or 0) + 72))
     confirm.accept.label:SetText(acceptText or "Accept")
     confirm.cancel.label:SetText(cancelText or "Cancel")
     confirm.onAccept = onAccept

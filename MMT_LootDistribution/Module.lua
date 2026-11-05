@@ -52,7 +52,8 @@ local M = MMT.NewModule({
         questRR      = true,       -- quest items round robin across the team
         report       = true,
         -- sparkles on the node / corpse / object in front of you (Sparkles.lua)
-        sparkles       = false,
+        sparkles       = false,        -- off by default
+        sparkleSync    = "LEADER",     -- LEADER: only the team's leader sparkles | TEAM: all, synced
         sparkleStyle   = "SPARKLES",   -- SPARKLES | BEAM
         sparkleHerbs   = true,
         sparkleOre     = true,

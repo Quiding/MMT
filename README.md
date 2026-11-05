@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 1.0.12: core addon (MMT) plus optional modules (MMT_*).
+Version 1.0.13: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -271,7 +271,10 @@ Saved data from MMT 0.1.x is converted automatically.
   "Enable 'Pass on Loot' while in a group" (off by default): switches on the game's Pass
   on Loot for every character in a group except that same leader; it is switched off
   again when the character leaves the group or becomes the leader (only if MMT set it).
-  Sparkles tab: "Sparkles" (off by default) highlights the herb, ore vein, corpse you
+  Sparkles tab: "Sparkles" (off by default; switching it on with Master Looter while
+  the game's "Enable Interact Key" is off asks first, as the interact key changes how
+  "Interact with Target" behaves; switching it off asks whether the interact key goes
+  off too) highlights the herb, ore vein, corpse you
   can skin (or gather) and, with "Other world objects", other things you can interact
   with, each kind on or off (quest objects, mailboxes, chests & containers, fishing
   pools, corpses with loot, everything else), right in front of you, with twinkling
@@ -284,6 +287,9 @@ Saved data from MMT 0.1.x is converted automatically.
   Interact Key": "Corpses you can skin" and "Corpses with loot" switch the nameplates on
   (so every enemy shows a nameplate), Sparkles switches the interact key on (off and on
   again once, as the options box does, so the game picks it up); both put back when off.
+  "Sync-Behaviour": "Only on Group Leader" (default) keeps Sparkles on the team's leader
+  only (the FTL leader if set, else the group leader) and syncs send it switched off;
+  "Enable on entire team" lets every character sparkle and syncs it like the rest.
   Only for professions you have. The game only tells addons about the one thing the
   interact key would pick (within 15 yards), so only that one is highlighted: MMT
   switches on the game's interact target, its nameplate (the highlight hangs on it;

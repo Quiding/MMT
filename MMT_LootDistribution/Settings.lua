@@ -154,9 +154,24 @@ function mod.SparklesTab(panel, PANEL_H)
     local dep = {}
 
     local wt, W = Tile(panel, 0, 0, TILE_W, PANEL_H, "Highlight in the World", "Interface\\Icons\\INV_Misc_Herb_10")
-    W:Check("Sparkles", function() return M.db.sparkles end, Set("sparkles"),
+    W:Check("Sparkles", function() return M.db.sparkles end, function(v)
+            local function done() MMT.Refresh() end
+            if v then S.SwitchOn(done) else S.SwitchOff(done) end
+        end,
         "Highlights the herb, ore vein, corpse or object right in front of you, as long as you have the skill to gather it.\nThe game only tells addons about the one thing the interact key would pick (close by, in front of you), so only that one is highlighted, not everything around you.\n|cffffd100Switches on (out of combat) the game's \"Enable Interact Key\"|r (Options > Controls), the interact target's nameplate and icon, and a reach of 15 yards all around you; put back as it was when this is off.")
     local mark = H.Mark(wt)
+    local syncDrop = W:Cycle("Sync-Behaviour", {
+        { value = "LEADER", text = "Only on Group Leader" },
+        { value = "TEAM", text = "Enable on entire team" },
+    }, function() return M.db.sparkleSync or "LEADER" end, function(v)
+        M.db.sparkleSync = v S.Update() MMT.Refresh()
+    end)
+    UI.Tooltip(syncDrop, "Sync-Behaviour",
+        "It is recommended to only enable Sparkles on the main character, to reduce unintended behavior of the background windows.\n\n"
+        .. "Select \"Only on Group Leader\" to keep it only on the leader (FTL leader > Group leader)\n"
+        .. "Select \"Enable on entire team\" to see Sparkles for the rest of the team.")
+    local NOT_HERE = "|cffff8040Not active on this character: Sparkles only shows on the team's leader (FTL leader, else group leader).|r"
+    local leaderNote = W:Note(NOT_HERE)
     W:Space(4)
     W:Check("Herbs (Herbalism)", function() return M.db.sparkleHerbs end, Set("sparkleHerbs"))
     W:Check("Ore veins (Mining)", function() return M.db.sparkleOre end, Set("sparkleOre"))
@@ -201,6 +216,8 @@ function mod.SparklesTab(panel, PANEL_H)
     for _, w in ipairs(H.After(lmark)) do dep[#dep + 1] = w end
 
     return function()
+        local notHere = M.db.sparkles and not S.Allowed()
+        leaderNote:SetText(notHere and NOT_HERE or "")
         H.Depend(dep, function() return M.db.sparkles end)
         H.Depend(objDep, function() return M.db.sparkles and M.db.sparkleObjects end)
     end
