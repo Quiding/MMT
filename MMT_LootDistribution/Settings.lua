@@ -161,7 +161,7 @@ function mod.SparklesTab(panel, PANEL_H)
     W:Check("Herbs (Herbalism)", function() return M.db.sparkleHerbs end, Set("sparkleHerbs"))
     W:Check("Ore veins (Mining)", function() return M.db.sparkleOre end, Set("sparkleOre"))
     W:Check("Corpses you can skin", function() return M.db.sparkleCorpses end, Set("sparkleCorpses"),
-        "A dead creature you can skin (or gather with Herbalism or Mining) is highlighted until you did it.\nThe game gives dead creatures no nameplate, so corpses can't be highlighted in the world: a sparkle with \"Skin\" shows on your screen instead while the corpse is in front of you (Look > Move corpse indicator).")
+        "A dead creature you can skin (or gather with Herbalism or Mining) is highlighted until you did it.")
     W:Check("Other world objects", function() return M.db.sparkleObjects end, Set("sparkleObjects"),
         "Also other things in the world you can interact with, each kind on or off below. With \"Colour by skill\": quest objects purple, the rest white.")
     local omark = H.Mark(wt)
@@ -170,7 +170,7 @@ function mod.SparklesTab(panel, PANEL_H)
         mailbox = "Mailboxes.",
         chest = "Chests, footlockers, strongboxes, lockboxes, coffers, trunks, caches, crates, barrels.",
         fishing = "Fishing schools and pools, floating wreckage and debris.",
-        loot = "Dead creatures with loot left on them (corpses to skin are above). Shown with \"Loot\" on your screen (corpses have no nameplate to hang it on).",
+        loot = "Dead creatures with loot left on them (corpses to skin are above).",
         other = "Everything else the interact key picks: doors, levers, chairs, books, ...",
     }
     for _, k in ipairs(mod.Sparkles.KINDS) do
@@ -196,12 +196,6 @@ function mod.SparklesTab(panel, PANEL_H)
     Lk:Color("Colour", function() return M.db.sparkleColor end, Set("sparkleColor"))
     Lk:Slider("Size", 50, 200, 10, function() return M.db.sparkleSize end, Set("sparkleSize"), "%d%%")
     Lk:Slider("Height", -60, 60, 5, function() return M.db.sparkleHeight end, Set("sparkleHeight"))
-    local moveBtn
-    moveBtn = Lk:Button("Move corpse indicator", function()
-        local moving = S.MoveHint()
-        if moveBtn and moveBtn.label then moveBtn.label:SetText(moving and "Lock corpse indicator" or "Move corpse indicator") end
-    end)
-    UI.Tooltip(moveBtn, "Move corpse indicator", "Corpses have no nameplate, so they show as a sparkle with a word on your screen. Click to show it and drag it where you want it, click again to lock it.")
     Lk:Check("Hide the game's interact icon", function() return M.db.sparkleHideIcon end, Set("sparkleHideIcon"),
         "The game's own icon over the object (switched on for the sparkles) is made see-through. Not with a game controller, which needs it.")
     for _, w in ipairs(H.After(lmark)) do dep[#dep + 1] = w end
