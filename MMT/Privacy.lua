@@ -135,7 +135,8 @@ end
 -- Names above characters in the 3D world: the game draws them itself, no
 -- addon can change that text. While hiding, Team > Privacy > "Name above
 -- characters" picks what to do:
---   NAMEPLATES: friendly nameplates on (Blizzard's or an addon's, their names
+--   NAMEPLATES: friendly player nameplates and "Always show nameplates" on
+--               (Blizzard's or an addon's nameplates, their names
 --               are replaced like all other text); your own character has no
 --               nameplate, so its name above it is switched off
 --   HIDE:       the names of your own character and all friendly players off
@@ -144,7 +145,9 @@ end
 -- changed by hand in the meantime.
 ---------------------------------------------------------------------------
 local WORLD_CVARS = {
-    NAMEPLATES = { nameplateShowFriends = "1", UnitNameOwn = "0" },
+    -- Friendly Player Nameplates + Always Show Nameplates (Options > Nameplates);
+    -- nameplateShowFriends is the older clients' name, only used where it exists
+    NAMEPLATES = { nameplateShowFriendlyPlayers = "1", nameplateShowAll = "1", nameplateShowFriends = "1", UnitNameOwn = "0" },
     HIDE       = { UnitNameOwn = "0", UnitNameFriendlyPlayerName = "0" },
 }
 local function GetCV(name)
