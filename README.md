@@ -263,6 +263,9 @@ Saved data from MMT 0.1.x is converted automatically.
 - **Quest Tracker** (module): replaces the Blizzard quest tracker with a team tracker:
   Zone > [Level] Quest > Objective > one row per team member with their progress
   ("3/8", "done", "completed" when that character already turned it in, "not on quest").
+  A quest done on every character that has it shows one line "Done on all characters"
+  instead. With only your character shown, it is a classic tracker: the progress right
+  behind each objective, done objectives in green.
   Mouse:
   - +/- at the start of a line: collapse / expand it; [-] / [+] on the header: collapse
     everything down to the zones / open everything.

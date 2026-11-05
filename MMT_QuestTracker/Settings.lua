@@ -162,7 +162,7 @@ M.Page = function(_, page)
         C:Slider("Font size", 6, 24, 1, function() return S().size end, function(v) S().size = v end)
         C:Color("Font colour", function() return S().color end, function(v) S().color = v end)
     end
-    local note = UI.Label(Fo, "Zone > [Level] Quest > Objective > one row per team member. +/- at the start of a line collapses / expands it.")
+    local note = UI.Label(Fo, "Zone > [Level] Quest > Objective > one row per team member (done everywhere: one line; only you: progress behind the objective). +/- collapses / expands a line.")
     note:SetTextColor(0.6, 0.6, 0.6)
     note:SetWidth(PAGE_W)
     note:SetJustifyH("LEFT")

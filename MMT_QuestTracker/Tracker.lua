@@ -168,6 +168,7 @@ function mod.BuildEntries()
     local data = mod.AllData()
     local own = (me and data[me] and data[me].quests) or {}
     local members = Members()
+    local solo = #members == 1   -- only you shown: no member rows
     local cfg = M.db
     local collapsed = Collapsed()
 
@@ -236,6 +237,41 @@ function mod.BuildEntries()
                     -- objective texts from your log, otherwise from the first member who has the quest
                     local objectives = q.obj
                     local n = math.max(#objectives, 1)
+                    if solo then
+                        -- only you: the traditional view, progress behind each objective
+                        local mq = data[members[1]] and data[members[1]].quests[id]
+                        for oi = 1, n do
+                            local o = objectives[oi]
+                            local status, done = "open", false
+                            if mq then status, done = Progress(mq, o and oi or nil) end
+                            local otext = o and o.text or "Complete the quest"
+                            -- done: the whole line green; open without a count: just the objective
+                            if done then otext = GREEN .. otext .. "  " .. status
+                            elseif status ~= "open" then otext = otext .. "  " .. status end
+                            Add({ kind = "objective", text = otext, indent = 2, questID = id, done = done })
+                        end
+                    else
+                        -- done on everybody who has it: one line instead of every objective and member
+                        local holders, doneCount = 0, 0
+                        for _, key in ipairs(members) do
+                            local mq = data[key] and data[key].quests[id]
+                            if mq then
+                                holders = holders + 1
+                                local all = mq.state == 1
+                                if not all and mq.state ~= -1 and #mq.obj > 0 then
+                                    all = true
+                                    for oi = 1, #mq.obj do if not select(2, Progress(mq, oi)) then all = false end end
+                                end
+                                if all then doneCount = doneCount + 1 end
+                            elseif mod.CompletedBy(key, id) then
+                                holders, doneCount = holders + 1, doneCount + 1
+                            end
+                        end
+                        if holders > 0 and doneCount == holders then
+                            Add({ kind = "alldone", indent = 2, questID = id,
+                                text = GREEN .. (holders == #members and "Done on all characters"
+                                    or ("Done on all %d characters that have it"):format(holders)) .. "|r" })
+                        else
                     for oi = 1, n do
                         local o = objectives[oi]
                         local okey = "o:" .. id .. ":" .. oi
@@ -266,6 +302,8 @@ function mod.BuildEntries()
                                         questID = id, done = done })
                                 end
                             end
+                        end
+                    end
                         end
                     end
                 end
@@ -426,6 +464,7 @@ function mod.AllCollapsed(zones)
 end
 
 local function Style(level)
+    if level == "alldone" then level = "objective" end
     local s = M.db.fonts[level] or M.db.fonts.quest
     return s
 end
@@ -461,7 +500,7 @@ local function FillRow(row, e, y, width)
     row.toggle:SetShown(e.collapsible and true or false)
     row.toggle:EnableMouse(not cfg.clickThrough)
     if not e.collapsible then row.marker:SetText("") end
-    local textLeft = left + ((e.collapsible or e.kind == "member") and MARKER_W or 0)
+    local textLeft = left + ((e.collapsible or e.kind == "member" or e.kind == "alldone") and MARKER_W or 0)
     if e.kind == "header" then textLeft = 0 end
     local far = 0   -- room kept free at the other edge (the header's [-] / [+])
     if e.kind == "header" then
