@@ -570,8 +570,10 @@ end
 ---------------------------------------------------------------------------
 -- Failed hand-outs: if the game refuses an item (the loot window closes
 -- before the slot empties), that member is skipped for that item for a while.
+-- Mostly a passing reason (too far away from the corpse), so only for a minute,
+-- and a quest item somebody needs still goes to them when nobody else can take it.
 ---------------------------------------------------------------------------
-local BLOCK_TIME = 600
+local BLOCK_TIME = 60
 local blocked = {}   -- [itemID] = { [key] = time }
 local pending = {}   -- [slot] = { link, key }  (open loot window)
 local CloseAssignWindow   -- below
@@ -595,7 +597,7 @@ local function CheckFailed()
         blocked[id] = blocked[id] or {}
         blocked[id][p.key] = GetTime()
         M:Debug("give failed: %s to %s (blocked for %d s)", p.link, MMT.Repr(p.key), BLOCK_TIME)
-        MMT.Print("%s couldn't receive %s. Loot the corpse again and it goes to the next one.", MMT.FullDisplay(p.key), p.link)
+        MMT.Print("%s couldn't receive %s (too far away or bags full?). Loot the corpse again: it goes to the next one, or to them again if nobody else can take it.", MMT.FullDisplay(p.key), p.link)
         closing[slot] = nil
     end
 end
@@ -619,21 +621,26 @@ local function NextQuestReceiver(slot, link, planned, needOf)
     -- passes: needs it + has a free slot, no objective + free slot, then the
     -- same with full bags (the item may still fit on a stack they carry).
     -- The "keep free bag slots" reserve doesn't count for quest items.
-    for _, pass in ipairs({ { "Y", true }, { "U", true }, { "Y", false }, { "U", false } }) do
-        local wanted, needRoom = pass[1], pass[2]
+    -- last pass: a member who needs it but failed to receive it a moment ago (e.g. was
+    -- too far away) gets another try rather than the item staying in the window
+    for _, pass in ipairs({ { "Y", true }, { "U", true }, { "Y", false }, { "U", false }, { "Y", false, true } }) do
+        local wanted, needRoom, retry = pass[1], pass[2], pass[3]
         for n = 0, #order - 1 do
             local key = order[(start - 1 + n) % #order + 1]
             local need = needOf(key, name)
             local index = CandidateIndex(slot, key)
             local free = Free(key, planned)
             local room = free == nil or free > 0 or CanStack(key, link)
-            if need == wanted and index and (room or not needRoom) and not IsBlocked(link, key) then
+            local isBlocked = IsBlocked(link, key)
+            if need == wanted and index and (room or not needRoom) and (retry or not isBlocked) then
                 M.store.questRR[itemID] = key
-                M:Debug("quest %s -> %s (need %s)", link, MMT.Repr(key), need)
+                M:Debug("quest %s -> %s (need %s%s)", link, MMT.Repr(key), need, retry and ", tried again after a failed hand-out" or "")
                 return key, index
             end
-            M:Debug("quest %s skip %s: need=%s candidate=%s free=%s blocked=%s", link, MMT.Repr(key),
-                tostring(need), tostring(index), tostring(free), tostring(IsBlocked(link, key)))
+            if not retry then
+                M:Debug("quest %s skip %s: need=%s candidate=%s free=%s blocked=%s", link, MMT.Repr(key),
+                    tostring(need), tostring(index), tostring(free), tostring(isBlocked))
+            end
         end
     end
     return nil
