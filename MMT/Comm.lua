@@ -674,7 +674,24 @@ local function ReceivePart(text, channel, sender)
     end
 end
 
+-- receive counters for the debug report: does the game deliver anything at all,
+-- and where do MMT's own messages get dropped?
+ns.recvStats = { events = 0, ours = 0, secretText = 0, secretSender = 0, self = 0 }
+ns.recentRaw = {}
 ns.On("CHAT_MSG_ADDON", function(prefix, text, channel, sender)
+    local rs = ns.recvStats
+    rs.events = rs.events + 1
+    if isOurs[prefix] then
+        rs.ours = rs.ours + 1
+        if ns.IsSecret(text) then rs.secretText = rs.secretText + 1 end
+        if ns.IsSecret(sender) then rs.secretSender = rs.secretSender + 1
+        elseif ns.IsSelf(sender) then rs.self = rs.self + 1
+        else
+            local raw = ns.recentRaw
+            raw[#raw + 1] = ("%s %s %s"):format(date("%H:%M:%S"), tostring(channel), ns.Repr(sender))
+            if #raw > 8 then table.remove(raw, 1) end
+        end
+    end
     if isOurs[prefix] and type(text) == "string" and not ns.IsSecret(text)
         and text:sub(1, 4) == "MPT:" then
         if ns.db and not ns.IsSelf(sender) then ReceivePart(text, channel, sender) end

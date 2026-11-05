@@ -116,6 +116,12 @@ function ns.BuildDebugReport()
             tostring(st.sent), tostring(st.bytes), tostring(st.throttled), tostring(st.failed), qa, qn, qb,
             tostring(st.maxQueued), tostring(ns.CommRate and ns.CommRate()), tostring(ns.GuildMode and ns.GuildMode()),
             tostring(IsInGuild()), tostring(IsInInstance and IsInInstance())))
+        local rs = ns.recvStats or {}
+        add(("Receive: addon events=%s (any addon)  MMT=%s  secret text=%s  secret sender=%s  own echo=%s"):format(
+            tostring(rs.events), tostring(rs.ours), tostring(rs.secretText), tostring(rs.secretSender), tostring(rs.self)))
+        if ns.recentRaw and #ns.recentRaw > 0 then
+            add("  MMT messages from others (before any check): " .. table.concat(ns.recentRaw, ", "))
+        end
         if ns.GuildMode and ns.GuildMode() then
             local outside = {}
             for _, k in ipairs(ns.TeamOutsideGuild()) do outside[#outside + 1] = Repr(k) end
