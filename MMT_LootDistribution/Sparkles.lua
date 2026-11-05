@@ -78,7 +78,9 @@ local function InCombat() return InCombatLockdown and InCombatLockdown() and tru
 -- value: what is set; only raised (a higher value of yours stays).
 -- moves: switched back and forth as you face creatures and objects
 S.CVARS = {
-    { name = "SoftTargetInteract", value = 3 },            -- "Enable Interact Key": interact target always
+    -- "Enable Interact Key": interact target always. Forced on, never put back
+    -- by itself: switching Sparkles off asks, and the answer switches it
+    { name = "SoftTargetInteract", value = 3, keep = true },
     { name = "SoftTargetNameplateInteract", value = 1, moves = true },
     { name = "SoftTargetInteractRange", value = 15 },      -- yards
     { name = "SoftTargetInteractArc", value = 2 },         -- all around you
@@ -128,8 +130,10 @@ function S.ApplySettings()
                 saved[c.name] = nil
             end
         elseif cur ~= nil and (tonumber(cur) or 0) < c.value then
-            if saved[c.name] == nil then saved[c.name] = { old = cur } end
-            saved[c.name].set = tostring(c.value)
+            if not c.keep then
+                if saved[c.name] == nil then saved[c.name] = { old = cur } end
+                saved[c.name].set = tostring(c.value)
+            end
             SetCV(c.name, c.value)
             changed = true
         end
@@ -157,6 +161,7 @@ function S.RestoreSettings()
     pendingRestore = nil
     for _, c in ipairs(S.CVARS) do
         local s = saved[c.name]
+        if s and c.keep then saved[c.name] = nil s = nil end
         if s then
             local cur = GetCV(c.name)
             -- changed by hand since: yours (the one MMT moves itself always goes back)
@@ -752,14 +757,12 @@ function S.SwitchOn(done)
         "Yes", Go, "No", function() if done then done(false) end end)
 end
 
--- off: ask whether "Enable Interact Key" goes off too (only while it is on)
+-- off: ask whether "Enable Interact Key" goes off too (only while it is on):
+-- Yes switches it off, No leaves it on
 function S.SwitchOff(done)
     local wasOn = InteractKeyOn()
     M.db.sparkles = false
     -- everything else goes back now; the interact key waits for the answer
-    local saved = MMTDB.ldSparkleCVars and MMTDB.ldSparkleCVars[MMT.PlayerFull()]
-    local keyOld = saved and saved.SoftTargetInteract and saved.SoftTargetInteract.old
-    if saved then saved.SoftTargetInteract = nil end
     S.Update()
     if done then done(false) end
     if not wasOn then return end
@@ -767,8 +770,8 @@ function S.SwitchOff(done)
         "Do you also want to disable the \"Enable Interact Key\"-feature of the client, to restore classic IWT (Interact with Target) behaviour?",
         "Yes", function()
             if InCombat() then MMT.Print("In combat: \"Enable Interact Key\" not changed, switch it off in Options > Controls.") return end
-            -- back to what it was before MMT, or gamepad only (the box off)
-            SetCV("SoftTargetInteract", (keyOld and keyOld ~= "3") and keyOld or "1")
+            -- the box off: gamepad only
+            SetCV("SoftTargetInteract", 1)
         end, "No")
 end
 MMT.Listen("PROFILE_CHANGED", function() S.Update() end)

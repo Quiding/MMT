@@ -274,7 +274,8 @@ Saved data from MMT 0.1.x is converted automatically.
   Sparkles tab: "Sparkles" (off by default; switching it on with Master Looter while
   the game's "Enable Interact Key" is off asks first, as the interact key changes how
   "Interact with Target" behaves; switching it off asks whether the interact key goes
-  off too) highlights the herb, ore vein, corpse you
+  off too, Yes switches it off, No leaves it on; it is never put back by itself)
+  highlights the herb, ore vein, corpse you
   can skin (or gather) and, with "Other world objects", other things you can interact
   with, each kind on or off (quest objects, mailboxes, chests & containers, fishing
   pools, corpses with loot, everything else), right in front of you, with twinkling

@@ -158,7 +158,7 @@ function mod.SparklesTab(panel, PANEL_H)
             local function done() MMT.Refresh() end
             if v then S.SwitchOn(done) else S.SwitchOff(done) end
         end,
-        "Highlights the herb, ore vein, corpse or object right in front of you, as long as you have the skill to gather it.\nThe game only tells addons about the one thing the interact key would pick (close by, in front of you), so only that one is highlighted, not everything around you.\n|cffffd100Switches on (out of combat) the game's \"Enable Interact Key\"|r (Options > Controls), the interact target's nameplate and icon, and a reach of 15 yards all around you; put back as it was when this is off.")
+        "Highlights the herb, ore vein, corpse or object right in front of you, as long as you have the skill to gather it.\nThe game only tells addons about the one thing the interact key would pick (close by, in front of you), so only that one is highlighted, not everything around you.\n|cffffd100Switches on (out of combat) the game's \"Enable Interact Key\"|r (Options > Controls; switching Sparkles off asks whether it goes off too), the interact target's nameplate and icon, and a reach of 15 yards all around you; those are put back as they were when this is off.")
     local mark = H.Mark(wt)
     local syncDrop = W:Cycle("Sync-Behaviour", {
         { value = "LEADER", text = "Only on Group Leader" },
