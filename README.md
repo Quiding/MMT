@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 1.0.11: core addon (MMT) plus optional modules (MMT_*).
+Version 1.0.12: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -65,11 +65,11 @@ Saved data from MMT 0.1.x is converted automatically.
   The names the game draws above characters in the world (nameplates off) can't be
   changed by any addon (protected by Blizzard). "Name above characters" (only with "Hide
   names outside MMT too") picks what MMT does instead: "Show nameplates" (default)
-  switches "Friendly Player Nameplates" and "Always Show Nameplates" on (Blizzard's
-  nameplates or an addon's), which show the replaced
-  names, and your own name above your character off (it has no nameplate); "Hide
-  friendly player names" switches the names of all friendly players in the world off
-  (unit frames, tooltips etc. still show them). The game settings before are put back
+  switches "Always Show Nameplates", "Friendly Player Nameplates" and the friendly
+  player names on (Blizzard's nameplates or an addon's show the replaced names) and
+  your own name above your character off (it has no nameplate); "Hide friendly player
+  names" switches all of them off: no names of friendly players in the world (unit
+  frames, tooltips etc. still show them). The game settings before are put back
   when hiding is off again.
   Switching "Hide names outside MMT too" on or off, or changing "Show characters by"
   while it is on, asks to reload the UI right away, because other addons only pick it up

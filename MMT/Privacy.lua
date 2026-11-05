@@ -135,20 +135,25 @@ end
 -- Names above characters in the 3D world: the game draws them itself, no
 -- addon can change that text. While hiding, Team > Privacy > "Name above
 -- characters" picks what to do:
---   NAMEPLATES: friendly player nameplates and "Always show nameplates" on
---               (Blizzard's or an addon's nameplates, their names
+--   NAMEPLATES: "Always show nameplates", friendly player nameplates and
+--               friendly player names on (Blizzard's or an addon's nameplates, their names
 --               are replaced like all other text); your own character has no
 --               nameplate, so its name above it is switched off
---   HIDE:       the names of your own character and all friendly players off
+--   HIDE:       "Always show nameplates", friendly player nameplates and the
+--               names of your own character and all friendly players off
 -- The values before are kept per character (MMTDB.worldNames) and put back
 -- when hiding is off again (or the other choice is made), unless they were
 -- changed by hand in the meantime.
 ---------------------------------------------------------------------------
 local WORLD_CVARS = {
-    -- Friendly Player Nameplates + Always Show Nameplates (Options > Nameplates);
-    -- nameplateShowFriends is the older clients' name, only used where it exists
-    NAMEPLATES = { nameplateShowFriendlyPlayers = "1", nameplateShowAll = "1", nameplateShowFriends = "1", UnitNameOwn = "0" },
-    HIDE       = { UnitNameOwn = "0", UnitNameFriendlyPlayerName = "0" },
+    -- Always Show Nameplates, Friendly Player Nameplates (Options > Nameplates;
+    -- nameplateShowFriends is the older clients' name, only used where it
+    -- exists), the friendly player names drawn by the game (Interface > Names)
+    -- and your own name (your character has no nameplate)
+    NAMEPLATES = { nameplateShowAll = "1", nameplateShowFriendlyPlayers = "1", nameplateShowFriends = "1",
+                   UnitNameFriendlyPlayerName = "1", UnitNameOwn = "0" },
+    HIDE       = { nameplateShowAll = "0", nameplateShowFriendlyPlayers = "0", nameplateShowFriends = "0",
+                   UnitNameFriendlyPlayerName = "0", UnitNameOwn = "0" },
 }
 local function GetCV(name)
     if C_CVar and C_CVar.GetCVar then return C_CVar.GetCVar(name) end
@@ -181,7 +186,8 @@ function ns.ApplyWorldNames()
     for cvar, value in pairs(want) do
         local cur = GetCV(cvar)
         if cur ~= nil and cur ~= value then
-            if not saved[cvar] then saved[cvar] = { old = cur, set = value } end
+            if saved[cvar] then saved[cvar].set = value   -- the value before MMT stays
+            else saved[cvar] = { old = cur, set = value } end
             SetCV(cvar, value)
         end
     end
