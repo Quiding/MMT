@@ -277,11 +277,11 @@ Saved data from MMT 0.1.x is converted automatically.
   - Zone: Ctrl-click collapses / expands all its quests (only the quest names),
     Ctrl-right-click shows only that zone (again: all zones). The quest log's tracked
     quests aren't changed by this.
-  Order (own tab): the zone you are in first (on by default); the other zones shown,
-  collapsed (open one with its +, until the next zone change) or hidden while the zone
-  you are in has quests; zones nearest first (your continent, by distance to the middle
-  of the zone or, with Questie loaded, to the nearest open objective), in quest-log order
-  or A - Z; quests in a zone in quest-log order, by level, by team progress or nearest
+  Order (own tab; by default everything as in the quest log): the zone you are in first;
+  the other zones shown, collapsed (open one with its +, until the next zone change) or
+  hidden while the zone you are in has quests; zones in quest-log order, nearest first
+  (your continent, by distance to the middle of the zone or, with Questie loaded, to the
+  nearest open objective) or A - Z; quests in a zone in quest-log order, by level, by team progress or nearest
   first (needs Questie); quests ready to turn in in order, on top or at the bottom.
   With a "nearest" order the tracker re-sorts every 5 s after you moved 20 yards and
   redraws only when the order changed.

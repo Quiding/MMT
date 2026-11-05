@@ -129,8 +129,8 @@ M.Page = function(_, page)
     UI.Tooltip(ozCycle, "Other zones", "While the zone you are in has quests: the other zones stay as they are (Show), are collapsed to their name (Collapse; open one with its +, it stays open until you change zone), or are left out (Hide). In a zone without quests, all zones show. A zone focus (Ctrl-right-click) goes first.")
     local gzo, szo = Opt("zoneOrder")
     local zoCycle = ZL:Cycle("Order of the zones", {
-        { value = "near", text = "Nearest first" },
         { value = "log", text = "Quest log" },
+        { value = "near", text = "Nearest first" },
         { value = "name", text = "A - Z" },
     }, gzo, szo)
     UI.Tooltip(zoCycle, "Order of the zones", "Nearest first: zones on your continent by distance (to the nearest quest objective with Questie, otherwise to the middle of the zone), then other continents, then headers that aren't zones (class quests and the like). Re-sorted while you move.")

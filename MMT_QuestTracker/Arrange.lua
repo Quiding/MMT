@@ -192,13 +192,14 @@ function mod.Arrange(zones, byZone, ctx)
         local index, key = {}, {}
         for i, id in ipairs(list) do
             index[id] = i
+            -- Questie distances: for "near" quests, and for "near" zones whatever the quest order
+            if (cfg.questOrder == "near" or cfg.zoneOrder == "near") and ctx.own[id] then qd[id] = QuestieDistance(id) end
             if cfg.questOrder == "level" then
                 key[id] = ctx.level(id) or 0
             elseif cfg.questOrder == "progress" then
                 key[id] = -TeamProgress(ctx.data, ctx.members, id)   -- furthest along first
-            elseif cfg.questOrder == "near" or cfg.zoneOrder == "near" then
-                if ctx.own[id] then qd[id] = QuestieDistance(id) end
-                if cfg.questOrder == "near" then key[id] = qd[id] end
+            elseif cfg.questOrder == "near" then
+                key[id] = qd[id]
             end
         end
         local readyRank = {}

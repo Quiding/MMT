@@ -48,9 +48,9 @@ local M = MMT.NewModule({
         classColors   = true,     -- member names in class colour
         levelColors   = true,     -- [level] in quest difficulty colour
         -- order (Arrange.lua)
-        currentZoneFirst = true,  -- the zone you are in on top
+        currentZoneFirst = false, -- the zone you are in on top
         otherZones    = "show",   -- show | collapse | hide (while the zone you are in has quests)
-        zoneOrder     = "near",   -- log | near | name
+        zoneOrder     = "log",    -- log | near | name
         questOrder    = "log",    -- log | level | progress | near
         readyQuests   = "keep",   -- keep | top | bottom
         useQuestie    = true,     -- distances from Questie when it is loaded
