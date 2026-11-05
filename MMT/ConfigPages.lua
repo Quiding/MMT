@@ -418,7 +418,7 @@ ns.RegisterPage("team", "Team", function(page)
     banner:SetSize(IN, UI.ROW)
     banner:SetPoint("TOPLEFT", tt, "TOPLEFT", 8, col.y)
     UI.Fill(banner, 0.55, 0.08, 0.08, 0.85)
-    banner.text = UI.Label(banner, "All team members are in the same guild: turn on \"Use guild channel\" (Communication, below) on every client for faster, more reliable messages.", "GameFontNormalSmall")
+    banner.text = UI.Label(banner, "Your online team members are in your guild: turn on \"Use guild channel\" (Communication, below) on every client for faster, more reliable messages.", "GameFontNormalSmall")
     banner.text:SetPoint("LEFT", 8, 0)
     banner.text:SetPoint("RIGHT", -8, 0)
     banner.text:SetJustifyH("LEFT")
@@ -500,12 +500,18 @@ ns.RegisterPage("team", "Team", function(page)
         local members = ns.SortedMembers()
         list:Render(members)
         empty:SetShown(#members == 0)
-        local sameGuild = #members > 1
+        -- the members whose guild is known (online, heartbeat arrived) all in yours;
+        -- offline members don't count until they are heard from
         local own = ns.OwnGuildKey and ns.OwnGuildKey()
-        if not own then sameGuild = false end
+        local sameGuild, known = own ~= nil, 0
         for _, key in ipairs(members) do
-            if ns.MemberGuild(key) ~= own then sameGuild = false end
+            local g = ns.MemberGuild(key)
+            if g ~= nil and not ns.IsSelf(key) then
+                known = known + 1
+                if g ~= own then sameGuild = false end
+            end
         end
+        sameGuild = sameGuild and known > 0
         banner:SetShown(sameGuild and not ns.db.comm.guild)
         you:SetText("You are playing " .. ns.FirstName(ns.PlayerFull()) .. ".")
         local full = ns.db.privacy.nameMode == "FULL"
