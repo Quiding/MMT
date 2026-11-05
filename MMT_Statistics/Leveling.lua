@@ -488,10 +488,15 @@ end
 -- { [L] = { t, q, k, d, z = favourite zone name, done = time or nil, p = partial } }
 function mod.CompactLevels(c)
     local out = {}
+    -- instances visited on a level: the runs entered at it
+    local inst = {}
+    for _, run in ipairs(c.runs or {}) do
+        if run.lvIn then inst[run.lvIn] = (inst[run.lvIn] or 0) + 1 end
+    end
     for L, r in pairs(c.levels or {}) do
         if L >= 1 and L <= mod.MAX_TRACKED_LEVEL then
             out[L] = { t = math.floor(r.t or 0), q = r.q or 0, k = r.k or 0, d = r.d or 0,
-                z = FavZone(c, r.z), done = r.done, p = r.partial and 1 or nil }
+                z = FavZone(c, r.z), done = r.done, p = r.partial and 1 or nil, i = inst[L] or 0 }
         end
     end
     return out
@@ -504,7 +509,7 @@ function mod.CharLevelRows(c)
     for L = mod.MAX_TRACKED_LEVEL, 1, -1 do
         local r = lv[L]
         if r then
-            rows[#rows + 1] = { L = L, t = r.t, done = r.done, q = r.q, k = r.k, d = r.d, z = r.z,
+            rows[#rows + 1] = { L = L, t = r.t, done = r.done, q = r.q, k = r.k, d = r.d, z = r.z, i = r.i,
                 partial = r.p ~= nil, current = not r.done }
         end
     end
@@ -564,15 +569,16 @@ function mod.AverageLevelRows(scope)
         end
         local use = #done > 0 and done or any
         if #use > 0 then
-            local t, q, k, d, zones = 0, 0, 0, 0, {}
+            local t, q, k, d, inst, zones = 0, 0, 0, 0, 0, {}
             for _, r in ipairs(use) do
                 t, q, k, d = t + (r.t or 0), q + (r.q or 0), k + (r.k or 0), d + (r.d or 0)
+                inst = inst + (r.i or 0)   -- characters synced before 1.3.1 send no count: 0
                 if r.z then zones[r.z] = (zones[r.z] or 0) + 1 end
             end
             local z, zn
             for name, n in pairs(zones) do if not zn or n > zn then z, zn = name, n end end
             rows[#rows + 1] = { L = L, t = #done > 0 and t / #done or nil, n = #use, q = q / #use,
-                k = k / #use, d = d / #use, z = z }
+                k = k / #use, d = d / #use, i = inst / #use, z = z }
         end
     end
     return rows

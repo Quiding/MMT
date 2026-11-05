@@ -199,7 +199,8 @@ Saved data from MMT 0.1.x is converted automatically.
     10 completed quests (date, character, quest, quest level, character level, XP, money).
   - Leveling (a character, or the average of the account): per level 1-59, newest first,
     the time played to the next level (dd:hh:mm:ss), when it was reached, quests
-    completed, NPCs killed, deaths and the zone with the most time.
+    completed, NPCs killed, deaths, instances entered on that level and the zone with the
+    most time; a "Total" row on top sums up every level below.
   - Zones (a character or the account): favourite zone by time and by kills; per main zone
     (a town counts for its zone) time (hh:mm:ss), NPC kills, quests and XP gain; per
     instance visit Lvl In / Lvl Out, time, kills, quests, XP gain (incl. quest rewards),

@@ -157,6 +157,7 @@ local function Grid(parent, cols, visible, width)
         for c = 1, #cols do
             row.cells[c]:SetText(d.cells[c] or "")
             if d.grey then row.cells[c]:SetTextColor(0.55, 0.55, 0.55)
+            elseif d.accent then row.cells[c]:SetTextColor(A[1], A[2], A[3])
             else row.cells[c]:SetTextColor(0.85, 0.85, 0.85) end
         end
     end)
@@ -650,12 +651,13 @@ M.Page = function(_, page)
     local LEVEL_ROWS = 17
     local levelGrid = Grid(lvp, {
         { "Level", right = 44, w = 40 },
-        { "Time to Level", x = 60, w = 104 },
-        { "Date/Time leveled", x = 168, w = 128 },
-        { "compl. Quests", right = 392, w = 90 },
-        { "NPCs killed", right = 476, w = 80 },
-        { "Deaths", right = 530, w = 50 },
-        { "Fav. Zone", x = 546, w = PAGE_W - 552 },
+        { "Time to Level", x = 56, w = 100 },
+        { "Date/Time leveled", x = 160, w = 122 },
+        { "compl. Quests", right = 372, w = 88 },
+        { "NPCs killed", right = 452, w = 76 },
+        { "Deaths", right = 502, w = 46 },
+        { "Instances", right = 572, w = 64 },
+        { "Fav. Zone", x = 588, w = PAGE_W - 592 },
     }, LEVEL_ROWS)
     lc:Add(levelGrid, ROW_H * (LEVEL_ROWS + 1) + 10)
     local levelNote = lc:Note("")
@@ -667,6 +669,25 @@ M.Page = function(_, page)
             scope = "CHAR"   -- an old choice (team / all accounts) or a character no longer here
         end
         local rows = {}
+        -- first row: the sum of every row below (time, quests, kills, deaths, instances)
+        local total = { t = 0, q = 0, k = 0, d = 0, i = 0, zones = {} }
+        local function Count(t, q, k, d, i, z)
+            total.t, total.q, total.k, total.d, total.i = total.t + (t or 0), total.q + (q or 0),
+                total.k + (k or 0), total.d + (d or 0), total.i + (i or 0)
+            if z and z ~= "" then total.zones[z] = (total.zones[z] or 0) + 1 end
+        end
+        local function TotalRow(average)
+            local fav, favN
+            for z, n in pairs(total.zones) do if not favN or n > favN then fav, favN = z, n end end
+            local F = average and Avg or Num
+            return { accent = true,
+                cells = { "Total", mod.Duration(total.t), "", F(total.q), F(total.k), F(total.d), F(total.i), fav or "" },
+                tip = function(t)
+                    t:SetText("Total")
+                    t:AddLine(average and "The sum of the averages below: what a character of this account takes up to the highest level listed."
+                        or "The sum of every level below. Fav. Zone: the zone that was the favourite on the most levels.", 1, 1, 1, true)
+                end }
+        end
         if scope ~= "ACCOUNT" then
             levelGrid.heads[3]:SetText("Date/Time leveled")
             local key = scope == "CHAR" and (MMT.PlayerFull() or "") or scope:sub(6)
@@ -674,7 +695,7 @@ M.Page = function(_, page)
             for _, r in ipairs(c and mod.CharLevelRows(c) or {}) do
                 rows[#rows + 1] = {
                     cells = { tostring(r.L), mod.Duration(r.t) .. ((r.partial or r.current) and " *" or ""),
-                        r.done and date("%Y-%m-%d %H:%M", r.done) or "(current)", Num(r.q), Num(r.k), Num(r.d), r.z or "" },
+                        r.done and date("%Y-%m-%d %H:%M", r.done) or "(current)", Num(r.q), Num(r.k), Num(r.d), Num(r.i or 0), r.z or "" },
                     grey = r.current,
                     tip = (r.partial or r.current) and function(t)
                         t:SetText(("Level %d"):format(r.L))
@@ -683,14 +704,18 @@ M.Page = function(_, page)
                     end or nil,
                 }
             end
-            levelNote:SetText("Time counts while this character is logged in. * = the current level, or tracking began during it.")
+            for _, r in ipairs(c and mod.CharLevelRows(c) or {}) do Count(r.t, r.q, r.k, r.d, r.i, r.z) end
+            if #rows > 0 then table.insert(rows, 1, TotalRow(false)) end
+            levelNote:SetText("Time counts while this character is logged in. * = the current level, or tracking began during it. Instances: entered on that level.")
         else
             levelGrid.heads[3]:SetText("Characters")
             for _, r in ipairs(mod.AverageLevelRows(scope)) do
                 rows[#rows + 1] = {
-                    cells = { tostring(r.L), r.t and mod.Duration(r.t) or "-", tostring(r.n), Avg(r.q), Avg(r.k), Avg(r.d), r.z or "" },
+                    cells = { tostring(r.L), r.t and mod.Duration(r.t) or "-", tostring(r.n), Avg(r.q), Avg(r.k), Avg(r.d), Avg(r.i), r.z or "" },
                 }
+                Count(r.t, r.q, r.k, r.d, r.i, r.z)
             end
+            if #rows > 0 then table.insert(rows, 1, TotalRow(true)) end
             levelNote:SetText("Averages per level over this account's characters that have it; the time only over the ones that finished it (from its start).")
         end
         levelGrid:Show_(rows, scope ~= "ACCOUNT" and "No levels recorded yet for this character." or "No levels recorded yet.")
