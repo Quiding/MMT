@@ -179,7 +179,7 @@ local function Start(kind, label, payload)
         if all then
             for key in pairs(ns.db.team) do
                 local nk = ns.NormKey(key)
-                if expected[nk] and ns.guildRoster[key] then guildOf[nk] = true end
+                if expected[nk] and ns.SameGuild(key) then guildOf[nk] = true end
             end
             for _, nk in ipairs(order) do if not guildOf[nk] then all = false end end
         end
@@ -219,7 +219,7 @@ local function Start(kind, label, payload)
     if ns.GuildMode() and not inInstance then
         for key in pairs(ns.db.team) do
             local nk = ns.NormKey(key)
-            if not ns.IsSelf(key) and expected[nk] and ns.guildRoster[key] then inGuild[nk] = true end
+            if not ns.IsSelf(key) and expected[nk] and ns.SameGuild(key) then inGuild[nk] = true end
         end
     end
     local guildCount = 0

@@ -474,8 +474,9 @@ ns.RegisterPage("team", "Team", function(page)
                 local outside = ns.TeamOutsideGuild()
                 local names = {}
                 for _, k in ipairs(outside) do names[#names + 1] = ns.FirstName(k) end
-                commInfo:SetText(#outside == 0 and "Guild mode: all team members are in your guild."
-                    or ("Not in your guild (reached by whisper): " .. table.concat(names, ", ")))
+                commInfo:SetText(#outside == 0 and "Guild mode: every team member is reached over the guild channel."
+                    or ("Not over the guild channel (party/raid or whisper): " .. table.concat(names, ", ")
+                        .. ". Needs the same guild, \"Use guild channel\" on there too, and online."))
             end
         else
             commInfo:SetText("")

@@ -425,12 +425,38 @@ ns.OnLogin(function()
     end)
 end)
 
--- team members who are not in your guild (guild mode reaches them by whisper)
+-- Which guild this client is in, with guild comm on: a short key of guild name and
+-- realm, sent in the heartbeat (field "gc"). A team member is reached over the guild
+-- channel only when both sides have guild comm on in the same guild and the roster
+-- shows them online; checked anew with every heartbeat and roster update.
+local function Hash(str)
+    local h = 5381
+    for i = 1, #str do h = (h * 33 + str:byte(i)) % 4294967296 end
+    return ("%08x"):format(h)
+end
+function ns.OwnGuildComm()
+    if not ns.GuildMode() or not GetGuildInfo then return nil end
+    local name, _, _, realm = GetGuildInfo("player")
+    if not name or name == "" or ns.IsSecret(name) then return nil end
+    if ns.IsSecret(realm) then realm = nil end
+    return Hash(name .. "@" .. (realm or (GetNormalizedRealmName and GetNormalizedRealmName()) or ""))
+end
+ns.CoreHeartbeat("gc", function() return ns.OwnGuildComm() end)
+
+function ns.SameGuild(key)
+    if ns.IsSelf(key) then return false end
+    local mine = ns.OwnGuildComm()
+    if not mine then return false end
+    local s = ns.status[key]
+    return s and s.ext and s.ext.gc == mine and ns.guildRoster[key] == true or false
+end
+
+-- team members the guild channel doesn't reach (party/raid/whisper instead)
 function ns.TeamOutsideGuild()
     local list = {}
     if not IsInGuild() then return list end
     for key in pairs(ns.db.team) do
-        if not ns.IsSelf(key) and ns.guildRoster[key] == nil then list[#list + 1] = key end
+        if not ns.IsSelf(key) and not ns.SameGuild(key) then list[#list + 1] = key end
     end
     table.sort(list)
     return list
@@ -462,8 +488,8 @@ function ns.SendToTeam(msg, onlyOnline, prio, prefix, scope)
         -- reaches every member in the guild (worth it from 3 of them on)
         local inGuild = 0
         if guild then
-            for key, online in pairs(ns.guildRoster) do
-                if online and not ns.IsSelf(key) and ns.db.team[key] then inGuild = inGuild + 1 end
+            for key in pairs(ns.db.team) do
+                if ns.SameGuild(key) then inGuild = inGuild + 1 end
             end
         end
         if inGuild < 3 then
@@ -471,23 +497,20 @@ function ns.SendToTeam(msg, onlyOnline, prio, prefix, scope)
             return
         end
     end
-    -- team members in your group always get it on the group channel; the guild
-    -- channel only carries it to guild members outside the group (a guild message
-    -- doesn't reach everybody the roster lists, e.g. across realms), the rest by whisper
+    -- guild channel first: for members with guild comm on in the same guild (both
+    -- sides, see SameGuild); the rest on party/raid when grouped, else by whisper
     local group = GroupChannel()
-    local grouped, needGuild = {}, false
+    local viaGuild, grouped = {}, {}
     for key in pairs(ns.db.team) do
         if not ns.IsSelf(key) then
-            if group and UnitInGroupByKey(key) then grouped[key] = true
-            elseif guild and ns.guildRoster[key] ~= nil then needGuild = true end
+            if guild and ns.SameGuild(key) then viaGuild[key] = true
+            elseif group and UnitInGroupByKey(key) then grouped[key] = true end
         end
     end
+    if next(viaGuild) then Send(msg, "GUILD", nil, prio, nil, prefix) end
     if group and next(grouped) then Send(msg, group, nil, prio, nil, prefix) end
-    if needGuild then Send(msg, "GUILD", nil, prio, nil, prefix) end
     for key in pairs(ns.db.team) do
-        if not ns.IsSelf(key) and not grouped[key] and not (needGuild and ns.guildRoster[key] ~= nil) then
-            Whisper(key)
-        end
+        if not ns.IsSelf(key) and not viaGuild[key] and not grouped[key] then Whisper(key) end
     end
 end
 

@@ -59,6 +59,11 @@ function ns.HeartbeatExtra()
     return table.concat(parts, ",")
 end
 
+-- core fields in the same place (not tied to a module)
+function ns.CoreHeartbeat(key, fn)
+    heartbeat[#heartbeat + 1] = { key = key, fn = fn }
+end
+
 function ns.ParseHeartbeatExtra(s)
     local t = {}
     if not s or s == "" then return t end

@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 1.0.4: core addon (MMT) plus optional modules (MMT_*).
+Version 1.0.5: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -427,10 +427,12 @@ Team abandon is QTAB:<questID>.
   prefix "MMTB", so they never delay the normal messages, and outside instances they go
   by whisper to each team member (whispers aren't throttled there).
 - Team > "Use guild channel": one message on the guild channel reaches every team member
-  in your guild, grouped or not; the guild roster tells who is online. It can only be
-  switched on in a guild, and is switched off (with a chat note) at login when the
-  character isn't in one any more. Members outside the
-  guild still get whispers. Every client needs the same setting.
+  in your guild, grouped or not. A member counts only when both clients have the option
+  on in the same guild (each client sends its guild in the heartbeat, checked with every
+  heartbeat and roster update) and the guild roster shows them online. Everybody else
+  (no guild, another guild, option off there) gets party/raid when grouped, else a
+  whisper. It can only be switched on in a guild, and is switched off (with a chat note)
+  at login when the character isn't in one any more.
   Large transfers use it too when that is faster: a settings sync goes once on the guild
   channel instead of once per recipient by whisper (from 2 recipients in the guild, when
   the estimate is lower), other large data from 3 online team members in the guild on.

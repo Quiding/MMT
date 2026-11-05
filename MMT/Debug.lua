@@ -125,7 +125,17 @@ function ns.BuildDebugReport()
         if ns.GuildMode and ns.GuildMode() then
             local outside = {}
             for _, k in ipairs(ns.TeamOutsideGuild()) do outside[#outside + 1] = Repr(k) end
-            add("  team outside the guild: " .. (#outside > 0 and table.concat(outside, ", ") or "none"))
+            add("  not over the guild channel: " .. (#outside > 0 and table.concat(outside, ", ") or "none"))
+            local gc = {}
+            for key in pairs(ns.db.team) do
+                if not ns.IsSelf(key) then
+                    local st = ns.status[key]
+                    gc[#gc + 1] = ("%s gc=%s roster=%s"):format(Repr(key), tostring(st and st.ext and st.ext.gc),
+                        tostring(ns.guildRoster[key]))
+                end
+            end
+            table.sort(gc)
+            add("  guild comm: own gc=" .. tostring(ns.OwnGuildComm()) .. "; " .. table.concat(gc, "; "))
         end
     end
     add(("Layer hop: pending=%s source=%s countdown=%s watched events=[%s] api=%s"):format(
