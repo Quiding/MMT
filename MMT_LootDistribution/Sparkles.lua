@@ -64,7 +64,7 @@ local function InCombat() return InCombatLockdown and InCombatLockdown() and tru
 -- value: what is set; only raised (a higher value of yours stays).
 -- moves: switched back and forth as you face creatures and objects
 S.CVARS = {
-    { name = "SoftTargetInteract", value = 3 },            -- interact target: always
+    { name = "SoftTargetInteract", value = 3 },            -- "Enable Interact Key": interact target always
     { name = "SoftTargetNameplateInteract", value = 1, moves = true },
     { name = "SoftTargetInteractRange", value = 15 },      -- yards
     { name = "SoftTargetInteractArc", value = 2 },         -- all around you
@@ -103,6 +103,7 @@ function S.ApplySettings()
     if InCombat() then pendingApply = true return end
     pendingApply = nil
     local saved = Saved()
+    local changed = false
     for _, c in ipairs(S.CVARS) do
         local cur = GetCV(c.name)
         if c.when and not c.when() then
@@ -116,7 +117,21 @@ function S.ApplySettings()
             if saved[c.name] == nil then saved[c.name] = { old = cur } end
             saved[c.name].set = tostring(c.value)
             SetCV(c.name, c.value)
+            changed = true
         end
+    end
+    -- "Enable Interact Key" (Options > Controls; SoftTargetInteract 3 = Any):
+    -- set by an addon alone, the game didn't always pick it up (corpses got no
+    -- plate until the box was switched off and on again). So it is switched
+    -- the way the box does it, off (1 = gamepad only) and on again, once per
+    -- session and whenever settings changed here.
+    if changed or not S.toggled then
+        S.toggled = true
+        SetCV("SoftTargetInteract", 1)
+        C_Timer.After(0.2, function()
+            if On() and not InCombat() then SetCV("SoftTargetInteract", 3) S.Refresh()
+            elseif InCombat() then pendingApply = true end
+        end)
     end
 end
 

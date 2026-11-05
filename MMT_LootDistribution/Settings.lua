@@ -155,13 +155,13 @@ function mod.SparklesTab(panel, PANEL_H)
 
     local wt, W = Tile(panel, 0, 0, TILE_W, PANEL_H, "Highlight in the World", "Interface\\Icons\\INV_Misc_Herb_10")
     W:Check("Sparkles", function() return M.db.sparkles end, Set("sparkles"),
-        "Highlights the herb, ore vein, corpse or object right in front of you, as long as you have the skill to gather it.\nThe game only tells addons about the one thing the interact key would pick (close by, in front of you), so only that one is highlighted, not everything around you.\nSwitches on (out of combat) the game's interact key target, its nameplate and icon, and a reach of 15 yards all around you; put back as it was when this is off.")
+        "Highlights the herb, ore vein, corpse or object right in front of you, as long as you have the skill to gather it.\nThe game only tells addons about the one thing the interact key would pick (close by, in front of you), so only that one is highlighted, not everything around you.\n|cffffd100Switches on (out of combat) the game's \"Enable Interact Key\"|r (Options > Controls), the interact target's nameplate and icon, and a reach of 15 yards all around you; put back as it was when this is off.")
     local mark = H.Mark(wt)
     W:Space(4)
     W:Check("Herbs (Herbalism)", function() return M.db.sparkleHerbs end, Set("sparkleHerbs"))
     W:Check("Ore veins (Mining)", function() return M.db.sparkleOre end, Set("sparkleOre"))
     W:Check("Corpses you can skin", function() return M.db.sparkleCorpses end, Set("sparkleCorpses"),
-        "A dead creature you can skin (or gather with Herbalism or Mining) is highlighted until you did it.\n|cffffd100Switches on the game's \"Enemy Unit Nameplates\"|r (Options > Nameplates): only with them does the game give corpses a nameplate the highlight can sit on. So every enemy shows a nameplate while this is on; put back as it was when it is off.")
+        "A dead creature you can skin (or gather with Herbalism or Mining) is highlighted until you did it.\n|cffffd100Switches on the game's \"Enemy Unit Nameplates\"|r (Options > Nameplates) and, like all sparkles, \"Enable Interact Key\" (Options > Controls): only with both does the game give a corpse near you a nameplate the highlight can sit on. So every enemy shows a nameplate while this is on; put back as it was when it is off.")
     W:Check("Other world objects", function() return M.db.sparkleObjects end, Set("sparkleObjects"),
         "Also other things in the world you can interact with, each kind on or off below. With \"Colour by skill\": quest objects purple, the rest white.")
     local omark = H.Mark(wt)
@@ -170,7 +170,7 @@ function mod.SparklesTab(panel, PANEL_H)
         mailbox = "Mailboxes.",
         chest = "Chests, footlockers, strongboxes, lockboxes, coffers, trunks, caches, crates, barrels.",
         fishing = "Fishing schools and pools, floating wreckage and debris.",
-        loot = "Dead creatures with loot left on them (corpses to skin are above).\n|cffffd100Switches on the game's \"Enemy Unit Nameplates\"|r (Options > Nameplates): only with them does the game give corpses a nameplate the highlight can sit on. So every enemy shows a nameplate while this is on; put back as it was when it is off.",
+        loot = "Dead creatures with loot left on them (corpses to skin are above).\n|cffffd100Switches on the game's \"Enemy Unit Nameplates\"|r (Options > Nameplates) and, like all sparkles, \"Enable Interact Key\" (Options > Controls): only with both does the game give a corpse near you a nameplate the highlight can sit on. So every enemy shows a nameplate while this is on; put back as it was when it is off.",
         other = "Everything else the interact key picks: doors, levers, chairs, books, ...",
     }
     for _, k in ipairs(mod.Sparkles.KINDS) do
