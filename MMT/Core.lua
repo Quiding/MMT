@@ -4,7 +4,7 @@
 local ADDON, ns = ...
 _G.MMT = ns
 ns.title = "MMT"
-ns.version = "1.0.2"
+ns.version = "1.0.3"
 ns.prefix = "MMT"
 ns.LOGO = "Interface\\AddOns\\MMT\\Media\\Logo"   -- the MMT mark (Media/Logo.tga)
 ns.ICON = "Interface\\AddOns\\MMT\\Media\\Icon"   -- the mark on a dark tile (Media/Icon.tga)
@@ -450,6 +450,17 @@ frame:SetScript("OnEvent", function(_, event, ...)
 end)
 
 local callbacks = {}
+-- fn at most once per delay (default 0.15 s), run after the burst: for redraws that
+-- many quick events in a row (e.g. follow spam) would otherwise repeat every frame
+function ns.Coalesce(fn, delay)
+    local pending = false
+    return function()
+        if pending then return end
+        pending = true
+        C_Timer.After(delay or 0.15, function() pending = false fn() end)
+    end
+end
+
 function ns.Listen(name, fn)
     callbacks[name] = callbacks[name] or {}
     table.insert(callbacks[name], fn)

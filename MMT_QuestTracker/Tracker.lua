@@ -787,7 +787,7 @@ MMT.OnRefresh(function()
     mod.UpdateBlizzardTracker()
 end)
 M:Listen("QUESTS_CHANGED", mod.Redraw)
-M:Listen("STATUS_CHANGED", mod.Redraw)
+M:Listen("STATUS_CHANGED", MMT.Coalesce(function() mod.Redraw() end, 0.25))   -- one redraw per burst
 M:Listen("TEAM_CHANGED", mod.Redraw)
 MMT.OnLogin(function()
     C_Timer.NewTicker(10, function() if M.enabled then mod.Redraw() end end) -- members going offline

@@ -896,7 +896,7 @@ function ns.ToggleXPWindow()
 end
 
 ns.OnRefresh(Layout)
-ns.Listen("STATUS_CHANGED", Update)
+ns.Listen("STATUS_CHANGED", ns.Coalesce(Update, 0.1))   -- bursts (follow spam, many heartbeats): one redraw
 ns.Listen("TEAM_CHANGED", Update)
 ns.Listen("PROFILE_CHANGED", function() if ns.ready then Layout() end end)
 ns.OnLogin(function()

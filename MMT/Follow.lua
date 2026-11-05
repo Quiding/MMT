@@ -67,6 +67,8 @@ end
 ---------------------------------------------------------------------------
 local function Started(key, target)
     local f = F(key)
+    -- already following the same character: nothing changed (follow pressed again)
+    if f.following and f.target == target and not f.broken and not f.combatBreak then return end
     f.following, f.target, f.broken, f.combatBreak, f.since = true, target, false, false, GetTime()
     f.targetKey = target and (ns.IsSelf(target) and ns.PlayerFull() or ns.Resolve(target)) or nil
     -- whoever is followed is leading: not a broken follower
@@ -115,12 +117,21 @@ end
 local function Send(msg) if ns.SendAlert then ns.SendAlert(msg) end end   -- leader first
 
 
+-- what the team was told last: pressing follow again on the same character (the game
+-- starts follow anew each time) sends nothing, only a change or a resend after 20 s
+local lastSent, lastSentAt = nil, 0
+local function SendState(msg)
+    if msg == lastSent and GetTime() - lastSentAt < 20 then return end
+    lastSent, lastSentAt = msg, GetTime()
+    Send(msg)
+end
+
 ns.On("AUTOFOLLOW_BEGIN", function(name)
     if ns.IsSecret(name) then name = nil end
     own.stopSeq = (own.stopSeq or 0) + 1   -- a pending stop (see below) is void
     own.pendingStop = false
     own.following, own.target, own.combatBreak = true, name, false
-    Send("FOL:1:" .. (name or ""))
+    SendState("FOL:1:" .. (name or ""))
     local me = ns.PlayerFull()
     if me then Started(me, name) end
 end)
@@ -143,7 +154,7 @@ ns.On("AUTOFOLLOW_END", function()
         if seq ~= own.stopSeq or own.following then return end   -- following again
         own.pendingStop = false
         if why == "c" then own.combatBreak = true end
-        Send("FOL:0:" .. why)
+        SendState("FOL:0:" .. why)
         local me = ns.PlayerFull()
         if me then Stopped(me, why) end
     end)
@@ -159,7 +170,7 @@ ns.On("PLAYER_REGEN_ENABLED", function()
         end
         if own.following or not own.combatBreak then return end
         own.combatBreak = false
-        Send("FOL:0:")
+        SendState("FOL:0:")
         local me = ns.PlayerFull()
         if me then Stopped(me, "") end
     end)
@@ -168,6 +179,7 @@ end)
 -- a loading screen ends follow without AUTOFOLLOW_END on some clients
 ns.On("PLAYER_ENTERING_WORLD", function()
     own.following, own.combatBreak = false, false
+    lastSent = nil
 end)
 
 ---------------------------------------------------------------------------
