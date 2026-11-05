@@ -281,8 +281,8 @@ Saved data from MMT 0.1.x is converted automatically.
   collapsed (open one with its +, until the next zone change) or hidden while the zone
   you are in has quests; zones nearest first (your continent, by distance to the middle
   of the zone or, with Questie loaded, to the nearest open objective), in quest-log order
-  or A - Z; quests in a zone in quest-log order, by level, by team progress or nearest
-  first (needs Questie); quests ready to turn in in order, on top or at the bottom.
+  or A - Z; quests in a zone nearest first (the default, needs Questie; without it they
+  keep the quest-log order), in quest-log order, by level or by team progress; quests ready to turn in in order, on top or at the bottom.
   With a "nearest" order the tracker re-sorts every 5 s after you moved 20 yards and
   redraws only when the order changed.
   Background colour and opacity, width, maximum height (scrolls beyond), indent,

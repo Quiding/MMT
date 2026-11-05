@@ -6,8 +6,9 @@
 --                     you are in has quests
 --   zoneOrder         log (quest-log order) | near (your continent first, then
 --                     the nearest zone) | name (A-Z)
---   questOrder        log | level | progress (furthest along for the team first)
---                     | near (Questie's distance to the nearest objective)
+--   questOrder        near (default: Questie's distance to the nearest objective;
+--                     without Questie the log order) | log | level | progress
+--                     (furthest along for the team first)
 --   readyQuests       keep | top | bottom: quests ready to turn in
 --   useQuestie        distances from Questie's database when Questie is loaded
 --

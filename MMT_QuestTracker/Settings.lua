@@ -140,12 +140,12 @@ M.Page = function(_, page)
     local _, QR = Tile(Or, X2, 0, TILE_W, PANEL_H, "Quests", "Interface\\Icons\\INV_Misc_Note_02")
     local gqo, sqo = Opt("questOrder")
     local qoCycle = QR:Cycle("Order in a zone", {
+        { value = "near", text = "Nearest first" },
         { value = "log", text = "Quest log" },
         { value = "level", text = "Level" },
         { value = "progress", text = "Team progress" },
-        { value = "near", text = "Nearest first" },
     }, gqo, sqo)
-    UI.Tooltip(qoCycle, "Order in a zone", "Quest log: as in your quest log (teammates' quests after yours). Level: lowest first. Team progress: the quests the team is furthest along with first. Nearest first: by distance to the nearest open objective (or the quest giver once done); needs Questie, without it the quest log order stays.")
+    UI.Tooltip(qoCycle, "Order in a zone", "Nearest first (default): by distance to the nearest open objective (or the quest giver once done); needs Questie, without it the quest log order stays. Quest log: as in your quest log (teammates' quests after yours). Level: lowest first. Team progress: the quests the team is furthest along with first.")
     local grq, srq = Opt("readyQuests")
     local rqCycle = QR:Cycle("Quests ready to turn in", {
         { value = "keep", text = "In order" },
