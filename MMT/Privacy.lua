@@ -9,7 +9,9 @@
 --     character counts on item tooltips, ...) and any text other addons show
 --     in their own frames (raid
 --     frames of other addons), as far as the game allows: values the game
---     hands out as secrets can't be read and stay as they are.
+--     hands out as secrets can't be read and stay as they are. The names the
+--     game draws above characters in the world (nameplates off) can't be
+--     changed: those are switched off instead ("Hide names above characters").
 --
 -- Only what is shown changes: player links in chat keep the real name, so
 -- clicking a name still whispers the right character. Addon messages,
@@ -112,18 +114,75 @@ local Reapply   -- below
 -- the setting, the team or a class changed: new rules, and everything shown again
 -- hiding on/off as at login: a profile switch or a synced profile that
 -- changes it needs a reload for other addons (said once in chat)
-local activeAtLogin, reloadSaid
-ns.OnLogin(function() activeAtLogin, reloadSaid = Active() and true or false, false end)
+-- The same for "Show characters by" while hiding: other addons' frames keep
+-- the names they were given until a reload.
+local activeAtLogin, modeAtLogin, reloadSaid
+ns.OnLogin(function()
+    activeAtLogin, reloadSaid = Active() and true or false, false
+    modeAtLogin = Settings() and Settings().nameMode
+end)
 local function CheckReload()
     if activeAtLogin == nil or reloadSaid or ns.privacyReloading then return end
-    if (Active() and true or false) ~= activeAtLogin then
+    local now = Active() and true or false
+    if now ~= activeAtLogin or (now and Settings().nameMode ~= modeAtLogin) then
         reloadSaid = true
-        ns.Print("\"Hide names outside MMT too\" changed: reload the UI (/reload) so other addons follow.")
+        ns.Print("Privacy names changed (\"Hide names outside MMT too\" or \"Show characters by\"): reload the UI (/reload) so other addons follow.")
     end
 end
 
+---------------------------------------------------------------------------
+-- Names above characters in the 3D world (nameplates off): the game draws
+-- them itself, no addon can change that text. While hiding (and "Hide names
+-- above characters" is on) they are switched off: own name and friendly
+-- players. The values before are kept per character (MMTDB.worldNames) and
+-- put back when hiding is off again. Friendly nameplates still show names
+-- (replaced like all other text).
+---------------------------------------------------------------------------
+local WORLD_CVARS = { "UnitNameOwn", "UnitNameFriendlyPlayerName" }
+local function GetCV(name)
+    if C_CVar and C_CVar.GetCVar then return C_CVar.GetCVar(name) end
+    if GetCVar then return GetCVar(name) end
+end
+local function SetCV(name, value)
+    local ok
+    if C_CVar and C_CVar.SetCVar then ok = pcall(C_CVar.SetCVar, name, value)
+    elseif SetCVar then ok = pcall(SetCVar, name, value) end
+    return ok
+end
+local worldPending
+function ns.ApplyWorldNames()
+    if not MMTDB or not ns.PlayerFull then return end
+    if InCombatLockdown and InCombatLockdown() then worldPending = true return end
+    worldPending = nil
+    MMTDB.worldNames = MMTDB.worldNames or {}
+    local me = ns.PlayerFull()
+    local saved = MMTDB.worldNames[me]
+    local p = Settings()
+    local hide = Active() and p.hideWorld ~= false
+    for _, cvar in ipairs(WORLD_CVARS) do
+        local cur = GetCV(cvar)
+        if cur ~= nil then
+            if hide then
+                if cur ~= "0" then
+                    saved = saved or {}
+                    saved[cvar] = cur
+                    SetCV(cvar, "0")
+                end
+            elseif saved and saved[cvar] then
+                if cur == "0" then SetCV(cvar, saved[cvar]) end
+                saved[cvar] = nil
+            end
+        end
+    end
+    if saved and next(saved) == nil then saved = nil end
+    MMTDB.worldNames[me] = saved
+end
+ns.OnLogin(function() ns.ApplyWorldNames() end)
+ns.On("PLAYER_REGEN_ENABLED", function() if worldPending then ns.ApplyWorldNames() end end)
+
 function ns.PrivacyChanged()
     CheckReload()
+    if ns.ApplyWorldNames then ns.ApplyWorldNames() end
     cache = {}
     if ns.RefreshNameFrames then ns.RefreshNameFrames() end
     if Reapply then Reapply() end

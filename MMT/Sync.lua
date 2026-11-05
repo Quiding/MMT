@@ -526,7 +526,10 @@ end
 -- Module states or "Hide names outside MMT too" changed by a sync: they only
 -- take full effect after a UI reload. Ask here; the sender is told (ACCEPT:R).
 local SYNC_RELOAD_TEXT = "A MMT-module or features got enabled/disabled because of a synchronized profile that require a /reload to properly function.\nDo you want to reload now?"
-local function PrivacyNow() return ns.PrivacyHidesOutside and ns.PrivacyHidesOutside() or false end
+-- hiding on: the name mode too (other addons keep the old names until a reload)
+local function PrivacyNow()
+    return ns.PrivacyHidesOutside and ns.PrivacyHidesOutside() and (ns.db.privacy.nameMode or true) or false
+end
 local function AskSyncReload()
     C_Timer.After(0.2, function() ns.UI.AskReload(SYNC_RELOAD_TEXT, nil, nil, "Yes", "No") end)
 end

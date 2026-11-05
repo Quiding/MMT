@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 1.0.8: core addon (MMT) plus optional modules (MMT_*).
+Version 1.0.9: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -62,11 +62,15 @@ Saved data from MMT 0.1.x is converted automatically.
   the right character), unit frames, raid frames, nameplates, unit tooltips, lines other
   addons add to any tooltip (e.g. Syndicator's character counts on item tooltips) and the
   text of other addons' frames (e.g. their raid frames), where the game allows it.
-  Changing the setting updates what is already shown, chat lines included.
-  Switching "Hide names outside MMT too" on or off (or switching to or from "Full name"
-  while it is on) asks to reload the UI right away, because other addons only pick it up
+  The names the game draws above characters in the world (nameplates off) can't be
+  changed by any addon: "Hide names above characters" (on by default, only with "Hide
+  names outside MMT too") switches them off instead, for your own character and other
+  friendly players (Interface > Names), and puts them back when hiding is off again;
+  friendly nameplates still show the (replaced) names.
+  Switching "Hide names outside MMT too" on or off, or changing "Show characters by"
+  while it is on, asks to reload the UI right away, because other addons only pick it up
   after a reload; Cancel leaves it as it was. (The game no longer lets addons reload the UI
-  themselves; MMT's "Reload now" buttons are secure macro buttons running /reload.) A profile switch that changes it
+  themselves; MMT's "Reload now" buttons are secure macro buttons running /reload.) A profile switch that changes either
   says in chat that a reload is needed; a sync that changes it asks to reload.
 - **Roles** (tiles: Roles, Members of the role, Items for the role): two example roles come with every profile ("Tailor" = item group Cloth,
   "Enchanter" = all Bind on Equip items + item group Enchanting materials; deleted ones

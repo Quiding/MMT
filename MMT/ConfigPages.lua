@@ -457,7 +457,7 @@ ns.RegisterPage("team", "Team", function(page)
     local commInfo = C:Note("")
 
     -- Privacy (bottom right) -------------------------------------------------------
-    local _, P = Tile(page, X2, Y2, TILE_W, BOTTOM_H, "Privacy", "Interface\\Icons\\Ability_Stealth")
+    local ptile, P = Tile(page, X2, Y2, TILE_W, BOTTOM_H, "Privacy", "Interface\\Icons\\Ability_Stealth")
     -- "Hide names outside MMT too" hooks other addons' frames at load: switching
     -- it on or off only works fully after a UI reload, so it reloads right away
     local function AskReload(what, apply)
@@ -475,11 +475,15 @@ ns.RegisterPage("team", "Team", function(page)
         { value = "CLASS", text = "Class (Druid 1, Druid 2)" },
         { value = "SLOT", text = "Slot (Slot 1, Slot 2)" },
     }, gm, function(v)
-        -- with hiding on, "Full name" switches the hiding off (and back on)
+        -- with hiding on, every change needs a reload: other addons' frames keep
+        -- the old names until then ("Full name" switches the hiding off, and back on)
         local p = ns.db.privacy
-        if p.hideOutside and (v == "FULL") ~= (p.nameMode == "FULL") then
-            AskReload(v == "FULL" and "\"Full name\" switches \"Hide names outside MMT too\" off."
-                or "This switches \"Hide names outside MMT too\" on again.", function() SetMode(v) end)
+        if p.hideOutside and v ~= p.nameMode then
+            local what
+            if v == "FULL" then what = "\"Full name\" switches \"Hide names outside MMT too\" off."
+            elseif p.nameMode == "FULL" then what = "This switches \"Hide names outside MMT too\" on again."
+            else what = "Your team's names outside MMT change to the new setting." end
+            AskReload(what, function() SetMode(v) end)
             return
         end
         SetMode(v)
@@ -493,6 +497,13 @@ ns.RegisterPage("team", "Team", function(page)
                 function() sh(v) if ns.PrivacyChanged then ns.PrivacyChanged() end end)
         end,
         "Requires /reload: MMT will try to obfuscate the names of your team on all Blizzard and other addon frames, including chat, tooltips, player/target/group/raid etc. according to the setting made above.\nIf \"Full name\" is selected, this option automatically switches off.")
+    local worldMark = Mark(ptile)
+    local gw, sw = Opt("privacy", "hideWorld")
+    P:Check("Hide names above characters", gw, function(v)
+            sw(v) if ns.ApplyWorldNames then ns.ApplyWorldNames() end
+        end,
+        "With nameplates off, the game draws the names above the characters in the world itself, and no addon can change that text. This switches those names off for your own character and other friendly players (Interface > Names) while \"Hide names outside MMT too\" is on, and back on when it is off.\nFriendly nameplates, if you use them, show the hidden names.")
+    local worldDep = After(worldMark)
     P:Space(4)
     P:Note("All MMT features (core and modules) will use this setting. If \"Hide names outside MMT\" is enabled, the addon will also try to obfuscate the names there.\nMacros will still carry the full name to work, regardless of this setting.")
 
@@ -517,6 +528,7 @@ ns.RegisterPage("team", "Team", function(page)
         local full = ns.db.privacy.nameMode == "FULL"
         hideCheck:SetAlpha(full and 0.4 or 1)
         if hideCheck.SetEnabled then hideCheck:SetEnabled(not full) end
+        Depend(worldDep, function() return ns.db.privacy.hideOutside and not full end)
         if ns.db.comm.guild then
             if not IsInGuild() then
                 commInfo:SetText("|cffff6666Not in a guild:|r messages go to the group and by whisper as usual.")
