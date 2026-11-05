@@ -768,8 +768,11 @@ local function InteractKeyOn() return GetCV("SoftTargetInteract") == "3" end
 -- done(on) is called with the result (to redraw the page).
 function S.SwitchOn(done)
     local function Go() M.db.sparkles = true S.Update() if done then done(true) end end
+    -- Master Looter now, or the loot method MMT sets as soon as you lead a
+    -- group (alone the game reports Group Loot, so that alone isn't enough)
     local method = mod.GetMethod and mod.GetMethod()
-    if method ~= "master" or InteractKeyOn() then Go() return end
+    local master = method == "master" or (M.db.autoMethod == true and M.db.method == "master")
+    if not master or InteractKeyOn() then Go() return end
     MMT.UI.Confirm(
         "You have \"Master Looter\" enabled.\nEnabling \"Sparkles\" will also force-enable the \"Enable Interact key\"-feature of the client.\n\n"
         .. "This will change how your characters use \"Interact with Target\" (IWT) for world objects.\nSpecifically melee classes may become stuck on a corpse instead of running to/attacking a new target, because they prioritize looting the corpse, which they can't because of Master Looter.\n\n"
