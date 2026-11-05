@@ -581,27 +581,41 @@ function ns.BroadcastXP(onlyOnline)
 end
 
 ---------------------------------------------------------------------------
--- System messages: hide "No player named X is currently playing" for team
--- whispers (shown and logged while debugging or pinging).
+-- System messages: "No player named X is currently playing" for a team member
+-- means they logged off: they count as offline at once (no more whispers to
+-- them until they are heard from again), and the message is hidden. It is
+-- only shown while pinging; with the debug log on it is logged.
 ---------------------------------------------------------------------------
 local notFound
 if ERR_CHAT_PLAYER_NOT_FOUND_S then
     notFound = "^" .. ERR_CHAT_PLAYER_NOT_FOUND_S:gsub("([%^%$%(%)%.%[%]%*%+%-%?])", "%%%1"):gsub("%%s", "(.+)") .. "$"
 end
-if ChatFrame_AddMessageEventFilter then
-    ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", function(_, _, msg)
-        if not ns.db or type(msg) ~= "string" or ns.IsSecret(msg) then return end
-        local window = ns.noFilterUntil and GetTime() < ns.noFilterUntil
-        if window then ns.Debug("SYSTEM %s", msg:sub(1, 160)) end
-        local who = notFound and msg:match(notFound)
-        if not who then return end
-        if window or MMTDB.debug then
-            ns.Debug("  'player not found' for %s -> team key %s", ns.Repr(who), ns.Repr(ns.Resolve(who)))
-            return
-        end
-        if ns.Resolve(who) then return true end
-    end)
+
+function ns.MarkOffline(key)
+    local s = ns.status[key]
+    if not (s and s.online) then return end
+    s.online = false
+    ns.Debug("%s is offline (player not found): no more whispers until heard from", ns.Repr(key))
+    ns.Fire("STATUS_CHANGED")
 end
+
+local function SystemFilter(_, _, msg)
+    if not ns.db or type(msg) ~= "string" or ns.IsSecret(msg) then return end
+    local window = ns.noFilterUntil and GetTime() < ns.noFilterUntil
+    if window then ns.Debug("SYSTEM %s", msg:sub(1, 160)) end
+    local who = notFound and msg:match(notFound)
+    if not who then return end
+    local key = ns.Resolve(who)
+    if MMTDB.debug or window then
+        ns.Debug("  'player not found' for %s -> team key %s", ns.Repr(who), ns.Repr(key))
+    end
+    if not key then return end
+    ns.MarkOffline(key)
+    if window then return end   -- pinging: shown
+    return true
+end
+local addFilter = (ChatFrameUtil and ChatFrameUtil.AddMessageEventFilter) or ChatFrame_AddMessageEventFilter
+if addFilter then addFilter("CHAT_MSG_SYSTEM", SystemFilter) end
 
 ---------------------------------------------------------------------------
 -- Receiving
