@@ -284,7 +284,10 @@ Saved data from MMT 0.1.x is converted automatically.
   its name and bar are made see-through) and icon (see-through too, unless a game
   controller is used), and puts these settings back when the option is off. Herbs and
   ore are known by name (with words in front, "Wilted Peacebloom"), by the object's
-  tooltip, and by what you gathered before.
+  tooltip, and by what you gathered before. The game gives dead creatures no nameplate,
+  so corpses (to skin, with loot) can't be highlighted in the world: while one is in
+  front of you, a twinkling sparkle with "Skin" / "Loot" shows on your screen instead
+  ("Move corpse indicator" to place it).
 - **Quest Tracker** (module): replaces the Blizzard quest tracker with a team tracker:
   Zone > [Level] Quest > Objective > one row per team member with their progress
   ("3/8", "done", "completed" when that character already turned it in, "not on quest").

@@ -17,7 +17,9 @@
 --     names learned when you gather something (the target of the cast),
 --     and the object's tooltip ("Requires Herbalism (65)")
 --   corpses: dead creatures whose tooltip says they can be skinned (or
---     gathered with Herbalism / Mining), until you did it
+--     gathered with Herbalism / Mining), until you did it. The game gives
+--     dead creatures no nameplate: corpses show on a spot on the screen
+--     instead (see "Corpses" below)
 --   other world objects (optional), each kind on or off: quest objects (purple),
 --     mailboxes, chests & containers, fishing pools, corpses with loot, and
 --     everything else the interact key picks (white)
@@ -473,6 +475,82 @@ local function Show(plate, color)
 end
 
 ---------------------------------------------------------------------------
+-- Corpses: the game gives dead creatures no nameplate, so there is nothing
+-- in the world to hang the highlight on. A corpse that counts shows a
+-- twinkling sparkle with a word ("Loot", "Skin", "Quest loot") at a spot on
+-- the screen instead (movable: M.db.sparkleHint = { x, y } from the centre).
+---------------------------------------------------------------------------
+local hint, hintMoving
+local function PlaceHint()
+    local p = M.db.sparkleHint or {}
+    hint:ClearAllPoints()
+    hint:SetPoint("CENTER", UIParent, "CENTER", p.x or 0, p.y or -140)
+end
+local function BuildHint()
+    if hint then return hint end
+    hint = CreateFrame("Frame", "MMTLootCorpseHint", UIParent)
+    hint:SetSize(64, 64)
+    hint:SetFrameStrata("MEDIUM")
+    hint:SetMovable(true)
+    hint:SetClampedToScreen(true)
+    hint:EnableMouse(false)
+    hint:RegisterForDrag("LeftButton")
+    hint:SetScript("OnDragStart", function(self) self:StartMoving() end)
+    hint:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        local x, y = self:GetCenter()
+        local ux, uy = UIParent:GetCenter()
+        local sc = self:GetScale() or 1
+        M.db.sparkleHint = { x = math.floor(x * sc - ux + 0.5), y = math.floor(y * sc - uy + 0.5) }
+        PlaceHint()
+    end)
+    local glow = Texture(hint, "Glow", 64, 64, 0.5)
+    glow:SetPoint("CENTER")
+    local star = Texture(hint, "Star", 56, 56, 1)
+    star:SetPoint("CENTER")
+    hint.textures = { glow, star }
+    local g = hint:CreateAnimationGroup()
+    g:SetLooping("BOUNCE")
+    Alpha(g, 1, 0.35, 0.8, nil, nil, "IN_OUT")
+    hint.anim = g
+    hint.label = hint:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    hint.label:SetPoint("TOP", hint, "BOTTOM", 0, 2)
+    hint:Hide()
+    PlaceHint()
+    return hint
+end
+
+local HINT_WORDS = { quest = "Quest loot", loot = "Loot" }
+local function ShowHint(t, color, text)
+    BuildHint()
+    hint:SetScale(math.max(0.3, (M.db.sparkleSize or 100) / 100))
+    PlaceHint()
+    for _, tex in ipairs(hint.textures) do tex:SetVertexColor(color[1], color[2], color[3], tex.baseAlpha) end
+    hint.label:SetText(text or HINT_WORDS[t and t.other]
+        or (t and t.skill == "Skinning" and "Skin") or (t and t.skill) or "")
+    hint.label:SetTextColor(color[1], color[2], color[3])
+    if not hint.anim:IsPlaying() then hint.anim:Play() end
+    hint:Show()
+end
+local function HideHint()
+    if hint and not hintMoving then hint.anim:Stop() hint:Hide() end
+end
+
+-- settings page: show the indicator to drag it, again to lock it
+function S.MoveHint()
+    BuildHint()
+    hintMoving = not hintMoving
+    hint:EnableMouse(hintMoving)
+    if hintMoving then
+        ShowHint(nil, S.ColorFor(nil), "Drag me")
+    else
+        hint.anim:Stop() hint:Hide()
+        S.Refresh()
+    end
+    return hintMoving
+end
+
+---------------------------------------------------------------------------
 -- The game's plate: see-through parts (alpha only, given back)
 ---------------------------------------------------------------------------
 local veiled = setmetatable({}, { __mode = "k" })   -- [region] = alpha before
@@ -527,7 +605,8 @@ end
 -- plate, an object would get a name and a bar)
 local function FitPlate(t)
     if InCombat() or not OwnsPlates() then return end
-    local want = t and "1" or Saved().SoftTargetNameplateInteract.old
+    -- (a corpse gets no plate anyway: it shows on the screen)
+    local want = (t and not t.corpse) and "1" or Saved().SoftTargetNameplateInteract.old
     if GetCV("SoftTargetNameplateInteract") ~= want then SetCV("SoftTargetNameplateInteract", want) end
 end
 
@@ -548,7 +627,7 @@ function S.Refresh()
         end
     end
     if not On() then
-        Hide() S.UnveilAll()
+        Hide() HideHint() S.UnveilAll()
         lastState = "off"
         return lastState
     end
@@ -558,10 +637,15 @@ function S.Refresh()
     local plate = t and Plate()
     pcall(Veil, plate, t)
     if t and plate then
+        HideHint()
         Show(plate, S.ColorFor(t))
         lastState = ("shown %s need=%s have=%s"):format(t.skill, tostring(t.need), tostring(t.have))
-    else
+    elseif t and t.corpse then
         Hide()
+        ShowHint(t, S.ColorFor(t))
+        lastState = ("on screen %s %s"):format(tostring(t.other or t.skill), tostring(t.need))
+    else
+        Hide() HideHint()
         lastState = t and "no plate" or "nothing"
     end
     return lastState
@@ -629,7 +713,7 @@ do
     end
     M.OnDisable = function(...)
         if disable then disable(...) end
-        Hide() S.UnveilAll() S.RestoreSettings()
+        Hide() HideHint() S.UnveilAll() S.RestoreSettings()
     end
 end
 
