@@ -280,6 +280,16 @@ local function NoteGiven(key)
     given[key] = g
 end
 
+-- does the game offer this slot for master loot at all? Not for gathering (mining,
+-- herbs, skinning), containers or anything else that is only yours: those loot normally
+local function MasterLootSlot(slot)
+    for i = 1, 40 do
+        if GetMasterLootCandidate(slot, i) then return true end
+    end
+    return false
+end
+mod.MasterLootSlot = MasterLootSlot
+
 -- loot window candidate index for a team member
 local function CandidateIndex(slot, key)
     for i = 1, 40 do
@@ -678,7 +688,10 @@ local function Plan(needOf)
         local _, _, _, _, quality, locked = GetLootSlotInfo(slot)
         local isQuestItem = link and IsQuestLoot(slot, link)
         local bind = link and select(14, MMT.ItemInfo(link))
-        if slotType == ITEM_SLOT and link and not locked and isQuestItem and cfg.questRR and bind ~= BOP then
+        if slotType == ITEM_SLOT and link and not MasterLootSlot(slot) then
+            -- gathering, a container, ...: only yours, the game loots it as usual
+            M:Debug("%s is not master loot (gathering or your own loot): left to the game", link)
+        elseif slotType == ITEM_SLOT and link and not locked and isQuestItem and cfg.questRR and bind ~= BOP then
             local key, index = NextQuestReceiver(slot, link, planned, needOf)
             if key then
                 plan[#plan + 1] = { slot = slot, link = link, key = key, index = index, role = "quest, round robin" }
