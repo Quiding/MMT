@@ -753,6 +753,18 @@ end
 MMT.On("PLAYER_REGEN_ENABLED", function()
     if keyOffPending and not S.Allowed() then KeyOff() else keyOffPending = nil end
 end)
+-- settings arriving by sync (or a profile switch): sparkles follow at once,
+-- "Enable Interact Key" included (before, nothing looked again until the
+-- next login, so a synced "Enable on entire team" didn't switch it on)
+do
+    local changed = M.OnProfileChanged
+    M.OnProfileChanged = function(...)
+        if changed then changed(...) end
+        local now = S.Allowed()
+        if now ~= lastAllowed then LeaderCheck() else S.Update() MMT.Refresh() end
+    end
+end
+
 -- who leads when you come into the world: the starting point, no switching
 M:On("PLAYER_ENTERING_WORLD", function() if lastAllowed == nil then lastAllowed = S.Allowed() end end)
 M:On("GROUP_ROSTER_UPDATE", LeaderCheck)
