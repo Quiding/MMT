@@ -48,7 +48,10 @@ mod.Sparkles = S
 -- sparkleSize, sparkleHeight, sparkleHideIcon
 -- "Sync-Behaviour" (M.db.sparkleSync): LEADER = only the leader of the team
 -- sparkles (the FTL leader if one is set, else the group leader, alone: you);
--- the others stay off, and a sync sends Sparkles switched off. TEAM = every
+-- the others stay off. Sparkles travels with the sync as it is: after a
+-- sync, a leader change or an FTL change every character looks for itself
+-- whether it is the leader, so a sync from a member reaches the FTL leader
+-- too. TEAM = every
 -- character with Sparkles on, and it travels with the sync like the rest.
 function S.IsLeaderHere()
     local ftl = MMT.FTLLeader and MMT.FTLLeader()
@@ -850,15 +853,6 @@ M:On("UNIT_SPELLCAST_SUCCEEDED", function(unit, castGUID)
     end
 end)
 
--- "Only on Group Leader": a sync sends Sparkles switched off
-do
-    local base = M.SyncData
-    M.SyncData = function(self)
-        local data = base(self)
-        if data.sparkleSync ~= "TEAM" then data.sparkles = false end
-        return data
-    end
-end
 
 -- module on / off
 do

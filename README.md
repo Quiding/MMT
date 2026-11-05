@@ -290,7 +290,9 @@ Saved data from MMT 0.1.x is converted automatically.
   (so every enemy shows a nameplate), Sparkles switches the interact key on (off and on
   again once, as the options box does, so the game picks it up); both put back when off.
   "Sync-Behaviour": "Only on Group Leader" (default) keeps Sparkles on the team's leader
-  only (the FTL leader if set, else the group leader) and syncs send it switched off;
+  only (the FTL leader if set, else the group leader): it travels with the sync, and
+  every character checks after a sync, a group leader or an FTL leader change whether
+  it is that leader and switches Sparkles on or off;
   when the leader changes, the old leader switches "Enable Interact Key" off and the
   new one on, without asking (a client that is offline keeps its setting); the same
   when a sync (or profile switch) turns Sparkles off on a character;
