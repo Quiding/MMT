@@ -20,7 +20,10 @@
 --     gathered with Herbalism / Mining), until you did it
 --   other world objects (optional), each kind on or off: quest objects (blue),
 --     mailboxes, chests & containers, fishing pools, corpses with loot, and
---     everything else the interact key picks (white)
+--     everything else the interact key picks (white). Quest objects: also
+--     corpses with loot a quest still wants. The tooltip's quest rows say so
+--     (yours and each group member's progress, "2/6 Pyrewood Shackle"), only
+--     while an objective is not done; kill objectives on a corpse don't count
 -- Colour by skill: orange, yellow, green (like recipes), grey once it gives
 -- no skill-ups any more, red when the skill is too low; or one colour.
 --
@@ -245,6 +248,72 @@ local function CorpseSkill()
     end
 end
 
+-- The quest rows of the target's tooltip. The game lists them for objects and
+-- creatures (dead ones too): a QuestTitle row (line.id = quest ID), in a group
+-- a QuestPlayer row per member who has the quest, then the QuestObjective
+-- rows (numFulfilled / numRequired) of that member. Returns "open" when one
+-- objective row is not done yet, "done" when there are rows and all are done,
+-- nil without rows or when the game keeps them secret (in combat, creatures
+-- inside instances). skip(questID, text): rows that don't count.
+local function ReadQuestRows(skip)
+    local types = Enum and Enum.TooltipDataLineType
+    if not (types and types.QuestObjective and C_TooltipInfo and C_TooltipInfo.GetUnit) then return nil end
+    local data = Safe(C_TooltipInfo.GetUnit, UNIT)
+    local lines = type(data) == "table" and data.lines
+    if MMT.IsSecret(lines) or type(lines) ~= "table" then return nil end
+    local state, quest
+    for _, line in ipairs(lines) do
+        if MMT.IsSecret(line) or type(line) ~= "table" or MMT.IsSecret(line.type) then return nil end
+        if line.type == types.QuestTitle then
+            quest = line.id
+            if MMT.IsSecret(quest) then return nil end
+        elseif line.type == types.QuestObjective then
+            local text, have, need = line.leftText, line.numFulfilled, line.numRequired
+            if MMT.IsSecret(text) or MMT.IsSecret(have) or MMT.IsSecret(need) then return nil end
+            if not (skip and skip(quest, text)) then
+                local open
+                if type(have) == "number" and type(need) == "number" and need > 0 then
+                    open = have < need
+                else   -- no counts: "3/8" in the text, else not done
+                    local h, n = (type(text) == "string" and text or ""):match("(%d+)%s*/%s*(%d+)")
+                    open = not h or tonumber(h) < tonumber(n)
+                end
+                if open then return "open" end
+                state = "done"
+            end
+        end
+    end
+    return state
+end
+function S.QuestRows(skip)
+    local ok, state = pcall(ReadQuestRows, skip)
+    return ok and state or nil
+end
+
+-- "Pyrewood Shackle: 2/6" (quest log) and "2/6 Pyrewood Shackle" (tooltip) alike
+local function Bare(text)
+    return (tostring(text):lower():gsub("[%d/:%(%)%%]", " "):gsub("%s+", " "):match("^%s*(.-)%s*$"))
+end
+
+-- a kill objective row on a corpse: counted when the creature died, its loot
+-- has nothing more for it. The quest log tells (your own quests); for a quest
+-- only a team member has: the creature's name or "slain" in the row.
+local function KillRow(questID, text, unitName)
+    if type(text) ~= "string" then return false end
+    local bare = Bare(text)
+    if type(questID) == "number" and C_QuestLog and C_QuestLog.GetQuestObjectives then
+        local list = Safe(C_QuestLog.GetQuestObjectives, questID)
+        for _, o in ipairs(type(list) == "table" and list or {}) do
+            if type(o) == "table" and not MMT.IsSecret(o.text) and not MMT.IsSecret(o.type)
+                and type(o.text) == "string" and Bare(o.text) == bare then
+                return o.type == "monster"
+            end
+        end
+    end
+    if type(unitName) == "string" and unitName ~= "" and bare:find(unitName:lower(), 1, true) then return true end
+    return bare:find("%f[%a]slain%f[%A]") ~= nil
+end
+
 -- skill a corpse of this level needs (Skinning and the others alike)
 local function CorpseNeed(level)
     if type(level) ~= "number" or level <= 10 then return 1 end
@@ -279,6 +348,15 @@ function S.Target()
         return nil
     end
     if done[guid] or not guid:find("^Creature%-") or Safe(UnitIsDead, UNIT) ~= true then return nil end
+    local hasLoot = CanLootUnit and Safe(CanLootUnit, guid)
+    -- a corpse with loot a quest of yours or a group member still wants (before
+    -- skinning: the loot comes first); kill objectives don't count
+    if M.db.sparkleObjects and S.KindOn("quest") and hasLoot == true then
+        local unitName = Safe(UnitName, UNIT)
+        if S.QuestRows(function(quest, text) return KillRow(quest, text, unitName) end) == "open" then
+            return { guid = guid, skill = "Object", other = "quest", corpse = true }
+        end
+    end
     if M.db.sparkleCorpses then
         local skill = CorpseSkill()
         if skill and skills[skill] then
@@ -287,9 +365,8 @@ function S.Target()
         end
     end
     -- a corpse with loot left on it
-    if M.db.sparkleObjects and S.KindOn("loot") and CanLootUnit then
-        local hasLoot = Safe(CanLootUnit, guid)
-        if hasLoot == true then return { guid = guid, skill = "Object", other = "loot", corpse = true } end
+    if M.db.sparkleObjects and S.KindOn("loot") and hasLoot == true then
+        return { guid = guid, skill = "Object", other = "loot", corpse = true }
     end
     return nil
 end
@@ -316,7 +393,11 @@ end
 
 -- what kind of object the interact key points at: quest, mailbox, chest, fishing or other
 function S.ObjectKind(name)
-    if C_QuestLog and C_QuestLog.UnitIsRelatedToActiveQuest and Safe(C_QuestLog.UnitIsRelatedToActiveQuest, UNIT) == true then
+    -- the quest rows decide when the game shows them: quest only while some
+    -- objective (yours or a group member's) is not done yet
+    local rows = S.QuestRows()
+    if rows == "open" then return "quest" end
+    if rows == nil and C_QuestLog and C_QuestLog.UnitIsRelatedToActiveQuest and Safe(C_QuestLog.UnitIsRelatedToActiveQuest, UNIT) == true then
         return "quest"
     end
     for _, text in ipairs(TooltipLines()) do
@@ -636,7 +717,7 @@ function S.Report(add)
         tostring(M.db.sparkleHideIcon), lastState))
     local kinds = {}
     for _, k in ipairs(S.KINDS) do kinds[#kinds + 1] = k[1] .. "=" .. tostring(S.KindOn(k[1])) end
-    add("  object kinds: " .. table.concat(kinds, " "))
+    add("  object kinds: " .. table.concat(kinds, " ") .. "  quest rows: " .. tostring(S.QuestRows()))
     add(("  skills: Herbalism=%s Mining=%s Skinning=%s  learned nodes=%d  controller=%s"):format(
         tostring(skills.Herbalism), tostring(skills.Mining), tostring(skills.Skinning), learned, tostring(Controller())))
     add("  game: " .. table.concat(cv, " "))
