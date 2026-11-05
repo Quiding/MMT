@@ -163,7 +163,7 @@ function mod.SparklesTab(panel, PANEL_H)
     W:Check("Corpses you can skin", function() return M.db.sparkleCorpses end, Set("sparkleCorpses"),
         "A dead creature you can skin (or gather with Herbalism or Mining) is highlighted until you did it.")
     W:Check("Other world objects", function() return M.db.sparkleObjects end, Set("sparkleObjects"),
-        "Also other things in the world you can interact with, each kind on or off below. With \"Colour by skill\": quest objects blue, the rest white.")
+        "Also other things in the world you can interact with, each kind on or off below. With \"Colour by skill\": quest objects purple, the rest white.")
     local omark = H.Mark(wt)
     local tips = {
         quest = "Objects a quest in your log still wants (the game says so, or the tooltip shows progress like 3/8).",
@@ -192,7 +192,7 @@ function mod.SparklesTab(panel, PANEL_H)
         { value = "BEAM", text = "Beam of light" },
     }, function() return M.db.sparkleStyle end, Set("sparkleStyle"))
     Lk:Check("Colour by skill", function() return M.db.sparkleColors end, Set("sparkleColors"),
-        "Like recipes: orange, yellow, green (skill-ups likely to rare), grey (no skill-ups any more), red (skill too low). Other objects are white. Off: the colour below.")
+        "Like recipes: orange, yellow, green (skill-ups likely to rare), grey (no skill-ups any more), red (skill too low). Quest objects are purple, other objects white. Off: the colour below.")
     Lk:Color("Colour", function() return M.db.sparkleColor end, Set("sparkleColor"))
     Lk:Slider("Size", 50, 200, 10, function() return M.db.sparkleSize end, Set("sparkleSize"), "%d%%")
     Lk:Slider("Height", -60, 60, 5, function() return M.db.sparkleHeight end, Set("sparkleHeight"))

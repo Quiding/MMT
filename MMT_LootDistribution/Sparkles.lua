@@ -18,7 +18,7 @@
 --     and the object's tooltip ("Requires Herbalism (65)")
 --   corpses: dead creatures whose tooltip says they can be skinned (or
 --     gathered with Herbalism / Mining), until you did it
---   other world objects (optional), each kind on or off: quest objects (blue),
+--   other world objects (optional), each kind on or off: quest objects (purple),
 --     mailboxes, chests & containers, fishing pools, corpses with loot, and
 --     everything else the interact key picks (white)
 -- Colour by skill: orange, yellow, green (like recipes), grey once it gives
@@ -286,10 +286,12 @@ function S.Target()
             return { guid = guid, skill = skill, have = skills[skill], need = CorpseNeed(level), corpse = true }
         end
     end
-    -- a corpse with loot left on it
-    if M.db.sparkleObjects and S.KindOn("loot") and CanLootUnit then
-        local hasLoot = Safe(CanLootUnit, guid)
-        if hasLoot == true then return { guid = guid, skill = "Object", other = "loot", corpse = true } end
+    -- a corpse with loot left on it: the interact key only picks a corpse
+    -- that can be looted (or skinned), so any dead creature counts unless
+    -- the game clearly says there is no loot (CanLootUnit may give nothing)
+    if M.db.sparkleObjects and S.KindOn("loot") then
+        local hasLoot = CanLootUnit and Safe(CanLootUnit, guid)
+        if hasLoot ~= false then return { guid = guid, skill = "Object", other = "loot", corpse = true } end
     end
     return nil
 end
@@ -337,7 +339,7 @@ end
 S.COLORS = {
     red = { 1, 0.25, 0.25 }, orange = { 1, 0.5, 0.25 }, yellow = { 1, 1, 0 },
     green = { 0.25, 0.85, 0.25 }, grey = { 0.65, 0.65, 0.65 }, white = { 1, 1, 1 },
-    quest = { 0.3, 0.65, 1 },
+    quest = { 0.64, 0.21, 0.93 },   -- purple, like epic items
 }
 local GOLD = { r = 1, g = 0.84, b = 0.36 }
 
@@ -533,7 +535,18 @@ end
 -- Looking again
 ---------------------------------------------------------------------------
 local lastState = "off"
+local lastGuid
 function S.Refresh()
+    local g = Safe(UnitGUID, UNIT)
+    if M.enabled and M.db.sparkles and g ~= lastGuid then
+        lastGuid = g
+        if type(g) == "string" and g:find("^Creature%-") then
+            local ok, hasLoot = pcall(function() return CanLootUnit and CanLootUnit(g) end)
+            M:Debug("sparkles: interact target %s dead=%s CanLootUnit=%s tooltip=[%s]", MMT.Repr(Safe(UnitName, UNIT)),
+                tostring(Safe(UnitIsDead, UNIT)), ok and (MMT.IsSecret(hasLoot) and "secret" or tostring(hasLoot)) or "error",
+                table.concat(TooltipLines(), " | "))
+        end
+    end
     if not On() then
         Hide() S.UnveilAll()
         lastState = "off"
@@ -641,6 +654,9 @@ function S.Report(add)
         tostring(skills.Herbalism), tostring(skills.Mining), tostring(skills.Skinning), learned, tostring(Controller())))
     add("  game: " .. table.concat(cv, " "))
     local guid = Safe(UnitGUID, UNIT)
-    add(("  interact target: %s %s plate=%s tooltip=[%s]"):format(MMT.Repr(Safe(UnitName, UNIT)), tostring(guid),
-        tostring(Plate() ~= nil), table.concat(TooltipLines(), " | ")))
+    local okL, hasLoot, canLoot = pcall(function() if CanLootUnit and guid then return CanLootUnit(guid) end end)
+    add(("  interact target: %s %s dead=%s CanLootUnit=%s/%s plate=%s tooltip=[%s]"):format(MMT.Repr(Safe(UnitName, UNIT)), tostring(guid),
+        tostring(Safe(UnitIsDead, UNIT)), okL and (MMT.IsSecret(hasLoot) and "secret" or tostring(hasLoot)) or "error",
+        okL and (MMT.IsSecret(canLoot) and "secret" or tostring(canLoot)) or "", tostring(Plate() ~= nil),
+        table.concat(TooltipLines(), " | ")))
 end
