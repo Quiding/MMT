@@ -732,13 +732,20 @@ M:On("PLAYER_ENTERING_WORLD", function() S.Update() end)
 -- normal switching on forces it on. Each client does this for itself, so an
 -- old leader that is offline keeps its setting.
 local lastAllowed, keyOffPending
-local function KeyOff()
-    if InCombat() then keyOffPending = true return end
+-- why: what made Sparkles inactive here (for the debug line)
+local function KeyOff(why)
+    if InCombat() then keyOffPending = why or true return end
     keyOffPending = nil
     if GetCV("SoftTargetInteract") == "3" then
         SetCV("SoftTargetInteract", 1)
-        M:Debug("sparkles: no longer the leader, \"Enable Interact Key\" switched off")
+        M:Debug("sparkles: %s, \"Enable Interact Key\" switched off", why or "inactive here")
     end
+end
+-- the reason Sparkles is inactive on this character now
+local function WhyOff()
+    if M.db.sparkles ~= true then return "Sparkles switched off (sync or profile)" end
+    if not S.Allowed() then return "no longer the leader (\"Only on Group Leader\")" end
+    return "inactive here"
 end
 local function LeaderCheck()
     if not M.enabled then return end
@@ -748,12 +755,13 @@ local function LeaderCheck()
         lastAllowed = now
         if now then keyOffPending = nil end
         S.Update()
-        if moved then KeyOff() end
+        if moved then KeyOff(WhyOff()) end
         MMT.Refresh()
     end
 end
 MMT.On("PLAYER_REGEN_ENABLED", function()
-    if keyOffPending and not S.Allowed() then KeyOff() else keyOffPending = nil end
+    -- after combat: only if Sparkles is still inactive here
+    if keyOffPending and not On() then KeyOff(keyOffPending ~= true and keyOffPending or WhyOff()) else keyOffPending = nil end
 end)
 -- settings arriving by sync (or a profile switch): sparkles follow at once,
 -- "Enable Interact Key" included (before, nothing looked again until the
@@ -767,7 +775,7 @@ do
         local before = S.wasActive
         local now = S.Allowed()
         if now ~= lastAllowed then LeaderCheck() else S.Update() MMT.Refresh() end
-        if before and not On() then KeyOff() end
+        if before and not On() then KeyOff(WhyOff()) end
     end
 end
 
