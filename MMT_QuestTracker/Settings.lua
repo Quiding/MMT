@@ -30,6 +30,7 @@ M.Page = function(_, page)
     local TOP = H.Intro(page, "One quest tracker for the whole team: every member's progress under each quest, plus quest automation and sharing.")
     local tabs, _, PANEL_H = H.TabStrip(page, TOP, {
         { "tracker", "Tracker", "INV_Misc_Book_09" },
+        { "order", "Order", "INV_Misc_Map_01" },
         { "auto", "Automation", "INV_Misc_Gear_01" },
         { "fonts", "Fonts", "INV_Misc_Note_01" },
     }, H.SYNC_RESERVE)
@@ -113,6 +114,51 @@ M.Page = function(_, page)
     R:Note("In the tracker: Shift + drag moves it. Quest: click opens it in the quest log, Shift-click links it, Shift-right-click abandons it. Zone: Ctrl-click collapses its quests, Ctrl-right-click shows only that zone (again: all).")
 
     -------------------------------------------------------------------------
+    -- Order: Zones (left), Quests (right) - Arrange.lua
+    -------------------------------------------------------------------------
+    local Or = tabs.order
+    local _, ZL = Tile(Or, 0, 0, TILE_W, PANEL_H, "Zones", "Interface\\Icons\\INV_Misc_Map_01")
+    local gcz, scz = Opt("currentZoneFirst")
+    ZL:Check("Zone you are in first", gcz, scz, "The zone you are in goes to the top of the tracker (in a dungeon: its quests, when the quest log lists them under the dungeon's name).")
+    local goz, soz = Opt("otherZones")
+    local ozCycle = ZL:Cycle("Other zones", {
+        { value = "show", text = "Show" },
+        { value = "collapse", text = "Collapse" },
+        { value = "hide", text = "Hide" },
+    }, goz, soz)
+    UI.Tooltip(ozCycle, "Other zones", "While the zone you are in has quests: the other zones stay as they are (Show), are collapsed to their name (Collapse; open one with its +, it stays open until you change zone), or are left out (Hide). In a zone without quests, all zones show. A zone focus (Ctrl-right-click) goes first.")
+    local gzo, szo = Opt("zoneOrder")
+    local zoCycle = ZL:Cycle("Order of the zones", {
+        { value = "near", text = "Nearest first" },
+        { value = "log", text = "Quest log" },
+        { value = "name", text = "A - Z" },
+    }, gzo, szo)
+    UI.Tooltip(zoCycle, "Order of the zones", "Nearest first: zones on your continent by distance (to the nearest quest objective with Questie, otherwise to the middle of the zone), then other continents, then headers that aren't zones (class quests and the like). Re-sorted while you move.")
+    ZL:Space(4)
+    ZL:Note("Quests only teammates have are sorted into their zones too.")
+
+    local _, QR = Tile(Or, X2, 0, TILE_W, PANEL_H, "Quests", "Interface\\Icons\\INV_Misc_Note_02")
+    local gqo, sqo = Opt("questOrder")
+    local qoCycle = QR:Cycle("Order in a zone", {
+        { value = "log", text = "Quest log" },
+        { value = "level", text = "Level" },
+        { value = "progress", text = "Team progress" },
+        { value = "near", text = "Nearest first" },
+    }, gqo, sqo)
+    UI.Tooltip(qoCycle, "Order in a zone", "Quest log: as in your quest log (teammates' quests after yours). Level: lowest first. Team progress: the quests the team is furthest along with first. Nearest first: by distance to the nearest open objective (or the quest giver once done); needs Questie, without it the quest log order stays.")
+    local grq, srq = Opt("readyQuests")
+    local rqCycle = QR:Cycle("Quests ready to turn in", {
+        { value = "keep", text = "In order" },
+        { value = "top", text = "On top" },
+        { value = "bottom", text = "At the bottom" },
+    }, grq, srq)
+    UI.Tooltip(rqCycle, "Quests ready to turn in", "Quests every shown character is done with.")
+    local guq, suq = Opt("useQuestie")
+    QR:Check("Distances from Questie", guq, suq, "When Questie is loaded, \"Nearest first\" uses its database: the nearest spot of each open objective of the quests in your log. Questie's own tracker stays hidden (Tracker tab).")
+    QR:Space(4)
+    QR:Note(mod.QuestieAvailable() and "Questie is loaded." or "Questie is not loaded: zones go by their middle, quests keep the quest log order.")
+
+    -------------------------------------------------------------------------
     -- Automation: Quests (left), Team (right)
     -------------------------------------------------------------------------
     local Au = tabs.auto
@@ -183,6 +229,7 @@ function M.Report(_, add)
         tostring(M.db.onlyWatched), tostring(M.db.teamQuests), tostring(M.db.showMissing),
         MMT.Repr(M.store.focusZone), watchedN))
     add(("other trackers: hideOthers=%s  %s"):format(tostring(M.db.hideOthers), mod.OtherTrackersReport()))
+    add(mod.ArrangeReport())
     for _, id in ipairs(mod.ownOrder or {}) do
         local own = mod.AllData()[MMT.PlayerFull()]
         local q = own and own.quests and own.quests[id]

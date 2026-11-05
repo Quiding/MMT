@@ -71,16 +71,37 @@ local function Collapsed()
     return M.store.collapsed
 end
 
+-- a zone is collapsed by its own +/-, or automatically ("Other zones: collapse",
+-- see Arrange.lua) unless you opened it since the last zone change
+function mod.ZoneCollapsed(zone)
+    if Collapsed()["z:" .. zone] then return true end
+    local auto = mod.autoCollapse
+    return (auto and not auto[zone] and not mod.autoOpened[zone] and not mod.autoOpened["*"]) and true or false
+end
+
 function mod.Toggle(key)
     local c = Collapsed()
-    c[key] = not c[key] or nil
+    local zone = key:match("^z:(.*)$")
+    if zone then
+        if mod.ZoneCollapsed(zone) then
+            c[key] = nil
+            mod.autoOpened[zone] = true
+        else
+            c[key] = true
+            mod.autoOpened[zone] = nil
+        end
+    else
+        c[key] = not c[key] or nil
+    end
     mod.Redraw()
 end
 
 function mod.SetAllCollapsed(on, zones)
     local c = Collapsed()
     wipe(c)
-    if on then for _, z in ipairs(zones or {}) do c["z:" .. z] = true end end
+    mod.ResetAutoOpened()
+    if on then for _, z in ipairs(zones or {}) do c["z:" .. z] = true end
+    else mod.autoOpened["*"] = true end   -- "Expand all" opens the automatically collapsed zones too
     f.offset = 0
     mod.Redraw()
 end
@@ -91,6 +112,7 @@ function mod.ToggleZoneQuests(zone, questIDs)
     local allClosed = #questIDs > 0
     for _, id in ipairs(questIDs) do if not c["q:" .. id] then allClosed = false end end
     c["z:" .. zone] = nil
+    mod.autoOpened[zone] = true
     for _, id in ipairs(questIDs) do c["q:" .. id] = (not allClosed) or nil end
     mod.Redraw()
 end
@@ -227,16 +249,34 @@ function mod.BuildEntries()
     local entries = {}
     local function Add(e) entries[#entries + 1] = e return e end
 
+    -- order of zones and quests (Arrange.lua), the zone you are in
+    local readyMemo = {}
+    local function Ready(id)
+        if readyMemo[id] == nil then readyMemo[id] = AllDone(data, members, id) and true or false end
+        return readyMemo[id]
+    end
+    local current
+    zones, current = mod.Arrange(zones, byZone, { data = data, members = members, own = own, ready = Ready,
+        level = function(id) return quests[id] and quests[id].q.level end })
+
     -- focus on one zone (ignored when that zone has no quests any more)
     local focus = M.store.focusZone
     if focus and not byZone[focus] then focus = nil end
     mod.activeFocus = focus
+    -- the other zones hidden / collapsed while the zone you are in has quests (not with a focus)
+    local others = (not focus and current) and cfg.otherZones or "show"
+    mod.activeHere = (others == "hide") and current or nil
+    mod.autoCollapse = (others == "collapse") and current or nil
 
+    local sig, shown = {}, {}
     for _, zone in ipairs(zones) do
-      if not focus or zone == focus then
+      sig[#sig + 1] = zone .. ":" .. table.concat(byZone[zone], ",")
+      if (not focus or zone == focus) and (others ~= "hide" or current[zone]) then
+        shown[#shown + 1] = zone
         local zkey = "z:" .. zone
-        Add({ kind = "zone", key = zkey, text = zone, indent = 0, collapsible = true, collapsed = collapsed[zkey] })
-        if not collapsed[zkey] then
+        local zc = mod.ZoneCollapsed(zone)
+        Add({ kind = "zone", key = zkey, text = zone, indent = 0, collapsible = true, collapsed = zc, zone = zone })
+        if not zc then
             for _, id in ipairs(byZone[zone]) do
                 local entry = quests[id]
                 local q = entry.q
@@ -245,7 +285,7 @@ function mod.BuildEntries()
                 -- done everywhere (or, alone, done for you): only the quest line, "(Ready)"
                 local suffix = ""
                 local ownQ = own[id]
-                local ready = AllDone(data, members, id)
+                local ready = Ready(id)
                 if ready then suffix = "  " .. GREEN .. "(Ready)|r"
                 elseif ownQ and ownQ.state == 1 then suffix = "  " .. GREEN .. "(Ready for you)|r"
                 elseif ownQ and ownQ.state == -1 then suffix = "  " .. RED .. "(Failed)|r" end
@@ -311,7 +351,8 @@ function mod.BuildEntries()
         end
       end
     end
-    return entries, zones, byZone
+    mod.orderSig = table.concat(sig, ";")
+    return entries, shown, byZone
 end
 
 ---------------------------------------------------------------------------
@@ -457,9 +498,8 @@ end
 
 -- true when every zone is collapsed (the [-] / [+] button shows [+] then)
 function mod.AllCollapsed(zones)
-    local c = Collapsed()
     if not zones or #zones == 0 then return false end
-    for _, z in ipairs(zones) do if not c["z:" .. z] then return false end end
+    for _, z in ipairs(zones) do if not mod.ZoneCollapsed(z) then return false end end
     return true
 end
 
@@ -549,6 +589,7 @@ local function Draw()
     local cfg = M.db
     if not (M.enabled and cfg.show and MMT.ready) then f:Hide() return end
     local entries, zones = mod.BuildEntries()
+    mod.drawnSig = mod.orderSig
     local ownCount = #(mod.ownOrder or {})
     if #entries == 0 and ownCount == 0 then f:Hide() return end
 
@@ -565,6 +606,7 @@ local function Draw()
         end
         header = { kind = "header", text = ("Quests  %s%d/%d|r"):format(GREY, ownCount, MaxQuests())
             .. (mod.activeFocus and ("  " .. GREY .. "(only " .. mod.activeFocus .. ")|r") or "")
+            .. ((not mod.activeFocus and mod.activeHere) and ("  " .. GREY .. "(only this zone)|r") or "")
             .. (hidden > 0 and ("  " .. GREY .. "(" .. hidden .. " untracked hidden)|r") or ""),
             allCollapsed = mod.AllCollapsed(zones) }
         y = y + FillRow(Row(i), header, y, width) + 2
