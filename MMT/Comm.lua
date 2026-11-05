@@ -434,14 +434,30 @@ local function Hash(str)
     for i = 1, #str do h = (h * 33 + str:byte(i)) % 4294967296 end
     return ("%08x"):format(h)
 end
-function ns.OwnGuildComm()
-    if not ns.GuildMode() or not GetGuildInfo then return nil end
+-- the guild this character is in (key), with or without guild comm
+function ns.OwnGuildKey()
+    if not IsInGuild() or not GetGuildInfo then return nil end
     local name, _, _, realm = GetGuildInfo("player")
     if not name or name == "" or ns.IsSecret(name) then return nil end
     if ns.IsSecret(realm) then realm = nil end
     return Hash(name .. "@" .. (realm or (GetNormalizedRealmName and GetNormalizedRealmName()) or ""))
 end
+function ns.OwnGuildComm()
+    if not ns.GuildMode() then return nil end
+    return ns.OwnGuildKey()
+end
 ns.CoreHeartbeat("gc", function() return ns.OwnGuildComm() end)
+-- the guild for the Team page ("-" = no guild), also with guild comm off
+ns.CoreHeartbeat("gk", function() return ns.OwnGuildKey() or "-" end)
+
+-- a team member's guild: key, false = no guild, nil = not known (no heartbeat yet)
+function ns.MemberGuild(key)
+    if ns.IsSelf(key) then return ns.OwnGuildKey() or false end
+    local s = ns.status[key]
+    local gk = s and s.ext and s.ext.gk
+    if gk == nil then return nil end
+    return gk ~= "-" and gk or false
+end
 
 function ns.SameGuild(key)
     if ns.IsSelf(key) then return false end

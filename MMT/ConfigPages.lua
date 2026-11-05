@@ -325,9 +325,14 @@ ns.RegisterPage("team", "Team", function(page)
         row.dot:SetPoint("LEFT", 18, 0)
         row.name = UI.Label(row, "")
         row.name:SetPoint("LEFT", 32, 0)
+        row.guild = UI.Label(row, "", "GameFontNormalSmall")
+        row.guild:SetPoint("LEFT", 170, 0)
+        row.guild:SetWidth(170)
+        row.guild:SetJustifyH("LEFT")
+        row.guild:SetWordWrap(false)
         row.roles = UI.Label(row, "")
-        row.roles:SetPoint("LEFT", 220, 0)
-        row.roles:SetWidth(IN - 250)
+        row.roles:SetPoint("LEFT", 350, 0)
+        row.roles:SetWidth(IN - 380)
         row.roles:SetJustifyH("LEFT")
         row.roles:SetWordWrap(false)
         row.roles:SetTextColor(0.55, 0.55, 0.55)
@@ -349,6 +354,20 @@ ns.RegisterPage("team", "Team", function(page)
         if ns.IsOnline(key) then row.dot:SetColorTexture(0.3, 1, 0.3, 1) else row.dot:SetColorTexture(0.3, 0.3, 0.3, 1) end
         local roles = table.concat(ns.MemberRoleList(key), ", ")
         row.roles:SetText(roles ~= "" and roles or "no roles")
+        -- guild compared to the leader's (FTL leader, else the character you play)
+        local leader = (ns.FTLLeader and ns.FTLLeader()) or ns.PlayerFull()
+        local lg, mg = ns.MemberGuild(leader), ns.MemberGuild(key)
+        if key == leader or (ns.IsSelf(key) and ns.IsSelf(leader)) then
+            row.guild:SetText(mg and "|cff4cff4cleader, in a guild|r" or (mg == false and "|cff999999leader, no guild|r" or ""))
+        elseif mg == nil or lg == nil then
+            row.guild:SetText("")   -- not known yet (offline, no heartbeat)
+        elseif mg == false then
+            row.guild:SetText("|cff999999no guild|r")
+        elseif mg == lg then
+            row.guild:SetText("|cff4cff4cin same guild as leader|r")
+        else
+            row.guild:SetText("|cffffd36bdifferent guild as leader|r")
+        end
     end)
     col:Add(list, ROWS * ROW_H)
     -- drag a member up or down (the XP window's order)
@@ -394,9 +413,27 @@ ns.RegisterPage("team", "Team", function(page)
     group:SetPoint("RIGHT", me, "LEFT", -6, 0)
     UI.Tooltip(group, "Add group", "Adds you and everybody in your party or raid.")
     col:Space(UI.ROW + 6)
+    -- everybody in one guild but guild comm off: recommend it (red bar on the status row)
+    local banner = CreateFrame("Frame", nil, tt)
+    banner:SetSize(IN, UI.ROW)
+    banner:SetPoint("TOPLEFT", tt, "TOPLEFT", 8, col.y)
+    UI.Fill(banner, 0.55, 0.08, 0.08, 0.85)
+    banner.text = UI.Label(banner, "All team members are in the same guild: turn on \"Use guild channel\" (Communication, below) on every client for faster, more reliable messages.", "GameFontNormalSmall")
+    banner.text:SetPoint("LEFT", 8, 0)
+    banner.text:SetPoint("RIGHT", -8, 0)
+    banner.text:SetJustifyH("LEFT")
+    banner.text:SetWordWrap(false)
+    banner.text:SetTextColor(1, 0.9, 0.9)
+    banner:Hide()
     status = StatusLine(tt)
     status:SetWidth(IN)
     col:Add(status, UI.ROW)
+    -- a status message (added, error, ...) shows instead of the bar for a moment
+    local showStatus = status.Show_
+    status.Show_ = function(text, isError)
+        showStatus(text, isError)
+        banner:SetAlpha((text and text ~= "") and 0 or 1)
+    end
 
     -- Communication (bottom left) ------------------------------------------------
     local _, C = Tile(page, 0, Y2, TILE_W, BOTTOM_H, "Communication", "Interface\\Icons\\Ability_Warrior_BattleShout")
@@ -463,6 +500,13 @@ ns.RegisterPage("team", "Team", function(page)
         local members = ns.SortedMembers()
         list:Render(members)
         empty:SetShown(#members == 0)
+        local sameGuild = #members > 1
+        local own = ns.OwnGuildKey and ns.OwnGuildKey()
+        if not own then sameGuild = false end
+        for _, key in ipairs(members) do
+            if ns.MemberGuild(key) ~= own then sameGuild = false end
+        end
+        banner:SetShown(sameGuild and not ns.db.comm.guild)
         you:SetText("You are playing " .. ns.FirstName(ns.PlayerFull()) .. ".")
         local full = ns.db.privacy.nameMode == "FULL"
         hideCheck:SetAlpha(full and 0.4 or 1)
