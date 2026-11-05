@@ -162,6 +162,27 @@ local function Members()
     return list
 end
 
+-- every shown character that has the quest is done with it (completed ones count):
+-- returns true, number of them
+local function AllDone(data, members, id)
+    local holders, doneCount = 0, 0
+    for _, key in ipairs(members) do
+        local mq = data[key] and data[key].quests[id]
+        if mq then
+            holders = holders + 1
+            local all = mq.state == 1
+            if not all and mq.state ~= -1 and #mq.obj > 0 then
+                all = true
+                for oi = 1, #mq.obj do if not select(2, Progress(mq, oi)) then all = false end end
+            end
+            if all then doneCount = doneCount + 1 end
+        elseif mod.CompletedBy(key, id) then
+            holders, doneCount = holders + 1, doneCount + 1
+        end
+    end
+    return holders > 0 and doneCount == holders, holders
+end
+
 -- entries: { kind, key (collapse key), text, indent, collapsible, collapsed, questID, member, ... }
 function mod.BuildEntries()
     local me = MMT.PlayerFull()
@@ -221,19 +242,20 @@ function mod.BuildEntries()
                 local q = entry.q
                 local qkey = "q:" .. id
                 -- quest state from your own log, or "ready" when every owner is done
+                -- done everywhere (or, alone, done for you): only the quest line, "(Ready)"
                 local suffix = ""
                 local ownQ = own[id]
-                if ownQ then
-                    if ownQ.state == 1 then suffix = "  " .. GREEN .. "(Ready)|r"
-                    elseif ownQ.state == -1 then suffix = "  " .. RED .. "(Failed)|r" end
-                end
+                local ready = AllDone(data, members, id)
+                if ready then suffix = "  " .. GREEN .. "(Ready)|r"
+                elseif ownQ and ownQ.state == 1 then suffix = "  " .. GREEN .. "(Ready for you)|r"
+                elseif ownQ and ownQ.state == -1 then suffix = "  " .. RED .. "(Failed)|r" end
                 local lc = LevelColour(q.level)
                 local tag = "[" .. (q.level or "?") .. "]"
                 local text = (lc and (lc .. tag .. "|r") or tag) .. " " .. q.title .. suffix
-                Add({ kind = "quest", key = qkey, text = text, indent = 1, collapsible = true,
-                    collapsed = collapsed[qkey], questID = id, title = q.title, level = q.level,
+                Add({ kind = "quest", key = qkey, text = text, indent = 1, collapsible = not ready,
+                    collapsed = collapsed[qkey], questID = id, ready = ready, title = q.title, level = q.level,
                     zone = zone, mine = entry.mine })
-                if not collapsed[qkey] then
+                if not collapsed[qkey] and not ready then
                     -- objective texts from your log, otherwise from the first member who has the quest
                     local objectives = q.obj
                     local n = math.max(#objectives, 1)
@@ -251,27 +273,6 @@ function mod.BuildEntries()
                             Add({ kind = "objective", text = otext, indent = 2, questID = id, done = done })
                         end
                     else
-                        -- done on everybody who has it: one line instead of every objective and member
-                        local holders, doneCount = 0, 0
-                        for _, key in ipairs(members) do
-                            local mq = data[key] and data[key].quests[id]
-                            if mq then
-                                holders = holders + 1
-                                local all = mq.state == 1
-                                if not all and mq.state ~= -1 and #mq.obj > 0 then
-                                    all = true
-                                    for oi = 1, #mq.obj do if not select(2, Progress(mq, oi)) then all = false end end
-                                end
-                                if all then doneCount = doneCount + 1 end
-                            elseif mod.CompletedBy(key, id) then
-                                holders, doneCount = holders + 1, doneCount + 1
-                            end
-                        end
-                        if holders > 0 and doneCount == holders then
-                            Add({ kind = "alldone", indent = 2, questID = id,
-                                text = GREEN .. (holders == #members and "Done on all characters"
-                                    or ("Done on all %d characters that have it"):format(holders)) .. "|r" })
-                        else
                     for oi = 1, n do
                         local o = objectives[oi]
                         local okey = "o:" .. id .. ":" .. oi
@@ -304,7 +305,6 @@ function mod.BuildEntries()
                             end
                         end
                     end
-                        end
                     end
                 end
             end
@@ -464,7 +464,6 @@ function mod.AllCollapsed(zones)
 end
 
 local function Style(level)
-    if level == "alldone" then level = "objective" end
     local s = M.db.fonts[level] or M.db.fonts.quest
     return s
 end
@@ -500,7 +499,7 @@ local function FillRow(row, e, y, width)
     row.toggle:SetShown(e.collapsible and true or false)
     row.toggle:EnableMouse(not cfg.clickThrough)
     if not e.collapsible then row.marker:SetText("") end
-    local textLeft = left + ((e.collapsible or e.kind == "member" or e.kind == "alldone") and MARKER_W or 0)
+    local textLeft = left + ((e.collapsible or e.kind == "member") and MARKER_W or 0)
     if e.kind == "header" then textLeft = 0 end
     local far = 0   -- room kept free at the other edge (the header's [-] / [+])
     if e.kind == "header" then
