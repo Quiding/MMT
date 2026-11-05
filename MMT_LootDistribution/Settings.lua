@@ -161,16 +161,16 @@ function mod.SparklesTab(panel, PANEL_H)
     W:Check("Herbs (Herbalism)", function() return M.db.sparkleHerbs end, Set("sparkleHerbs"))
     W:Check("Ore veins (Mining)", function() return M.db.sparkleOre end, Set("sparkleOre"))
     W:Check("Corpses you can skin", function() return M.db.sparkleCorpses end, Set("sparkleCorpses"),
-        "A dead creature you can skin (or gather with Herbalism or Mining) is highlighted until you did it.")
+        "A dead creature you can skin (or gather with Herbalism or Mining) is highlighted until you did it.\n|cffffd100Switches on the game's \"Enemy Unit Nameplates\"|r (Options > Nameplates): only with them does the game give corpses a nameplate the highlight can sit on. So every enemy shows a nameplate while this is on; put back as it was when it is off.")
     W:Check("Other world objects", function() return M.db.sparkleObjects end, Set("sparkleObjects"),
         "Also other things in the world you can interact with, each kind on or off below. With \"Colour by skill\": quest objects purple, the rest white.")
     local omark = H.Mark(wt)
     local tips = {
-        quest = "Objects a quest in your log still wants (the game says so, or the tooltip shows progress like 3/8), and corpses with loot a quest still wants: yours or a group member's, until everyone has enough. Kill objectives don't count.",
+        quest = "Objects a quest in your log still wants (the game says so, or the tooltip shows progress like 3/8), and corpses with loot a quest still wants: yours or a group member's, until everyone has enough. Kill objectives don't count. Corpses only show with \"Corpses with loot\" or \"Corpses you can skin\" on (they switch on the game's enemy nameplates, which corpses need).",
         mailbox = "Mailboxes.",
         chest = "Chests, footlockers, strongboxes, lockboxes, coffers, trunks, caches, crates, barrels.",
         fishing = "Fishing schools and pools, floating wreckage and debris.",
-        loot = "Dead creatures with loot left on them (corpses to skin are above).",
+        loot = "Dead creatures with loot left on them (corpses to skin are above).\n|cffffd100Switches on the game's \"Enemy Unit Nameplates\"|r (Options > Nameplates): only with them does the game give corpses a nameplate the highlight can sit on. So every enemy shows a nameplate while this is on; put back as it was when it is off.",
         other = "Everything else the interact key picks: doors, levers, chairs, books, ...",
     }
     for _, k in ipairs(mod.Sparkles.KINDS) do

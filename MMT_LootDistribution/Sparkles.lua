@@ -70,7 +70,15 @@ S.CVARS = {
     { name = "SoftTargetInteractArc", value = 2 },         -- all around you
     { name = "SoftTargetIconGameObject", value = 1 },
     { name = "SoftTargetIconInteract", value = 1 },
+    -- Enemy Unit Nameplates: only with them does the game give corpses a
+    -- nameplate (found by the user and Quiding); only while corpses count
+    { name = "nameplateShowEnemies", value = 1, when = function() return S.WantsCorpses() end },
 }
+
+-- corpses to skin, or corpses with loot (quest corpses come with either)
+function S.WantsCorpses()
+    return M.db.sparkleCorpses == true or (M.db.sparkleObjects == true and S.KindOn and S.KindOn("loot"))
+end
 
 local function GetCV(name)
     if C_CVar and C_CVar.GetCVar then return Safe(C_CVar.GetCVar, name) end
@@ -97,7 +105,14 @@ function S.ApplySettings()
     local saved = Saved()
     for _, c in ipairs(S.CVARS) do
         local cur = GetCV(c.name)
-        if cur ~= nil and (tonumber(cur) or 0) < c.value then
+        if c.when and not c.when() then
+            -- not needed (any more): back as it was, unless changed by hand since
+            local s = saved[c.name]
+            if s then
+                if cur == s.set then SetCV(c.name, s.old) end
+                saved[c.name] = nil
+            end
+        elseif cur ~= nil and (tonumber(cur) or 0) < c.value then
             if saved[c.name] == nil then saved[c.name] = { old = cur } end
             saved[c.name].set = tostring(c.value)
             SetCV(c.name, c.value)

@@ -279,7 +279,10 @@ Saved data from MMT 0.1.x is converted automatically.
   red when too low; quest objects purple, other objects white) or in one colour; size and
   height adjustable. Quest objects include corpses with loot a quest still wants (yours
   or a group member's, from the quest progress the game shows in the corpse's tooltip),
-  until everyone has enough; kill objectives don't count.
+  until everyone has enough; kill objectives don't count. Corpses only get a nameplate
+  (which the highlight sits on) with the game's "Enemy Unit Nameplates": "Corpses you can
+  skin" and "Corpses with loot" switch that on (so every enemy shows a nameplate) and put
+  it back when off.
   Only for professions you have. The game only tells addons about the one thing the
   interact key would pick (within 15 yards), so only that one is highlighted: MMT
   switches on the game's interact target, its nameplate (the highlight hangs on it;
