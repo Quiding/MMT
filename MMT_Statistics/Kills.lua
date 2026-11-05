@@ -187,7 +187,8 @@ mod.TellTeamKill = TellTeam
 local function Near(key)
     local unit = MMT.UnitForMember and MMT.UnitForMember(key)
     if not unit then return false end
-    if Safe(UnitInRange, unit) or Safe(CheckInteractDistance, unit, 4) or Safe(UnitIsVisible, unit) then return true end
+    -- CheckInteractDistance is protected in combat (ADDON_ACTION_BLOCKED, pcall doesn't stop it): range and visibility then
+    if Safe(UnitInRange, unit) or (not InCombatLockdown() and Safe(CheckInteractDistance, unit, 4)) or Safe(UnitIsVisible, unit) then return true end
     -- in the same instance: near enough
     local inInstance = Safe(IsInInstance)
     return inInstance and Safe(UnitIsConnected, unit) and not Safe(UnitIsDeadOrGhost, unit) and true or false
