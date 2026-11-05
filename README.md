@@ -229,7 +229,7 @@ Saved data from MMT 0.1.x is converted automatically.
 - **Loot Distribution** (module): sets Free for All, Round Robin or Master Looter and the
   loot threshold when a group forms or a team character becomes leader. "Return to Group
   Loot when outsiders join": while a player who isn't in your team list is in the group, the method
-  is Group Loot, and the chosen method again when they leave. As master
+  is Group Loot from Uncommon, and the chosen method and threshold again when they leave. As master
   looter it gives items at or above the threshold to the team member whose roles want
   them. When roles of different members want the same item, the most specific rule
   wins: an exact item, then an item group ("Cloth"), then an item class, then Bind on

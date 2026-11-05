@@ -24,7 +24,7 @@ M.Page = function(_, page)
     local lt, L = Tile(page, 0, TOP, TILE_W, TOP_H, "Loot Method", "Interface\\Icons\\INV_Misc_Bag_10")
     local gog, sog = Opt("outsiderGroup")
     L:Check("Return to Group Loot when outsiders join", gog, sog,
-        "While a player who isn't in your team list is in the group, the loot method is Group Loot. When they leave, the method below is set again.")
+        "While a player who isn't in your team list is in the group, the loot method is Group Loot with the threshold Uncommon. When they leave, the method and threshold below are set again.")
     local ga, sa = Opt("autoMethod")
     L:Check("Set loot method automatically", ga, sa,
         "When a group forms or one of your team characters becomes leader, that character sets the method and threshold below. Only the group leader can change loot settings.")

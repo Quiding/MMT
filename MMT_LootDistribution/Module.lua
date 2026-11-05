@@ -170,12 +170,20 @@ function mod.WantedMethod()
     return M.db.method
 end
 
+-- the threshold to use now: Uncommon while an outsider makes it Group Loot, else the chosen one
+mod.OUTSIDER_THRESHOLD = 2
+function mod.WantedThreshold(method)
+    if (method or mod.WantedMethod()) == "group" and M.db.method ~= "group" then return mod.OUTSIDER_THRESHOLD end
+    return M.db.threshold
+end
+
 -- force: apply even if this group/leader situation was handled already
 function mod.ApplyLootSettings(force)
     if not (M.enabled and M.db.autoMethod) then return false, "off" end
     if not IsLeader() then return false, "You need to be the group leader." end
     if InCombatLockdown() then return false, "Not in combat." end
-    local cfg = setmetatable({ method = mod.WantedMethod() }, { __index = M.db })
+    local method = mod.WantedMethod()
+    local cfg = setmetatable({ method = method, threshold = mod.WantedThreshold(method) }, { __index = M.db })
     local current, partyIndex = mod.GetMethod()
     local masterName, masterKey = nil, nil
     if cfg.method == "master" then masterName, masterKey = mod.MasterLooterName() end
@@ -207,26 +215,38 @@ function mod.ApplyLootSettings(force)
     return true, changed
 end
 
--- once per group / leader situation
-local handledFor
+-- once per group / leader situation. The roster settles a moment after a player joins or
+-- leaves (a leaving player can still be listed when the event fires), so the method is
+-- decided after a short wait, and checked once more a little later.
+local handledFor, pending
+local function Evaluate()
+    pending = nil
+    if not (M.enabled and M.db.autoMethod) then return end
+    if not IsInGroup() or not IsLeader() then handledFor = nil return end
+    local method = mod.WantedMethod()
+    -- an outsider joining or leaving changes the method: apply again
+    if handledFor and handledFor == method then return end
+    local ok, changed = mod.ApplyLootSettings(false)
+    if not ok then return end   -- e.g. in combat: tried again with the next roster change or check
+    handledFor = method
+    if changed and M.db.report then
+        MMT.Print("Loot set to %s%s%s.", mod.METHOD_TEXT[method] or method,
+            method ~= "freeforall" and (" from " .. MMT.QualityName(mod.WantedThreshold(method))) or "",
+            (method ~= M.db.method) and " (a player outside the team is in the group)" or "")
+    end
+end
 local function CheckGroup()
     if not (M.enabled and M.db.autoMethod) then return end
     if not IsInGroup() then handledFor = nil return end
     if not IsLeader() then handledFor = nil return end
-    local method = mod.WantedMethod()
-    -- an outsider joining or leaving changes the method: apply again
-    if handledFor and handledFor == method then return end
-    handledFor = method
-    C_Timer.After(1, function()
-        local ok, changed = mod.ApplyLootSettings(false)
-        if ok and changed and M.db.report then
-            local m = mod.WantedMethod()
-            MMT.Print("Loot set to %s%s%s.", mod.METHOD_TEXT[m] or m,
-                m ~= "freeforall" and (" from " .. MMT.QualityName(M.db.threshold)) or "",
-                (m ~= M.db.method) and " (a player outside the team is in the group)" or "")
-        end
-    end)
+    if pending then return end
+    pending = true
+    C_Timer.After(1, Evaluate)
+    C_Timer.After(4, function() if not pending then Evaluate() end end)
 end
+mod.CheckGroup = CheckGroup
+-- leaving combat: a change the fight held back is made now
+M:On("PLAYER_REGEN_ENABLED", function() if IsInGroup() then CheckGroup() end end)
 
 M:On("GROUP_ROSTER_UPDATE", CheckGroup)
 M:On("PARTY_LEADER_CHANGED", function() handledFor = nil CheckGroup() end)
