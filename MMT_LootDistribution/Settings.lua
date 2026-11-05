@@ -166,7 +166,7 @@ function mod.SparklesTab(panel, PANEL_H)
         "Also other things in the world you can interact with, each kind on or off below. With \"Colour by skill\": quest objects purple, the rest white.")
     local omark = H.Mark(wt)
     local tips = {
-        quest = "Objects a quest in your log still wants (the game says so, or the tooltip shows progress like 3/8).",
+        quest = "Objects a quest in your log still wants (the game says so, or the tooltip shows progress like 3/8), and corpses with loot a quest still wants: yours or a group member's, until everyone has enough. Kill objectives don't count.",
         mailbox = "Mailboxes.",
         chest = "Chests, footlockers, strongboxes, lockboxes, coffers, trunks, caches, crates, barrels.",
         fishing = "Fishing schools and pools, floating wreckage and debris.",
