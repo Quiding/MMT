@@ -532,7 +532,8 @@ ns.RegisterPage("team", "Team", function(page)
             commInfo:SetText("")
         end
     end
-    ns.Listen("STATUS_CHANGED", function() if page:IsVisible() then list:Render(ns.SortedMembers()) end end)
+    -- heartbeats (online state, guild) update the list and the guild comm bar while the page is open
+    ns.Listen("STATUS_CHANGED", ns.Coalesce(function() if page:IsVisible() then page.OnRefresh() end end, 0.5))
 end)
 
 ---------------------------------------------------------------------------
