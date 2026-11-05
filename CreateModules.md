@@ -193,6 +193,26 @@ Equip) that members are assigned to.
 
 `item` is an item link or an item ID.
 
+### Loot choosers
+
+With Loot Distribution on, a module can pick who gets a master loot item before the roles do:
+
+```lua
+MMT.RegisterLootChooser({
+    name = "MyModule", title = "My Module",
+    active = function() return M.enabled end,          -- optional
+    choose = function(link, candidates, info)
+        -- candidates: team keys (team order) the game offers for the item, with room
+        -- (keeping the free bag slots) and no failed hand-out a moment ago.
+        -- info = { slot = loot slot, isQuest = bool }
+        return candidates[1], "my reason"                 -- or nil: the roles decide
+    end,
+})
+```
+
+It is asked for items at or above the threshold that are not Bind on Pickup and not handed
+out by the quest item round robin. The reason is shown in the "Gave ... to ..." chat line.
+
 ### The leader
 
 | Function | Returns |

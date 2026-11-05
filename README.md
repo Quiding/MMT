@@ -241,6 +241,8 @@ Saved data from MMT 0.1.x is converted automatically.
   member with room (round robin, the default), or to the master looter. "No role wants
   it" defaults to round robin to the team. Bind on Pickup
   items are never given out: they are posted in group chat for manual assignment.
+  Other addons can pick the receiver of an item first with `MMT.RegisterLootChooser`
+  (see CreateModules.md); what they leave goes by the roles as above.
   "Auto-Round Robin quest items": quest items go to the team in turns (team order).
   The master looter first asks the team who still needs the item (each client checks
   its quest log) and skips characters whose objective is complete. If the game still

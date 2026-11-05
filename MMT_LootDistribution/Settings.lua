@@ -126,7 +126,11 @@ M.Page = function(_, page)
         local isMaster = M.db.method == "master"
         for _, w in ipairs(masterOnly) do w:SetAlpha(isMaster and 1 or 0.4) end
         looter:SetAlpha(isMaster and 1 or 0.4)
-        hint:SetText(isMaster and "" or "These options only apply with Master Looter.")
+        local first = {}
+        for _, c in ipairs(mod.ActiveChoosers()) do first[#first + 1] = c.title or c.name end
+        hint:SetText(not isMaster and "These options only apply with Master Looter."
+            or #first > 0 and ("Picked first by " .. table.concat(first, ", ") .. "; what it leaves goes by the rules above.")
+            or "")
     end
     M:On("PARTY_LOOT_METHOD_CHANGED", function() if page:IsVisible() then page.OnRefresh() end end)
 end
@@ -142,6 +146,11 @@ function M.Report(_, add)
         tostring(M.db.multiRole), tostring(M.db.noRoom), tostring(M.db.autoPass), tostring(M.db.optOut),
         tostring(GetOptOutOfLoot and GetOptOutOfLoot()), tostring(M.db.passExcept)))
     add("quest round robin=" .. tostring(M.db.questRR))
+    for _, c in ipairs(mod.choosers) do
+        local on = true
+        if c.active then local ok, v = pcall(c.active) on = ok and v and true or false end
+        add(("  loot chooser %s (%s): %s"):format(c.name, tostring(c.title), on and "active" or "off"))
+    end
     for itemID, key in pairs(M.store.questRR or {}) do add(("  quest item %s: last given to %s"):format(tostring(itemID), MMT.Repr(key))) end
     for _, key in ipairs(MMT.SortedMembers()) do
         local s = MMT.status[key]

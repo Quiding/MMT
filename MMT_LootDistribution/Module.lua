@@ -15,6 +15,8 @@
 --    The "keep free bag slots" reserve does NOT apply to quest items: one free
 --    slot is enough, and with full bags they are still tried (the item may go
 --    onto a stack the member already has).
+--    Addons can pick the receiver first: MMT.RegisterLootChooser (see below,
+--    "Loot choosers"); an item no chooser takes goes by the roles as usual.
 -- 4. Items no role or rule wants (not quest items): left for manual
 --    assignment, given to the master looter, or given round robin across the
 --    team (keeping the reserve), with an optional chat line saying so.
@@ -669,6 +671,77 @@ NextRoundRobin = function(slot, link, planned)
     return nil
 end
 
+---------------------------------------------------------------------------
+-- Loot choosers: other addons can pick the receiver of an item first (e.g. by
+-- who it is the biggest upgrade for). MMT.RegisterLootChooser(chooser) with
+--   chooser.name    unique id (registering the same name again replaces it)
+--   chooser.title   shown in the debug report and the settings page
+--   chooser.active  optional fn() -> true while it wants to choose
+--   chooser.choose  fn(link, candidates, info) -> key, reason
+--     candidates = team keys in team order that can take the item now (the game
+--     offers them as loot candidates, they have room keeping the reserve, and no
+--     hand-out to them failed a moment ago); info = { slot = slot, isQuest = bool }.
+--     Return one of the candidates (reason = text for the chat line), or nil to
+--     leave the item to the rules below (roles, round robin, ...).
+-- Asked for items Choose() handles (at or above the threshold, not Bind on Pickup,
+-- not the quest item round robin), in the order registered; the first answer counts.
+---------------------------------------------------------------------------
+local choosers = {}
+mod.choosers = choosers
+
+function MMT.RegisterLootChooser(chooser)
+    if type(chooser) ~= "table" or type(chooser.name) ~= "string" or type(chooser.choose) ~= "function" then
+        error("MMT.RegisterLootChooser: needs { name = string, choose = function }", 2)
+    end
+    for i, c in ipairs(choosers) do
+        if c.name == chooser.name then choosers[i] = chooser return end
+    end
+    choosers[#choosers + 1] = chooser
+end
+
+local function ChooserActive(c)
+    if not c.active then return true end
+    local ok, on = pcall(c.active)
+    return ok and on and true or false
+end
+
+function mod.ActiveChoosers()
+    local list = {}
+    for _, c in ipairs(choosers) do if ChooserActive(c) then list[#list + 1] = c end end
+    return list
+end
+
+local function ChooseByHook(slot, link, planned, isQuest)
+    if #choosers == 0 then return nil end
+    local reserve = isQuest and 0 or M.db.reserve
+    local candidates, index = nil, {}
+    for _, c in ipairs(choosers) do
+        if ChooserActive(c) then
+            if not candidates then
+                candidates = {}
+                for _, key in ipairs(MMT.SortedMembers()) do
+                    local i = CandidateIndex(slot, key)
+                    if i and HasRoom(key, link, planned, reserve) and not IsBlocked(link, key) then
+                        candidates[#candidates + 1] = key
+                        index[key] = i
+                    end
+                end
+                if #candidates == 0 then return nil end
+            end
+            local ok, key, reason = pcall(c.choose, link, { unpack(candidates) }, { slot = slot, isQuest = isQuest and true or false })
+            if not ok then
+                M:Debug("loot chooser %s failed: %s", c.name, tostring(key))
+            elseif key and index[key] then
+                M:Debug("loot chooser %s: %s -> %s (%s)", c.name, link, MMT.Repr(key), tostring(reason))
+                return key, index[key], reason or c.title or c.name
+            elseif key then
+                M:Debug("loot chooser %s picked %s for %s, not a candidate: ignored", c.name, MMT.Repr(key), link)
+            end
+        end
+    end
+    return nil
+end
+
 local busy = false
 local handedOut = {}   -- [slot] = true: MMT gave this slot away in the open loot window
 
@@ -714,7 +787,8 @@ local function Plan(needOf)
             elseif bind == nil then
                 M:Debug("left %s: item data not loaded yet, can't rule out Bind on Pickup", link)
             else
-                local key, index, role, rr = Choose(slot, link, planned, isQuestItem)
+                local key, index, role, rr = ChooseByHook(slot, link, planned, isQuestItem)
+                if not key then key, index, role, rr = Choose(slot, link, planned, isQuestItem) end
                 if key then
                     plan[#plan + 1] = { slot = slot, link = link, key = key, index = index, role = role, rr = rr }
                     planned[key] = (planned[key] or 0) + 1
