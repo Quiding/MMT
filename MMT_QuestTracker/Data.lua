@@ -4,7 +4,9 @@
 -- Stored account-wide in M.store.quests[teamKey] = { quests = { [questID] = rec },
 -- hash = n, time = unix time }. A record:
 --   { id, level, zone, title, state (0 in progress, 1 ready for turn-in, -1 failed),
---     obj = { { have, need, done, text }, ... } }
+--     obj = { { have, need, done, text, counted }, ... } }
+--   counted: the count was taken from the bags (by item name) because the game
+--   reported fewer than are there (seen after trading quest items)
 --
 -- Traffic (same scheme as Item Compare):
 --   * the core heartbeat carries "qt=<hash of your quest log>",
@@ -36,7 +38,9 @@ end
 local function EncodeRecord(rec)
     local parts = { rec.id, rec.level or 0, rec.state or 0, Clean(rec.zone), Clean(rec.title) }
     for _, o in ipairs(rec.obj or {}) do
-        parts[#parts + 1] = ("%d,%d,%d,%s"):format(o.have or 0, o.need or 0, o.done and 1 or 0, Clean(o.text))
+        -- flags: 1 = done, 2 = counted from the bags by MMT (the game's count was lower)
+        local flags = (o.done and 1 or 0) + (o.counted and 2 or 0)
+        parts[#parts + 1] = ("%d,%d,%d,%s"):format(o.have or 0, o.need or 0, flags, Clean(o.text))
     end
     return table.concat(parts, "^")
 end
@@ -48,9 +52,11 @@ local function DecodeRecord(s)
     if not id then return nil end
     local rec = { id = id, level = tonumber(f[2]) or 0, state = tonumber(f[3]) or 0, zone = f[4] or "", title = f[5] or "", obj = {} }
     for i = 6, #f do
-        local have, need, done, text = f[i]:match("^(%-?%d+),(%-?%d+),([01]),(.*)$")
+        local have, need, flags, text = f[i]:match("^(%-?%d+),(%-?%d+),([0-3]),(.*)$")
         if have then
-            rec.obj[#rec.obj + 1] = { have = tonumber(have), need = tonumber(need), done = done == "1", text = text }
+            flags = tonumber(flags)
+            rec.obj[#rec.obj + 1] = { have = tonumber(have), need = tonumber(need), done = flags % 2 == 1,
+                counted = flags >= 2 or nil, text = text }
         end
     end
     return rec
@@ -111,6 +117,28 @@ local function ParseCounts(text)
     return tonumber(have), tonumber(need)
 end
 
+-- items of that name in the bags (nil when the game can't say)
+local function BagCount(name)
+    if type(name) ~= "string" or name == "" then return nil end
+    local get = (C_Item and C_Item.GetItemCount) or GetItemCount
+    if not get then return nil end
+    local ok, n = pcall(get, name)
+    if ok and type(n) == "number" and not MMT.IsSecret(n) then return n end
+end
+
+-- an item objective the game counts lower than the bags hold (after a trade the
+-- game was seen counting only the new stack): the bag count, up to the need
+local function FixCount(entry, isItem)
+    if not isItem or entry.done or not entry.need or entry.need <= 0 then return entry end
+    local n = BagCount(entry.text)
+    if n and n > (entry.have or 0) then
+        entry.have = math.min(n, entry.need)
+        entry.done = entry.have >= entry.need
+        entry.counted = true
+    end
+    return entry
+end
+
 local function Objectives(questID, logIndex)
     local list = {}
     if C_QuestLog and C_QuestLog.GetQuestObjectives then
@@ -124,15 +152,15 @@ local function Objectives(questID, logIndex)
                 -- were seen lagging behind it (item objectives)
                 have, need = h, n
             end
-            list[#list + 1] = { have = have or 0, need = need or 1, done = o.finished and true or false,
-                text = mod.ObjectiveName(o.text) }
+            list[#list + 1] = FixCount({ have = have or 0, need = need or 1, done = o.finished and true or false,
+                text = mod.ObjectiveName(o.text) }, o.type == "item")
         end
     elseif GetNumQuestLeaderBoards and logIndex then
         for j = 1, (GetNumQuestLeaderBoards(logIndex) or 0) do
-            local text, _, finished = GetQuestLogLeaderBoard(j, logIndex)
+            local text, kind, finished = GetQuestLogLeaderBoard(j, logIndex)
             local have, need = ParseCounts(text)
-            list[#list + 1] = { have = have or (finished and 1 or 0), need = need or 1, done = finished and true or false,
-                text = mod.ObjectiveName(text) }
+            list[#list + 1] = FixCount({ have = have or (finished and 1 or 0), need = need or 1, done = finished and true or false,
+                text = mod.ObjectiveName(text) }, kind == "item")
         end
     end
     return list

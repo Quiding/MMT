@@ -150,6 +150,8 @@ local function ClassHex(key)
     return c and Hex(c.r, c.g, c.b) or nil
 end
 
+local COUNTED = " |cffffb040(MMT count)|r"
+
 -- progress of one member on one objective (oi), or on the quest (oi = nil)
 local function Progress(q, oi)
     if q.state == -1 then return RED .. "failed|r", false end
@@ -158,10 +160,12 @@ local function Progress(q, oi)
         if q.state == 1 then return GREEN .. "done|r", true end
         return "open", false
     end
+    -- counted from the bags by MMT, not the game's own number
+    local mark = o.counted and COUNTED or ""
     if o.done or q.state == 1 then
-        return GREEN .. ((o.need or 0) > 1 and (o.need .. "/" .. o.need) or "done") .. "|r", true
+        return GREEN .. ((o.need or 0) > 1 and (o.need .. "/" .. o.need) or "done") .. "|r" .. mark, true
     end
-    if (o.need or 0) > 1 then return ("%d/%d"):format(o.have or 0, o.need), false end
+    if (o.need or 0) > 1 then return ("%d/%d"):format(o.have or 0, o.need) .. mark, false end
     return "open", false
 end
 

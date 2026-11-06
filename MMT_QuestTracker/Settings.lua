@@ -240,8 +240,8 @@ function M.Report(_, add)
         local ok, list = pcall(function() return C_QuestLog and C_QuestLog.GetQuestObjectives and C_QuestLog.GetQuestObjectives(id) end)
         for i, o in ipairs(ok and list or {}) do
             local held = q and q.obj and q.obj[i]
-            game[#game + 1] = ("%s/%s %s [held %s/%s]"):format(tostring(o.numFulfilled), tostring(o.numRequired), MMT.Repr(o.text),
-                tostring(held and held.have), tostring(held and held.need))
+            game[#game + 1] = ("%s/%s %s %s [held %s/%s%s]"):format(tostring(o.numFulfilled), tostring(o.numRequired), MMT.Repr(o.text),
+                tostring(o.type), tostring(held and held.have), tostring(held and held.need), held and held.counted and " MMT count" or "")
         end
         if #game > 0 then add("    objectives: " .. table.concat(game, "; ")) end
     end

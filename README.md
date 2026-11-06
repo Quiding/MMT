@@ -315,7 +315,10 @@ Saved data from MMT 0.1.x is converted automatically.
   A quest done on every character that has it shows only its name with "(Ready)", so
   the tracker gets shorter the more quests are ready to turn in ("(Ready for you)" while
   others still work on it). With only your character shown, it is a classic tracker: the
-  progress right behind each objective, done objectives in green.
+  progress right behind each objective, done objectives in green. Item objectives the game
+  counts lower than the bags hold (seen after trading quest items: the game counted only
+  the new stack) take the number of items of that name in the bags, up to the amount
+  needed, marked "(MMT count)" on that character's line.
   Mouse:
   - +/- at the start of a line: collapse / expand it; [-] / [+] on the header: collapse
     everything down to the zones / open everything.
