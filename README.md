@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 1.0.13: core addon (MMT) plus optional modules (MMT_*).
+Version 1.0.14: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -387,9 +387,13 @@ Saved data from MMT 0.1.x is converted automatically.
     its ID), the quantity to carry and the characters that buy it (any of the team, or
     "Every character", also ones added later). At a vendor that sells it, each of those
     characters buys up to the quantity (gold only). Delete removes the selected row.
-  - Mail: a "Mail to team" button beside the mail window sends every item another team
-    member's role wants to that member (items your own role wants stay), 12 per mail,
-    and optionally the gold above an amount to one team member.
+  - Mail: the "MMT Auto-Mailing" window beside the mail window. Its "Mail to team"
+    button sends every item another team member's role wants to that member (items your
+    own role wants stay), 12 per mail, and optionally the gold above an amount to one
+    team member. Below it a table lists each mail (to whom, for which role, how many
+    items; a stack counts as one; hover for the items), each with a tick to leave it out
+    (all ticked whenever the mailbox opens), and the postage for the ticked mails
+    (30 copper per item, at least 30 per mail).
   - Guild bank: a "Deposit to guild bank" button puts the items of a chosen role into a
     chosen tab, and optionally the gold above an amount.
 

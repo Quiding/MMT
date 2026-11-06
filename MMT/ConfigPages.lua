@@ -1769,8 +1769,8 @@ ns.RegisterPage("trade", "Trade / Mail / Vendor", function(page)
     local _, B = Tile(page, X2, BY, TILE_W, 564 + BY, "Bank & Mailing", "Interface\\Icons\\INV_Letter_15")
     B:Header("Mail")
     local gme, sme = Opt("mail", "enabled")
-    B:Check("\"Mail to team\" button at the mailbox", gme, sme,
-        "Sends every item in your bags that another team member's role wants to that member (team order; items your own role wants stay), 12 items per mail.")
+    B:Check("\"Mail to team\" at the mailbox", gme, sme,
+        "Shows the \"MMT Auto-Mailing\" window next to the mailbox: its \"Mail to team\" button sends every item in your bags that another team member's role wants to that member (team order; items your own role wants stay), 12 items per mail. The window lists each mail (to whom, for which role, how many items; a stack counts as one), each can be ticked off, and shows the postage.")
     local ggt, sgt = Opt("mail", "goldTo")
     B:Cycle("Also mail gold to", MemberChoices, ggt, sgt)
     local gkg, skg = Opt("mail", "keepGold")
