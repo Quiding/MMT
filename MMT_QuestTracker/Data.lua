@@ -116,9 +116,13 @@ local function Objectives(questID, logIndex)
     if C_QuestLog and C_QuestLog.GetQuestObjectives then
         for _, o in ipairs(C_QuestLog.GetQuestObjectives(questID) or {}) do
             local have, need = o.numFulfilled, o.numRequired
+            local h, n = ParseCounts(o.text)
             if not need or need == 0 then
-                local h, n = ParseCounts(o.text)
                 have, need = h or (o.finished and 1 or 0), n or 1
+            elseif h and n and (h ~= have or n ~= need) then
+                -- the text is what the game's own tracker shows; the numbers
+                -- were seen lagging behind it (item objectives)
+                have, need = h, n
             end
             list[#list + 1] = { have = have or 0, need = need or 1, done = o.finished and true or false,
                 text = mod.ObjectiveName(o.text) }
@@ -285,6 +289,10 @@ for _, event in ipairs({ "QUEST_LOG_UPDATE", "QUEST_WATCH_UPDATE", "QUEST_WATCH_
         end)
     end
 end
+
+-- item objectives: looked at again when the bags change too, in case the
+-- game's quest log events lag behind the items picked up
+M:On("BAG_UPDATE_DELAYED", function() mod.ScanSoon() end)
 
 function mod.OnEnableData()
     scanned = false

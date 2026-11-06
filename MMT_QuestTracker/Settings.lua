@@ -235,6 +235,15 @@ function M.Report(_, add)
         local q = own and own.quests and own.quests[id]
         add(("  own quest %s %s zone=%s tracked=%s"):format(tostring(id), MMT.Repr(q and q.title),
             MMT.Repr(q and q.zone), tostring(mod.ownWatched and mod.ownWatched[id] or false)))
+        -- what the game says right now next to what the tracker holds
+        local game = {}
+        local ok, list = pcall(function() return C_QuestLog and C_QuestLog.GetQuestObjectives and C_QuestLog.GetQuestObjectives(id) end)
+        for i, o in ipairs(ok and list or {}) do
+            local held = q and q.obj and q.obj[i]
+            game[#game + 1] = ("%s/%s %s [held %s/%s]"):format(tostring(o.numFulfilled), tostring(o.numRequired), MMT.Repr(o.text),
+                tostring(held and held.have), tostring(held and held.need))
+        end
+        if #game > 0 then add("    objectives: " .. table.concat(game, "; ")) end
     end
     for key, rec in pairs(mod.AllData()) do
         add(("quests %s: %d, hash %s, %s"):format(MMT.Repr(key), mod.QuestCount(rec), tostring(rec.hash), MMT.Ago(rec.time)))
