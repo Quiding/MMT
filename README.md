@@ -208,7 +208,10 @@ Saved data from MMT 0.1.x is converted automatically.
   - Leveling (a character, or the average of the account): per level 1-59, newest first,
     the time played to the next level (dd:hh:mm:ss), when it was reached, quests
     completed, NPCs killed, deaths, instances entered on that level and the zone with the
-    most time; a "Total" row on top sums up every level below.
+    most time; a "Total" row on top sums up every level below. For a character every level
+    from 1 up to its level has a row: one without data says "no data recorded (was addon
+    disabled?)", one whose level-up wasn't recorded ends at the next level's start (~), and
+    only the highest level can be "(current)".
   - Zones (a character or the account): favourite zone by time and by kills; per main zone
     (a town counts for its zone) time (hh:mm:ss), NPC kills, quests and XP gain; per
     instance visit Lvl In / Lvl Out, time, kills, quests, XP gain (incl. quest rewards),
@@ -227,7 +230,7 @@ Saved data from MMT 0.1.x is converted automatically.
     write files): gold per day and character, gold per day and account, characters, kills
     and deaths per NPC (with their kind), the kill summary per character, kills by zone and
     level, the Dungeon Journal, quests, zones, instance visits, or leveling (one row per
-    character and level: start, end and where the end comes from, how the Leveling tab
+    character and level, levels without data included: start, end and where the end comes from, how the Leveling tab
     shows it, time, quests, kills, deaths, instances, favourite zone); comma or semicolon (decimal
     comma) as separator; names follow the privacy setting.
   - Backup / import (Settings tab): "Backup (for import)" puts all statistics of this

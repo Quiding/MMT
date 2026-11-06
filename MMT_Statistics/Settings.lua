@@ -692,7 +692,17 @@ M.Page = function(_, page)
             levelGrid.heads[3]:SetText("Date/Time leveled")
             local key = scope == "CHAR" and (MMT.PlayerFull() or "") or scope:sub(6)
             local c = mod.Store().chars[key]
-            for _, r in ipairs(c and mod.CharLevelRows(c) or {}) do
+            for _, r in ipairs(c and mod.CharLevelRows(c, true, key) or {}) do
+                if r.missing then
+                    rows[#rows + 1] = {
+                        cells = { tostring(r.L), "no data recorded", "(was addon disabled?)", "", "", "", "", "" },
+                        grey = true,
+                        tip = function(t)
+                            t:SetText(("Level %d"):format(r.L))
+                            t:AddLine("Nothing was recorded on this level: MMT, the Statistics module or its Leveling tracking was off (or not installed yet) then.", 1, 1, 1, true)
+                        end,
+                    }
+                else
                 rows[#rows + 1] = {
                     cells = { tostring(r.L), mod.Duration(r.t) .. ((r.partial or r.current or r.estimated) and " *" or ""),
                         r.done and ((r.estimated and "~ " or "") .. date("%Y-%m-%d %H:%M", r.done))
@@ -706,6 +716,7 @@ M.Page = function(_, page)
                         if r.partial then t:AddLine("Tracking began during this level: the time and counts are only from then on.", 1, 1, 1, true) end
                     end or nil,
                 }
+                end
             end
             for _, r in ipairs(c and mod.CharLevelRows(c) or {}) do Count(r.t, r.q, r.k, r.d, r.i, r.z) end
             if #rows > 0 then table.insert(rows, 1, TotalRow(false)) end

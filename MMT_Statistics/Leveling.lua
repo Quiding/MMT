@@ -518,12 +518,22 @@ end
 
 -- level rows of one character: { L, t, done, q, k, d, z, partial, current,
 -- estimated (end taken from the next level's start), open (no end, not current) }
-function mod.CharLevelRows(c)
+-- fill: also a row (missing = true) for every level from 1 up to the
+-- character's level that has no record (MMT or tracking off then); key: the
+-- character (its level counts when it is the one logged in)
+function mod.CharLevelRows(c, fill, key)
     local rows = {}
     local lv = mod.CompactLevels(c)
+    local top = 0
+    if fill then
+        for L in pairs(lv) do if L > top then top = L end end
+        if key and MMT.IsSelf(key) then top = math.max(top, math.min(Level(), mod.MAX_TRACKED_LEVEL)) end
+    end
     for L = mod.MAX_TRACKED_LEVEL, 1, -1 do
         local r = lv[L]
-        if r then
+        if not r and fill and L <= top then
+            rows[#rows + 1] = { L = L, missing = true, t = 0, q = 0, k = 0, d = 0, i = 0 }
+        elseif r then
             -- only the highest level can be the current one
             local current = not r.done and #rows == 0
             rows[#rows + 1] = { L = L, t = r.t, done = r.done, q = r.q, k = r.k, d = r.d, z = r.z, i = r.i,

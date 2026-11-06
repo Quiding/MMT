@@ -143,9 +143,18 @@ function mod.ExportCSV(kind, scope, sep)
         local function Rows(acc, key, class, lv, raw)
             local name = mod.CharName(key, class)
             local top
+            local highest = 0
+            for L in pairs(lv) do if L > highest then highest = L end end
+            if MMT.IsSelf(key) then
+                local cur = tonumber(UnitLevel and UnitLevel("player")) or 0
+                if not MMT.IsSecret(cur) then highest = math.max(highest, math.min(cur, mod.MAX_TRACKED_LEVEL)) end
+            end
             for L = mod.MAX_TRACKED_LEVEL, 1, -1 do
                 local r = lv[L]
-                if r then
+                if not r and L <= highest then
+                    top = top or L
+                    Row(acc, name, L, "", "", "", "no data recorded (was addon disabled?)", "", "", "", "", "", "", "", "")
+                elseif r then
                     local shown = r.done and (r.e and "finished (level-up not recorded)" or "finished")
                         or (not top and "current" or "unknown end")
                     top = top or L
