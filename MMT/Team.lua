@@ -419,6 +419,19 @@ function ns.RoleWantsItem(roleName, item)
     return best > 0, best
 end
 
+-- The Exclusion List (Trade / Mail / Vendor): true when the item must never be
+-- auto-traded (what = "trade") or auto-mailed (what = "mail").
+function ns.ExcludedItem(item, what)
+    local list = ns.db and ns.db.exclusions
+    if not list or #list == 0 or not item then return false end
+    local id = tonumber(item) or tonumber(tostring(item):match("item:(%d+)"))
+    if not id then return false end
+    for _, e in ipairs(list) do
+        if e.itemID == id then return e[what] == true end
+    end
+    return false
+end
+
 -- Team members whose roles want the item, plus the matching roles. The
 -- members with the most specific rule come first ("Cloth" before "white
 -- items"), team order among equals.

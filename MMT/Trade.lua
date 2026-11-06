@@ -60,7 +60,8 @@ local function CollectItems(rules, exclude)
     for bag = 0, ns.BAGS do
         for slot = 1, (GetNumSlots(bag) or 0) do
             local itemID, link, quality, locked, bound = GetItem(bag, slot)
-            if itemID and not locked and not (exclude and exclude(link or itemID)) then
+            if itemID and not locked and not (exclude and exclude(link or itemID))
+                and not ns.ExcludedItem(itemID, "trade") then
                 if not bound then bound = IsUntradeable(bag, slot) end
                 if not bound then
                     local name, _, q, _, _, _, _, _, _, _, _, classID, subClassID, bindType = ns.ItemInfo(link or itemID)
@@ -136,7 +137,8 @@ local function OwnShare(role)
     for bag = 0, ns.BAGS do
         for slot = 1, (GetNumSlots(bag) or 0) do
             local info = C_Container and C_Container.GetContainerItemInfo and C_Container.GetContainerItemInfo(bag, slot)
-            if info and info.itemID and not info.isBound and ns.RoleWantsItem(role, info.hyperlink or info.itemID) then
+            if info and info.itemID and not info.isBound and not ns.ExcludedItem(info.itemID, "trade")
+                and ns.RoleWantsItem(role, info.hyperlink or info.itemID) then
                 local id, n = info.itemID, info.stackCount or 1
                 counts[id] = (counts[id] or 0) + n
                 stacks[id] = stacks[id] or {}

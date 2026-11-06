@@ -124,6 +124,9 @@ ns.defaults = {
     -- quest settings moved to the Quest Tracker module (profile.quests of older
     -- profiles is copied over by the module once)
     gossip   = { vendor = true, taxi = true, dialog = true },
+    -- items never traded / mailed by MMT, whatever role wants them:
+    -- { { itemID, name, trade = true, mail = true }, ... } (Trade / Mail / Vendor > Exclusion List)
+    exclusions = {},
     merchant = { sellGrey = true, repair = true, guildRepair = false, report = true, tellLeader = true, moneyFormat = "text",
                  sellRole = "", neverRole = "",          -- sell list / never-sell list (role names)
                  buy = false, buyList = {} },            -- buy list: { itemID, name, count, chars = { teamKey, ... } or nil = every character }

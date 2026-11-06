@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 1.0.14: core addon (MMT) plus optional modules (MMT_*).
+Version 1.0.15: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -384,6 +384,10 @@ Saved data from MMT 0.1.x is converted automatically.
     then the rest as one stack: one with exactly that many, else the biggest smaller one
     topped up from the others, else a part split off into an empty bag slot (only then a
     free bag slot is needed). Trades with characters without the role are not affected.
+  - Exclusion List (button in the Trading tile's headline): a side window to drop items
+    on (or shift-click them in); each listed item has "in Trade" and "in Mail" ticks:
+    ticked, MMT never puts it into a trade (role rules and sharing) or mails it ("Mail
+    to team"), whatever role includes it. Saved in the profile.
     Example: members 1, 2 and 4 carry 50, 0 and 40 water: 30 each; 1 trading with 2
     gives 20, 1 with 4 gives nothing, 4 with 2 gives 10. An item in several shared roles
     is shared by the first of them (alphabetical).

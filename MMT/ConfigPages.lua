@@ -1628,6 +1628,169 @@ function ns.OpenBuyEditor(window, index, onSave)
     f:Show()
 end
 
+-- Exclusion List: items MMT never trades or mails, whatever role wants them
+-- (ns.db.exclusions; ns.ExcludedItem in Team.lua). A side window like the buy
+-- editor: drop an item, then tick "in Trade" / "in Mail" per item.
+local exclusionWin
+function ns.OpenExclusionList(window)
+    local f = exclusionWin
+    local W, ROWS, ROW_H = 400, 12, 22
+    local COL_TRADE, COL_MAIL = W - 128, W - 64
+    if not f then
+        f = CreateFrame("Frame", "MMTExclusionListFrame", window)   -- scales and hides with the settings window
+        f:SetFrameStrata(window:GetFrameStrata())
+        f:SetFrameLevel(window:GetFrameLevel() + 50)
+        f:EnableMouse(true)
+        f:SetClampedToScreen(true)
+        UI.Fill(f, 0.05, 0.05, 0.06, 0.96)
+        UI.Border(f, 0.22, 0.22, 0.24, 1)
+        local title = UI.Label(f, "Exclusion List", "GameFontNormalLarge")
+        title:SetPoint("TOPLEFT", 16, -12)
+        title:SetTextColor(A[1], A[2], A[3])
+        local close = UI.TextButton(f, "x", function() f:Hide() end, 20)
+        close:SetPoint("TOPRIGHT", -8, -8)
+        local C = UI.Column(f, 16, -40, W)
+        local intro = UI.Label(f, "Here you can add items and set them to be never traded or mailed, regardless if they are included in a role.")
+        intro:SetWidth(W) intro:SetJustifyH("LEFT") intro:SetTextColor(0.8, 0.8, 0.8)
+        C:Add(intro, 32)
+        f.status = StatusLine(f)
+        f.status:SetWidth(W)
+        local function List() ns.db.exclusions = ns.db.exclusions or {} return ns.db.exclusions end
+        local function AddItem(id, name)
+            if not id then return end
+            for _, e in ipairs(List()) do
+                if e.itemID == id then f.status.Show_((name or ns.ItemInfo(id) or ("item " .. id)) .. " is on the list already.") return end
+            end
+            table.insert(List(), { itemID = id, name = name or ns.ItemInfo(id) or ("item " .. id), trade = true, mail = true })
+            f.status.Show_("")
+            f.offset = math.max(0, #List() - ROWS)
+            f.Layout()
+        end
+        local drop = UI.Button(f, W, "Drop an item from your bags here", function()
+            local kind, id, link = GetCursorInfo()
+            if kind == "item" then AddItem(id, link and link:match("%[(.-)%]")) ClearCursor() end
+        end)
+        drop:SetScript("OnReceiveDrag", drop:GetScript("OnClick"))
+        UI.Tooltip(drop, "Add an item", "Pick up an item in your bags and drop it on this button (or click it while holding the item). Shift-click an item into the field below works too.")
+        C:Add(drop, UI.ROW + 4)
+        local box = UI.EditBox(f, W, "or click here, then shift-click an item", function(text, b)
+            local rule = ns.RuleFromText(text)
+            if rule and rule.itemID then AddItem(rule.itemID, rule.name) b:SetText("") b:ClearFocus()
+            else f.status.Show_("Item not known: use an item link or its ID.", true) end
+        end)
+        UI.AcceptItemLinks(box, function(link, b)
+            local id = tonumber(link:match("item:(%d+)"))
+            if id then AddItem(id, link:match("%[(.-)%]")) b:SetText("") end
+        end)
+        C:Add(box, UI.ROW + 8)
+
+        -- the table
+        local head = CreateFrame("Frame", nil, f)
+        head:SetSize(W, 18)
+        C:Add(head, 20)
+        local function Head(text, x, w)
+            local h = UI.Label(head, text, "GameFontNormalSmall")
+            h:SetPoint("LEFT", x, 0)
+            if w then h:SetWidth(w) h:SetJustifyH("CENTER") end
+            h:SetTextColor(0.7, 0.7, 0.7)
+        end
+        Head("Excluded Item", 6) Head("in Trade", COL_TRADE, 60) Head("in Mail", COL_MAIL, 60)
+        local list = CreateFrame("Frame", nil, f)
+        list:SetSize(W, ROWS * ROW_H)
+        C:Add(list, ROWS * ROW_H + 4)
+        f.empty = UI.Label(list, "No items yet: drop one on the button above.", "GameFontDisableSmall")
+        f.empty:SetPoint("TOPLEFT", 6, -4)
+        f.rows = {}
+        local function Box(row, x, what)
+            local cb = CreateFrame("Button", nil, row)
+            cb:SetSize(16, 16)
+            cb:SetPoint("LEFT", x + 22, 0)
+            UI.Fill(cb, 0.12, 0.12, 0.12, 1)
+            UI.Border(cb, 0.35, 0.35, 0.35, 1)
+            cb.mark = cb:CreateTexture(nil, "ARTWORK")
+            cb.mark:SetPoint("TOPLEFT", 3, -3) cb.mark:SetPoint("BOTTOMRIGHT", -3, 3)
+            cb.mark:SetColorTexture(A[1], A[2], A[3], 1)
+            cb:SetScript("OnClick", function()
+                local e = row.entry
+                if e then e[what] = not e[what] or nil cb.mark:SetShown(e[what] == true) ns.Refresh() end
+            end)
+            UI.Tooltip(cb, what == "trade" and "in Trade" or "in Mail", what == "trade"
+                and "Ticked: MMT never puts this item into a trade (role rules and sharing)."
+                or "Ticked: \"Mail to team\" never mails this item.")
+            return cb
+        end
+        for i = 1, ROWS do
+            local row = CreateFrame("Frame", nil, list)
+            row:SetSize(W, ROW_H)
+            row:SetPoint("TOPLEFT", 0, -(i - 1) * ROW_H)
+            if i % 2 == 0 then UI.Fill(row, 1, 1, 1, 0.03) end
+            row:EnableMouse(true)
+            row.icon = row:CreateTexture(nil, "ARTWORK")
+            row.icon:SetSize(16, 16) row.icon:SetPoint("LEFT", 6, 0)
+            row.name = UI.Label(row, "", "GameFontHighlightSmall")
+            row.name:SetPoint("LEFT", 28, 0) row.name:SetWidth(COL_TRADE - 34)
+            row.name:SetJustifyH("LEFT") row.name:SetWordWrap(false)
+            row.trade = Box(row, COL_TRADE, "trade")
+            row.mail = Box(row, COL_MAIL, "mail")
+            local del = UI.TextButton(row, "x", function()
+                local l = List()
+                for j, e in ipairs(l) do if e == row.entry then table.remove(l, j) break end end
+                f.Layout() ns.Refresh()
+            end, 18)
+            del:SetPoint("RIGHT", -2, 0)
+            UI.Tooltip(del, "Remove", "Takes the item off the Exclusion List.")
+            row:SetScript("OnEnter", function(self)
+                if not self.entry then return end
+                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                if GameTooltip.SetItemByID then pcall(GameTooltip.SetItemByID, GameTooltip, self.entry.itemID)
+                else GameTooltip:SetText(self.entry.name or "") end
+                GameTooltip:Show()
+            end)
+            row:SetScript("OnLeave", function() GameTooltip:Hide() end)
+            f.rows[i] = row
+        end
+        list:EnableMouseWheel(true)
+        list:SetScript("OnMouseWheel", function(_, d)
+            f.offset = math.max(0, math.min(#List() - ROWS, (f.offset or 0) - d))
+            f.Layout()
+        end)
+        C:Add(f.status, UI.ROW)
+        f.more = UI.Label(f, "", "GameFontDisableSmall")
+        f.more:SetPoint("TOPRIGHT", list, "BOTTOMRIGHT", -4, -2)
+        f:SetSize(W + 32, -C.y + 10)
+
+        f.Layout = function()
+            local l = List()
+            f.offset = math.max(0, math.min(f.offset or 0, #l - ROWS))
+            for i, row in ipairs(f.rows) do
+                local e = l[(f.offset or 0) + i]
+                row.entry = e
+                if e then
+                    local name, _, q, _, _, _, _, _, _, tex = ns.ItemInfo(e.itemID)
+                    e.name = name or e.name
+                    local c = q and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
+                    row.name:SetText((c and c.hex or "|cffffffff") .. (e.name or ("item " .. e.itemID)) .. "|r")
+                    row.icon:SetTexture(tex or (C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(e.itemID)) or 134400)
+                    row.trade.mark:SetShown(e.trade == true)
+                    row.mail.mark:SetShown(e.mail == true)
+                    row:Show()
+                else
+                    row:Hide()
+                end
+            end
+            f.empty:SetShown(#l == 0)
+            f.more:SetText(#l > ROWS and ("%d-%d of %d (mouse wheel)"):format((f.offset or 0) + 1, math.min(#l, (f.offset or 0) + ROWS), #l) or "")
+        end
+        UI.CloseOnEscape(f)
+        exclusionWin = f
+    end
+    f.status.Show_("")
+    f.Layout()
+    f:ClearAllPoints()
+    f:SetPoint("TOPLEFT", window, "TOPRIGHT", 6, 0)
+    f:Show()
+end
+
 ns.RegisterPage("trade", "Trade / Mail / Vendor", function(page)
     local TOP = Intro(page, "I hate clicking all the stuff... make it staahp!")
     local X2 = TILE_W + TILE_GAP
@@ -1742,6 +1905,10 @@ ns.RegisterPage("trade", "Trade / Mail / Vendor", function(page)
     -- Trading (top right) ----------------------------------------------------------------
     local TRADE_H = 42 + UI.ROW + (UI.ROW + 2) + 58 + 64 + 8
     local tt, T = Tile(page, X2, TOP, TILE_W, TRADE_H, "Trading", "Interface\\Icons\\INV_Misc_Bag_07")
+    local exclBtn = UI.Button(tt, 110, "Exclusion List", function() ns.OpenExclusionList(page:GetParent()) end)
+    exclBtn:SetHeight(20)
+    exclBtn:SetPoint("TOPRIGHT", tt, "TOPRIGHT", -8, -8)
+    UI.Tooltip(exclBtn, "Exclusion List", "Items MMT never trades or mails, even when a role includes them.")
     local gtr, str = Opt("trade", "enabled")
     T:Check("Fill trades from role rules", gtr, str,
         "When you open a trade with a team member, the items their roles ask for go into the trade window. You still accept the trade yourself. /mmt trade fills it again.")

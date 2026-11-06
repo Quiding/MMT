@@ -88,7 +88,7 @@ local function PlanMail()
     local byKey, order = {}, {}
     for _, it in ipairs(BagItems()) do
         local key, role
-        if not it.info.isBound then key, role = Recipient(it.link) end
+        if not it.info.isBound and not ns.ExcludedItem(it.link, "mail") then key, role = Recipient(it.link) end
         if key then
             it.role = role
             if not byKey[key] then byKey[key] = {}; order[#order + 1] = key end
