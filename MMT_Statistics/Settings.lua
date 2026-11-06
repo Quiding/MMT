@@ -694,19 +694,22 @@ M.Page = function(_, page)
             local c = mod.Store().chars[key]
             for _, r in ipairs(c and mod.CharLevelRows(c) or {}) do
                 rows[#rows + 1] = {
-                    cells = { tostring(r.L), mod.Duration(r.t) .. ((r.partial or r.current) and " *" or ""),
-                        r.done and date("%Y-%m-%d %H:%M", r.done) or "(current)", Num(r.q), Num(r.k), Num(r.d), Num(r.i or 0), r.z or "" },
+                    cells = { tostring(r.L), mod.Duration(r.t) .. ((r.partial or r.current or r.estimated) and " *" or ""),
+                        r.done and ((r.estimated and "~ " or "") .. date("%Y-%m-%d %H:%M", r.done))
+                            or (r.current and "(current)" or "(unknown)"),
+                        Num(r.q), Num(r.k), Num(r.d), Num(r.i or 0), r.z or "" },
                     grey = r.current,
-                    tip = (r.partial or r.current) and function(t)
+                    tip = (r.partial or r.current or r.estimated or r.open) and function(t)
                         t:SetText(("Level %d"):format(r.L))
                         if r.current then t:AddLine("The current level: still running.", 1, 1, 1, true) end
+                        if r.estimated or r.open then t:AddLine("The level-up wasn't recorded (MMT or the Leveling tracking was off then): the time shown is the next level's start.", 1, 1, 1, true) end
                         if r.partial then t:AddLine("Tracking began during this level: the time and counts are only from then on.", 1, 1, 1, true) end
                     end or nil,
                 }
             end
             for _, r in ipairs(c and mod.CharLevelRows(c) or {}) do Count(r.t, r.q, r.k, r.d, r.i, r.z) end
             if #rows > 0 then table.insert(rows, 1, TotalRow(false)) end
-            levelNote:SetText("Time counts while this character is logged in. * = the current level, or tracking began during it. Instances: entered on that level.")
+            levelNote:SetText("Time counts while this character is logged in. * = the current level, tracking began during it, or its level-up wasn't recorded (~ time). Instances: entered on that level.")
         else
             levelGrid.heads[3]:SetText("Characters")
             for _, r in ipairs(mod.AverageLevelRows(scope)) do

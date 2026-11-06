@@ -226,7 +226,9 @@ Saved data from MMT 0.1.x is converted automatically.
   - Export (Settings tab): CSV text to copy into a spreadsheet or a .csv file (addons can't
     write files): gold per day and character, gold per day and account, characters, kills
     and deaths per NPC (with their kind), the kill summary per character, kills by zone and
-    level, the Dungeon Journal, quests, zones or instance visits; comma or semicolon (decimal
+    level, the Dungeon Journal, quests, zones, instance visits, or leveling (one row per
+    character and level: start, end and where the end comes from, how the Leveling tab
+    shows it, time, quests, kills, deaths, instances, favourite zone); comma or semicolon (decimal
     comma) as separator; names follow the privacy setting.
   - Backup / import (Settings tab): "Backup (for import)" puts all statistics of this
     account (real names, gold per day, kills, quests, levels, zones, instances) into the

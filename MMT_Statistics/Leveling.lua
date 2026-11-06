@@ -493,24 +493,41 @@ function mod.CompactLevels(c)
     for _, run in ipairs(c.runs or {}) do
         if run.lvIn then inst[run.lvIn] = (inst[run.lvIn] or 0) + 1 end
     end
+    -- a level without an end while a higher one exists: its level-up wasn't
+    -- recorded (addon or tracking off then); it ended when the next level
+    -- began (e = 1: that end is taken from there)
+    local top = 0
+    for L in pairs(c.levels or {}) do if L > top then top = L end end
     for L, r in pairs(c.levels or {}) do
         if L >= 1 and L <= mod.MAX_TRACKED_LEVEL then
+            local done, est = r.done, nil
+            if not done and L < top then
+                local nextL
+                for L2, r2 in pairs(c.levels) do
+                    if L2 > L and (not nextL or L2 < nextL) and r2.start then nextL = L2 end
+                end
+                done = nextL and c.levels[nextL].start or r.start or 0
+                est = 1
+            end
             out[L] = { t = math.floor(r.t or 0), q = r.q or 0, k = r.k or 0, d = r.d or 0,
-                z = FavZone(c, r.z), done = r.done, p = r.partial and 1 or nil, i = inst[L] or 0 }
+                z = FavZone(c, r.z), done = done, e = est, p = r.partial and 1 or nil, i = inst[L] or 0 }
         end
     end
     return out
 end
 
--- level rows of one character: { L, t, done, q, k, d, z, partial, current }
+-- level rows of one character: { L, t, done, q, k, d, z, partial, current,
+-- estimated (end taken from the next level's start), open (no end, not current) }
 function mod.CharLevelRows(c)
     local rows = {}
     local lv = mod.CompactLevels(c)
     for L = mod.MAX_TRACKED_LEVEL, 1, -1 do
         local r = lv[L]
         if r then
+            -- only the highest level can be the current one
+            local current = not r.done and #rows == 0
             rows[#rows + 1] = { L = L, t = r.t, done = r.done, q = r.q, k = r.k, d = r.d, z = r.z, i = r.i,
-                partial = r.p ~= nil, current = not r.done }
+                partial = r.p ~= nil, current = current, estimated = r.e ~= nil, open = not r.done and not current }
         end
     end
     return rows

@@ -11,6 +11,8 @@
 --   sep   "," (decimal point) | ";" (decimal comma, e.g. German Excel)
 --         QUESTS     quests of this account's characters (Quests.lua)
 --         ZONES / INSTANCES  zones and instance visits of this account's characters (Leveling.lua)
+--         LEVELING   one row per character and level, the data behind the Leveling tab
+--                    (this account's raw records; other accounts what they sent)
 --         KILL_SUMMARY / KILL_DETAIL / JOURNAL  the Kills tab (KillTypes.lua)
 -- Names follow the privacy setting, like everything MMT shows.
 
@@ -29,6 +31,7 @@ mod.EXPORT_KINDS = {
     { value = "QUESTS", text = "Quests (this account)" },
     { value = "ZONES", text = "Zones (this account)" },
     { value = "INSTANCES", text = "Instances (this account)" },
+    { value = "LEVELING", text = "Leveling (per character and level)" },
 }
 
 local function Field(v, sep)
@@ -130,6 +133,41 @@ function mod.ExportCSV(kind, scope, sep)
                             q.cl or "", q.xp or "", q.cp or "", mod.QuestItemsText(q.items, true),
                             When(q.ta), When(q.tc or q.tx), q.scan and "scan" or "tracked")
                     end
+                end
+            end
+        end
+    elseif kind == "LEVELING" then
+        Row("Account", "Character", "Level", "Started", "Finished", "Finished from", "Shown as", "Partial",
+            "Time played", "Seconds", "Quests", "Kills", "Deaths", "Instances", "Favourite zone")
+        local function Date(t) return t and t > 0 and date("%Y-%m-%d %H:%M:%S", t) or "" end
+        local function Rows(acc, key, class, lv, raw)
+            local name = mod.CharName(key, class)
+            local top
+            for L = mod.MAX_TRACKED_LEVEL, 1, -1 do
+                local r = lv[L]
+                if r then
+                    local shown = r.done and (r.e and "finished (level-up not recorded)" or "finished")
+                        or (not top and "current" or "unknown end")
+                    top = top or L
+                    local rr = raw and raw[L]
+                    Row(acc, name, L, Date(rr and rr.start), Date(r.done),
+                        rr and (rr.done and "level-up" or (r.e and "next level start" or "")) or (r.e and "next level start" or (r.done and "level-up" or "")),
+                        shown, r.p and "yes" or "no", mod.Clock(r.t or 0), math.floor(r.t or 0),
+                        r.q or 0, r.k or 0, r.d or 0, r.i or 0, r.z or "")
+                end
+            end
+        end
+        for _, id in ipairs(ids) do
+            if id == own then
+                for _, e in ipairs(Sorted(s.chars)) do
+                    local key, c = e[1], e[2]
+                    Rows(mod.AccountLabel(id), key, c.class, mod.CompactLevels(c), c.levels)
+                end
+            else
+                local a = mod.Account(id)
+                for _, e in ipairs(Sorted(a and a.chars)) do
+                    local key, c = e[1], e[2]
+                    if c.lv then Rows(mod.AccountLabel(id), key, c.class, c.lv, nil) end
                 end
             end
         end
