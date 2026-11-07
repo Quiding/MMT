@@ -14,7 +14,7 @@ ns.defaults = {
     roles = {},   -- [role name] = { rules = { rule, ... } }
     trade = { enabled = true, shareRoles = {} },   -- shareRoles: [role] = true, shared evenly among its members
 
-    -- XP window ------------------------------------------------------------
+    -- Info window ------------------------------------------------------------
     xp = {
         enabled     = true,
         locked      = false,
@@ -60,7 +60,7 @@ ns.defaults = {
         detect     = "MANUAL",  -- MANUAL: click, key, command | MOVE: moving a character on its own makes it the leader
         nameFormat = "FULL",    -- FULL "First Last" | FIRST "First" | UNIT party/raid unit ("party2")
         skipSelf   = true,      -- leave {FTL} lines out on the leader's own client
-        crown      = true,      -- crown in front of the leader in the XP window
+        crown      = true,      -- crown in front of the leader in the Info window
         crownSide  = "LEFT",    -- LEFT of the name | RIGHT of it
         announce   = true,      -- chat line when the leader changes
         macros = {

@@ -9,7 +9,7 @@
 -- because it sends modifier keys from outside the game).
 --
 -- The leader is set by
---   * a left-click on a character in the XP window,
+--   * a left-click on a character in the Info window,
 --   * the key binding "MMT: Make this character the leader",
 --   * /mmt leader (this character) or /mmt leader <name>,
 --   * automatically when you move a character that isn't following (setting).

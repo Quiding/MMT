@@ -206,7 +206,7 @@ ns.RegisterPage("help", "Help", function(page)
         function(v) MMTDB.debugChat = v end)
     L:Check("Debug mode (ignore online requirements)", function() return ns.DebugMode() end,
         function(v) ns.SetDebugMode(v) end,
-        "Shows every team member where MMT normally shows only those online with MMT: the XP window (offline members in grey, with their last known values) and the Quest Tracker. Only for testing: at every login MMT asks whether to switch it off.")
+        "Shows every team member where MMT normally shows only those online with MMT: the Info window (offline members in grey, with their last known values) and the Quest Tracker. Only for testing: at every login MMT asks whether to switch it off.")
     local at, R = Tile(d, X2, 0, TILE_W, TOOLS_H, "Actions", "Interface\\Icons\\INV_Misc_Note_01")
     local half = math.floor((TILE_IN - 8) / 2)
     local report = UI.Button(at, half, "Debug report", function() ns.HandleDebugCommand("dump") end)
@@ -265,7 +265,7 @@ ns.RegisterPage("help", "Help", function(page)
         function(v) ns.SetConfigScale(v / 100) end, "%d%%")
     W:Button("Back to 100%", function() ns.SetConfigScale(1) ns.RefreshConfig() end)
     W:Space(4)
-    W:Note("Also: + and - at the bottom left of this window (right-click resets), or /mmt scale <percent>. The XP window's scale is under XP Window > Fonts, Bars, Scale, Opacity.")
+    W:Note("Also: + and - at the bottom left of this window (right-click resets), or /mmt scale <percent>. The Info window's scale is under Info Window > Fonts, Bars, Scale, Opacity.")
     W:Note("The look and size belong to this account (all its characters and profiles). Profiles > Sync to team (/mmt sync) sends them along.")
 
     page.OnRefresh = function()

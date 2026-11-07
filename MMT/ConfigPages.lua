@@ -107,7 +107,7 @@ local function Grip(row)
     return g
 end
 
--- drag & drop for the rows of a List (the XP window's pieces, the team):
+-- drag & drop for the rows of a List (the Info window's pieces, the team):
 -- onDrop(fromIndex, beforeIndex | nil = to the end); the list scrolls when the
 -- cursor leaves it while dragging; a line shows where the row goes
 local function DragReorder(list, visible, rowH, onDrop)
@@ -314,7 +314,7 @@ ns.RegisterPage("team", "Team", function(page)
     you:SetJustifyH("RIGHT")
     you:SetTextColor(0.5, 0.5, 0.5)
     ns.HoverMember(youHover, function() return ns.PlayerFull() end)
-    col:Note("In the order the XP window shows them: drag a row by its dots to move it. Green dot = online with MMT. Every account keeps its own team: add it on each client, or send it with Profiles > Sync to team (/mmt sync).")
+    col:Note("In the order the Info window shows them: drag a row by its dots to move it. Green dot = online with MMT. Every account keeps its own team: add it on each client, or send it with Profiles > Sync to team (/mmt sync).")
 
     local list = List(tt, IN, ROWS, ROW_H, function(parent, i)
         local row = CreateFrame("Frame", nil, parent)
@@ -370,7 +370,7 @@ ns.RegisterPage("team", "Team", function(page)
         end
     end)
     col:Add(list, ROWS * ROW_H)
-    -- drag a member up or down (the XP window's order)
+    -- drag a member up or down (the Info window's order)
     DragReorder(list, ROWS, ROW_H, function(from, before)
         local data = list.data
         ns.MoveMemberBefore(data[from], before and data[before] or nil)
@@ -759,7 +759,7 @@ ns.RegisterPage("roles", "Roles", function(page)
 end)
 
 ---------------------------------------------------------------------------
--- XP window: a line on top, then four tiles (Basics, General Look & Feel,
+-- Info window: a line on top, then four tiles (Basics, General Look & Feel,
 -- Column Visibility & Order, Miscellaneous); fonts, bars, scale and opacity
 -- in a side window
 ---------------------------------------------------------------------------
@@ -776,7 +776,7 @@ function ns.ToggleXPLook(window)
         UI.Fill(f, 0.05, 0.05, 0.06, 0.96)
         UI.Border(f, 0.22, 0.22, 0.24, 1)
         f.widgets = {}
-        local title = UI.Label(f, "XP Window: fonts, bars, scale, opacity", "GameFontNormal")
+        local title = UI.Label(f, "Info Window: fonts, bars, scale, opacity", "GameFontNormal")
         title:SetPoint("TOPLEFT", 16, -14)
         local close = UI.TextButton(f, "x", function() f:Hide() end, 20)
         close:SetPoint("TOPRIGHT", -8, -8)
@@ -825,8 +825,8 @@ function ns.ToggleXPLook(window)
 end
 
 
-ns.RegisterPage("xp", "XP Window", function(page)
-    local TOP = Intro(page, "The XP Window is a central part of MMT that is used to show you lots of information about your team.")
+ns.RegisterPage("xp", "Info Window", function(page)
+    local TOP = Intro(page, "The Info Window is a central part of MMT that is used to show you lots of information about your team.")
     local PIECE_ROWS, PIECE_H = 9, 20   -- every piece visible without scrolling
     local EXTRA = 2 * PIECE_H           -- every tile two rows taller
     local TOP_H = 42 + 6 * UI.ROW + (UI.ROW + 2) + 8 + EXTRA
@@ -953,10 +953,10 @@ ns.RegisterPage("xp", "XP Window", function(page)
     local arrange
     arrange = V:Button("", function() ns.ToggleXPArrange() end)
     local function ArrangeText()
-        arrange.label:SetText(ns.xpArrange and "Stop drag&drop mode" or "Enable drag&drop mode for the XP window")
+        arrange.label:SetText(ns.xpArrange and "Stop drag&drop mode" or "Enable drag&drop mode for the Info window")
     end
     ArrangeText()
-    UI.Tooltip(arrange, "Drag&drop mode", "Every switched-on piece, the name too, shows in the XP window with dots: drag a piece along its row, or a row up or down to change the team order. Until you click again or /reload. Also /mmt xp arrange.")
+    UI.Tooltip(arrange, "Drag&drop mode", "Every switched-on piece, the name too, shows in the Info window with dots: drag a piece along its row, or a row up or down to change the team order. Until you click again or /reload. Also /mmt xp arrange.")
     local xpDependent
     page.OnRefresh = function()
         Redraw()
@@ -1055,7 +1055,7 @@ end
 -- Alerts: follow and crowd control
 ---------------------------------------------------------------------------
 ns.RegisterPage("alerts", "Alerts", function(page)
-    local TOP = Intro(page, "You can have MMT notify you via XP window, sound or text warnings about certain conditions and situations, to help you keeping track of your team.")
+    local TOP = Intro(page, "You can have MMT notify you via Info window, sound or text warnings about certain conditions and situations, to help you keeping track of your team.")
     local FULL_H = 564 + TOP
     local X2 = TILE_W + TILE_GAP
     local FOLLOW_H = 42 + UI.ROW + 5 * UI.ROW + 36 + 10
@@ -1065,7 +1065,7 @@ ns.RegisterPage("alerts", "Alerts", function(page)
     L:Note("Warns when a team character stops following.")
     local gfc, sfc = Opt("xp", "followCheck")
     L:Check("Check /follow of team", gfc, sfc,
-        "Every client reports when its character starts or stops following. A member who stops gets a red, pulsing row in the XP window. Needs MMT on every client.")
+        "Every client reports when its character starts or stops following. A member who stops gets a red, pulsing row in the Info window. Needs MMT on every client.")
     local followMark = Mark(ft)
     local gfw, sfw = Opt("xp", "followWarn")
     L:Check("Show warning when follow breaks", gfw, sfw,
@@ -1101,7 +1101,7 @@ ns.RegisterPage("alerts", "Alerts", function(page)
 
     -- Crowd Control (right, full height) -------------------------------------------
     local ct, R = Tile(page, X2, TOP, TILE_W, FULL_H, "Crowd Control", "Interface\\Icons\\Spell_Nature_Polymorph")
-    R:Note("Warns when a team character can't move: stunned, feared, incapacitated or rooted. The XP window marks the row orange with the time left.")
+    R:Note("Warns when a team character can't move: stunned, feared, incapacitated or rooted. The Info window marks the row orange with the time left.")
     local ge, se = Opt("cc", "enabled")
     R:Check("Check crowd control of team", ge, se,
         "Every client reports when its character loses control and when it is free again. Needs MMT on every client.")
@@ -1155,12 +1155,12 @@ ns.RegisterPage("ftl", "FTL", function(page)
     L:Check("Leave {FTL} lines out on the leader", gs, ss,
         "On the leader's own client, macro lines with {FTL} are left out (the leader can't follow or assist itself).")
     local gc, sc = Opt("ftl", "crown")
-    L:Check("Crown on the leader in the XP window", gc, sc)
+    L:Check("Crown on the leader in the Info window", gc, sc)
     local ga, sa = Opt("ftl", "announce")
     L:Check("Chat line when the leader changes", ga, sa)
 
     L:Header("Changing the leader")
-    L:Note("- Click the character in the XP window\n- Key binding \"Make this character the leader\" (Esc > Options > Keybindings > MMT (Manage My Team))\n- /mmt leader (this character) or /mmt leader <name>\n- Automatically when you move a character on its own (setting above). Not when several team characters start moving at once (movement keys or Interact with Target broadcast to every window: the leader stays), and not while following, feared or charmed.")
+    L:Note("- Click the character in the Info window\n- Key binding \"Make this character the leader\" (Esc > Options > Keybindings > MMT (Manage My Team))\n- /mmt leader (this character) or /mmt leader <name>\n- Automatically when you move a character on its own (setting above). Not when several team characters start moving at once (movement keys or Interact with Target broadcast to every window: the leader stays), and not while following, feared or charmed.")
     local current = L:Note("")
     L:Header("Sending the macros to the team")
     L:Note("Same account and profile: nothing to do. Other accounts: log them in, then click "
@@ -1971,12 +1971,12 @@ ns.RegisterPage("trade", "Trade / Mail / Vendor", function(page)
 end)
 
 ns.RegisterPage("profiles", "Profiles", function(page)
-    local TOP = Intro(page, "A profile holds all core settings: team, roles, XP window, automations and more. Profiles are shared by all characters on this account; each character uses one, new characters start with \"Default\".")
+    local TOP = Intro(page, "A profile holds all core settings: team, roles, Info window, automations and more. Profiles are shared by all characters on this account; each character uses one, new characters start with \"Default\".")
     -- account-wide, not part of a profile
     local mm = UI.Check(page, 300, "Show Minimap button",
         function() return ns.MinimapButtonShown and ns.MinimapButtonShown() end,
         function(v) if ns.SetMinimapButton then ns.SetMinimapButton(v) end end,
-        "A button on the minimap: left-click opens these settings (like /mmt), right-click shows or hides the XP window, drag it to move it. This choice belongs to this account (all its characters and profiles).")
+        "A button on the minimap: left-click opens these settings (like /mmt), right-click shows or hides the Info window, drag it to move it. This choice belongs to this account (all its characters and profiles).")
     mm:SetPoint("TOPLEFT", page, "TOPLEFT", 0, TOP + 2)
     TOP = TOP - UI.ROW - 4
     local X2 = TILE_W + TILE_GAP
@@ -2060,11 +2060,11 @@ ns.RegisterPage("profiles", "Profiles", function(page)
 
     -- Share with the Team (bottom left) ---------------------------------------------------------
     local stile, S = Tile(page, 0, Y2, TILE_W, BOTTOM_H, "Share with the Team", "Interface\\Icons\\Spell_Arcane_Blink")
-    S:Note("Sends the active profile to your group and online team members (same as /mmt sync): team, roles, XP window incl. its position, automations, which modules are on or off, and the look and size of the settings window.")
+    S:Note("Sends the active profile to your group and online team members (same as /mmt sync): team, roles, Info window incl. its position, automations, which modules are on or off, and the look and size of the settings window.")
     S:Note("With \"Use guild channel\" (Team page) and every recipient in your guild, the settings of the modules go along too; otherwise every module page has its own Sync button.")
     S:Space(4)
     local syncButton = UI.SyncButton(page, "Sync to team", function() ns.SendProfileToTeam() end, "Sync core settings",
-        "Same as /mmt sync: sends the core settings of the active profile (team, roles, XP window incl. its position, automations, distance window), which modules are on or off and the settings window's look and size (Help > Appearance) to your group and online team members. With \"Use guild channel\" and every recipient in your guild, the settings of the modules go along too; otherwise every module page has its own Sync button. Each recipient gets a dialog to accept them (or accepts on its own, see the option below the button).")
+        "Same as /mmt sync: sends the core settings of the active profile (team, roles, Info window incl. its position, automations, distance window), which modules are on or off and the settings window's look and size (Help > Appearance) to your group and online team members. With \"Use guild channel\" and every recipient in your guild, the settings of the modules go along too; otherwise every module page has its own Sync button. Each recipient gets a dialog to accept them (or accepts on its own, see the option below the button).")
     syncButton:ClearAllPoints()
     syncButton:SetParent(stile)
     syncButton:SetWidth(TILE_IN)

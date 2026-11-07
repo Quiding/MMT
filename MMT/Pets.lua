@@ -1,7 +1,7 @@
--- MMT: hunter pets in the XP window. Every hunter's client sends whether a pet
+-- MMT: hunter pets in the Info window. Every hunter's client sends whether a pet
 -- is out and its happiness and loyalty with the heartbeat ("pt=<happiness>.<loyalty>",
 -- "pt=0" without a pet), and right away when that changes (pet summoned or
--- dismissed, happiness changed). The XP window piece "Pet happiness & loyalty"
+-- dismissed, happiness changed). The Info window piece "Pet happiness & loyalty"
 -- (off by default) shows them as icons, "-" for characters that aren't hunters;
 -- the column hides while no hunter of the team has a pet out and comes back as
 -- soon as one is summoned. The row tooltip shows the last known values

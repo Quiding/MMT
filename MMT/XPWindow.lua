@@ -68,8 +68,8 @@ end)
 handle:SetScript("OnDragStop", function() f:GetScript("OnDragStop")(f) end)
 handle:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_TOP")
-    GameTooltip:SetText("XP window")
-    GameTooltip:AddLine("Drag to move it. Lock its position on the XP Window page.", 1, 1, 1, true)
+    GameTooltip:SetText("Info window")
+    GameTooltip:AddLine("Drag to move it. Lock its position on the Info Window page.", 1, 1, 1, true)
     GameTooltip:Show()
 end)
 handle:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -109,7 +109,7 @@ local function Invite(key)
     if not CanLead() then ns.Print("Only the group leader can invite.") return end
     local invite = (C_PartyInfo and C_PartyInfo.InviteUnit) or InviteUnit
     local ok, err = pcall(invite, ns.WhisperTarget(key))
-    ns.Debug("XP window invite %s -> %s %s", ns.Repr(ns.WhisperTarget(key)), tostring(ok), tostring(err or ""))
+    ns.Debug("Info window invite %s -> %s %s", ns.Repr(ns.WhisperTarget(key)), tostring(ok), tostring(err or ""))
     if ok then ns.Print("Invited %s.", ns.FullDisplay(key)) end
 end
 
@@ -288,6 +288,7 @@ local function RowTooltip(row)
             1, 1, 1, c and c.r or 1, c and c.g or 1, c and c.b or 1)
     end
     if ns.PetTooltip and ns.XPPieceOn("pet") then ns.PetTooltip(tip, key) end
+    if ns.HasMail and ns.HasMail(key) then tip:AddDoubleLine("Mail", "new mail waiting", 1, 1, 1, 1, 0.82, 0) end
     tip:AddDoubleLine("Layer", s.layer and ("#" .. s.layer) or "unknown", 1, 1, 1, 0.7, 0.7, 0.7)
     local phase = ns.PhaseOf(key)
     if phase then tip:AddDoubleLine("Phasing", phase, 1, 1, 1, 1, 0.25, 0.25) end
@@ -324,7 +325,7 @@ local function RowTooltip(row)
 end
 
 ---------------------------------------------------------------------------
--- Arranging (ns.xpArrange, session only: /mmt xp arrange, XP Window page):
+-- Arranging (ns.xpArrange, session only: /mmt xp arrange, Info Window page):
 -- every switched-on piece, the name included, shows with dots and can be
 -- dragged along its row (XPPieces.lua keeps the order); a row dragged up or
 -- down changes the team order.
@@ -460,9 +461,9 @@ end
 function ns.ToggleXPArrange(on)
     if on == nil then on = not ns.xpArrange end
     ns.xpArrange = on and true or nil
-    if on and not ns.db.xp.enabled then ns.Print("The XP window is hidden: /mmt xp shows it.") end
-    ns.Print(on and "XP window: arranging. Drag a piece (the name too) along its row, or a row up or down. /mmt xp arrange again to stop."
-        or "XP window: arranging off.")
+    if on and not ns.db.xp.enabled then ns.Print("The Info window is hidden: /mmt xp shows it.") end
+    ns.Print(on and "Info window: arranging. Drag a piece (the name too) along its row, or a row up or down. /mmt xp arrange again to stop."
+        or "Info window: arranging off.")
     ns.Refresh()
 end
 

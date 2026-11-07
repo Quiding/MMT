@@ -1,5 +1,5 @@
 -- MMT: minimap button. Left-click opens or closes the settings (like /mmt),
--- right-click shows or hides the XP window, drag moves it around the minimap.
+-- right-click shows or hides the Info window, drag moves it around the minimap.
 -- Shown or hidden with Profiles > "Show Minimap button"; per account
 -- (MMTDB.minimap = { hide, angle }), like the settings window's scale.
 
@@ -74,7 +74,7 @@ local function Create()
         GameTooltip:SetOwner(self, "ANCHOR_LEFT")
         GameTooltip:SetText("MMT - Manage My Team")
         GameTooltip:AddLine("Left-click: settings (/mmt)", 1, 1, 1)
-        GameTooltip:AddLine("Right-click: show / hide the XP window", 1, 1, 1)
+        GameTooltip:AddLine("Right-click: show / hide the Info window", 1, 1, 1)
         GameTooltip:AddLine("Drag: move around the minimap", 0.6, 0.6, 0.6)
         GameTooltip:Show()
     end)

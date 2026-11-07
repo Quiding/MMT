@@ -221,12 +221,12 @@ out by the quest item round robin. The reason is shown in the "Gave ... to ..." 
 | `MMT.IsNoticeLeaderHere()` | `true` on the client that should show notes: the FTL leader, else the group leader |
 | `MMT.AlertAllowed(kind, key)` | `false` if the same alert for the same member came less than 5 seconds ago |
 
-### XP window pieces
+### Info window pieces
 
-A row of the XP window is a line of pieces in the player's order, left to right,
+A row of the Info window is a line of pieces in the player's order, left to right,
 the name being one of them (durability, bags, gold, name, level, XP %, ...), with
 the bar behind the row. Players switch them on or off and drag them into their
-order (XP Window page, or `/mmt xp arrange`). A module can add its own piece:
+order (Info Window page, or `/mmt xp arrange`). A module can add its own piece:
 
 ```lua
 MMT.RegisterXPPiece{

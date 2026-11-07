@@ -10,7 +10,7 @@
 -- or ended expires on its own (end of the effect, or 30 s), so a lost
 -- message can't leave a row marked.
 --
--- Every client's XP window marks the row (orange, pulsing) with a countdown.
+-- Every client's Info window marks the row (orange, pulsing) with a countdown.
 -- The raid warning and the sound come only from the FTL leader's client (the
 -- character you play), so they don't go off on every client at once; with no
 -- leader known, every client warns. No chat lines: in a fight they would
@@ -55,7 +55,7 @@ function ns.CCLeft(c)
     return math.max(0, math.ceil(c.ends - GetTime()))
 end
 
--- "stunned 4" (for the XP window)
+-- "stunned 4" (for the Info window)
 function ns.CCShort(key)
     local c = ns.CCState(key)
     if not c then return nil end

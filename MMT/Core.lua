@@ -4,7 +4,7 @@
 local ADDON, ns = ...
 _G.MMT = ns
 ns.title = "MMT"
-ns.version = "1.0.22"
+ns.version = "1.0.23"
 ns.prefix = "MMT"
 ns.LOGO = "Interface\\AddOns\\MMT\\Media\\Logo"   -- the MMT mark (Media/Logo.tga)
 ns.ICON = "Interface\\AddOns\\MMT\\Media\\Icon"   -- the mark on a dark tile (Media/Icon.tga)
@@ -486,13 +486,13 @@ BINDING_CATEGORY_MMT = "MMT (Manage My Team)"
 ns.BINDING_CATEGORY = "BINDING_CATEGORY_MMT"
 BINDING_HEADER_MMT = "Core"
 BINDING_NAME_MMT_TOGGLE_CONFIG = "Open / close the MMT settings"
-BINDING_NAME_MMT_TOGGLE_XP = "Show / hide the XP window"
+BINDING_NAME_MMT_TOGGLE_XP = "Show / hide the Info window"
 function MMT_ToggleConfig() if ns.ready and ns.ToggleConfig then ns.ToggleConfig() end end
 function MMT_ToggleXPWindow() if ns.ready and ns.ToggleXPWindow then ns.ToggleXPWindow() end end
 
 ---------------------------------------------------------------------------
 -- Debug mode (Help page): ignores the online requirement where MMT shows
--- team members (XP window, Quest Tracker), so every member is listed.
+-- team members (Info window, Quest Tracker), so every member is listed.
 -- Account-wide; at every login MMT asks whether to switch it off.
 ---------------------------------------------------------------------------
 function ns.DebugMode() return MMTDB and MMTDB.debugMode == true or false end

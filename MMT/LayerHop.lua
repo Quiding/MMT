@@ -1,5 +1,5 @@
 -- MMT: Layer Hop. When the game offers to move this character to another
--- layer/phase, the XP window shows a pulsing red "Layer Hop" next to the
+-- layer/phase, the Info window shows a pulsing red "Layer Hop" next to the
 -- name. Clicking it confirms after 3 seconds; optionally it is confirmed
 -- automatically after X seconds. Both count down in chat.
 --
@@ -12,7 +12,7 @@
 -- name containing SHARD, LAYER or TRANSFER is logged.
 --
 -- The team sees each other's pending hops (LH:1 / LH:0) and countdowns
--- (LHC:<seconds>, LHC:0 = stopped) in the XP window; clicking a
+-- (LHC:<seconds>, LHC:0 = stopped) in the Info window; clicking a
 -- teammate's "Layer Hop" asks that client to confirm (LHGO).
 
 local _, ns = ...
@@ -68,7 +68,7 @@ function ns.StartHopCountdown(seconds, why)
     seconds = math.max(1, math.floor(seconds + 0.5))
     ns.Print("Layer hop in %d s (%s)...", seconds, why)
     ns.hop.countdownEnd = GetTime() + seconds
-    SendCountdown(seconds)   -- the team's XP windows count down too
+    SendCountdown(seconds)   -- the team's Info windows count down too
     ns.Fire("STATUS_CHANGED")
     local left = seconds
     countdown = C_Timer.NewTicker(1, function(self)
@@ -110,7 +110,7 @@ function ns.SetHopPending(on, source)
             if not ns.HopToastVisible() then ns.SetHopPending(false, "timeout") end
         end)
         local x = ns.db.xp
-        if x.layerHopNotify then ns.Print("Layer hop offered. Click \"Layer Hop\" in the XP window to accept.") end
+        if x.layerHopNotify then ns.Print("Layer hop offered. Click \"Layer Hop\" in the Info window to accept.") end
         if x.layerHopAuto then ns.StartHopCountdown(x.layerHopDelay or 5, "auto") end
     else
         ns.CancelHopCountdown(source ~= "confirmed" and "the game no longer offers it" or nil)
@@ -119,7 +119,7 @@ function ns.SetHopPending(on, source)
     ns.Fire("STATUS_CHANGED")
 end
 
--- click on "Layer Hop" in the XP window
+-- click on "Layer Hop" in the Info window
 function ns.HopClicked(key)
     if ns.IsSelf(key) then
         if ns.hop.pending then ns.StartHopCountdown(MANUAL_DELAY, "manual") end

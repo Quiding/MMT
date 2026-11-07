@@ -86,7 +86,7 @@ function ns.BuildDebugReport()
         tostring(MAX_TRADABLE_ITEMS), tostring(GetMaxPlayerLevel and GetMaxPlayerLevel()), tostring(UnitPhaseReason ~= nil),
         tostring(ns.CanCompress and ns.CanCompress())))
     add("ERR_CHAT_PLAYER_NOT_FOUND_S = " .. Repr(ERR_CHAT_PLAYER_NOT_FOUND_S))
-    if ns.DebugMode() then add("DEBUG MODE is on: online requirements are ignored (XP window, Quest Tracker).") end
+    if ns.DebugMode() then add("DEBUG MODE is on: online requirements are ignored (Info window, Quest Tracker).") end
     local reasons = {}
     for value, label in pairs(ns.PHASE_LABELS) do reasons[#reasons + 1] = value .. "=" .. label end
     table.sort(reasons)
@@ -226,7 +226,7 @@ function ns.HandleDebugCommand(arg)
         ns.Print("Printing debug lines to chat: %s", State(MMTDB.debugChat))
         ns.RefreshConfig()
     elseif sub == "talents" then
-        -- what the game offers for viewing talents (for fixing Ctrl-click in the XP window)
+        -- what the game offers for viewing talents (for fixing Ctrl-click in the Info window)
         local lines = { "MMT " .. ns.version .. " talent view candidates (global names with Talent / Inspect / UnitPopup...Talent)" }
         for _, l in ipairs(ns.ListTalentGlobals and ns.ListTalentGlobals() or {}) do lines[#lines + 1] = l end
         lines[#lines + 1] = ""
@@ -247,7 +247,7 @@ function ns.HandleDebugCommand(arg)
         ns.Print("/mmt debug dump - copyable report (identity, group, layer, team, trade, log)")
         ns.Print("/mmt debug log | clear | chat - show log, clear it, print lines live to chat")
         ns.Print("/mmt debug name <text> - test how a typed name is understood")
-        ns.Print("/mmt debug talents - what the game offers to view talents (for the XP window's Ctrl-click)")
+        ns.Print("/mmt debug talents - what the game offers to view talents (for the Info window's Ctrl-click)")
         ns.Print("/mmt ping - whisper all team members (3 name spellings) and show which one answers")
     end
 end

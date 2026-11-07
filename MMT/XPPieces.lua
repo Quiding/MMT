@@ -1,4 +1,4 @@
--- MMT: the pieces of an XP window row (durability, bags, gold, the name, level, XP %, ...).
+-- MMT: the pieces of an Info window row (durability, bags, gold, the name, level, XP %, ...).
 -- One order for the whole row, left to right, the name being a piece like the others:
 -- ns.db.xp.pieces = { { id, on }, ... }. The bar lies behind the whole row.
 -- Older profiles (pieces left of the bar / on it, "side") are converted once: the
@@ -142,7 +142,7 @@ ns.RegisterXPPiece{ id = "name", title = "Name", side = "RIGHT", on = true, fixe
 -- The saved order
 ---------------------------------------------------------------------------
 -- the default order, left to right
-local DEFAULT_ORDER = { "durability", "bags", "gold", "name", "level", "value", "rested", "rep", "pet", "layer" }
+local DEFAULT_ORDER = { "durability", "bags", "gold", "name", "level", "value", "rested", "rep", "pet", "mail", "layer" }
 -- old switch of a built-in piece (kept in step for clients without pieces)
 local SWITCH = { gold = "showGold", bags = "showBags", durability = "showDurability", level = "showLevel", rested = "showRested" }
 

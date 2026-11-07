@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 1.0.22: core addon (MMT) plus optional modules (MMT_*).
+Version 1.0.23: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -17,7 +17,7 @@ copied into the "Default" profile), then disable or delete OMT.
 Saved data from MMT 0.1.x is converted automatically.
 
 ## Core and modules
-- **Core** (`MMT`, always on): Team, Roles, XP Window, Alerts, FTL, Automations, Trade / Mail / Vendor, Profiles, plus team
+- **Core** (`MMT`, always on): Team, Roles, Info Window, Alerts, FTL, Automations, Trade / Mail / Vendor, Profiles, plus team
   communication, profile sync and debug tools.
 - **Modules** (`MMT_<Name>`, optional): separate addons that build on the core. Loot
   Distribution, Quest Tracker and Statistics are on by default, the others off (`## DefaultState:
@@ -42,7 +42,7 @@ Saved data from MMT 0.1.x is converted automatically.
   `M:SyncToTeam()` and `M:SyncButton(frame)` for windows of your own. Example on /mmt > Help.
 - A new module folder needs a full game restart (not just /reload) before the game lists it.
 - Key bindings: Esc > Options > Keybindings > "MMT (Manage My Team)" holds every MMT key,
-  one header per addon: Core (open the settings, show / hide the XP window, make this
+  one header per addon: Core (open the settings, show / hide the Info window, make this
   character the FTL leader), Item Compare, Item Bar (one key per slot), Statistics (open
   it). Modules add theirs with `category="BINDING_CATEGORY_MMT"` (CreateModules.md).
 - Writing your own module: see [CreateModules.md](CreateModules.md) (team management
@@ -85,20 +85,22 @@ Saved data from MMT 0.1.x is converted automatically.
   Herbs, Ore/bars/stone, Gems, Enchanting, Potions, Food & drink, Reagents, Consumables, ...).
   Opening a trade with a team member puts the matching items in (switch on the Trade /
   Mail / Vendor page). You accept yourself.
-- **XP Window**: XP %, rested XP %, gold, free bag slots, durability (lowest item or
+- **Info Window**: XP %, rested XP %, gold, free bag slots, durability (lowest item or
   average), level, reputation, hunter pets and layer. "Pet happiness & loyalty" (off by
   default, before Layer): every hunter's client sends whether a pet is out with its
   happiness and loyalty (with the heartbeat, and when the pet is summoned, dismissed
   or its happiness or loyalty changes: only a real change, at most every 10 seconds); shown as icons, "-" for characters that aren't
   hunters. The column hides while no hunter of the team has a pet out and comes back when
-  one is summoned; the row tooltip keeps the last known values. The settings page has four tiles: Basics, General
+  one is summoned; the row tooltip keeps the last known values. "New mail" (off by
+  default): a letter for characters with unread mail waiting (sent with the heartbeat,
+  and when it changes). The settings page has four tiles: Basics, General
   Look & Feel (with a "Fonts, Bars, Scale, Opacity" side window), Column Visibility & Order
   and Miscellaneous (durability and gold format, Layer Hop). Each of
   these is a piece, and so is the name: one order left to right (default: Durability, Free
   bag slots, Gold, Name, Level, Bar value, Rested XP), the bar behind the whole row. Switch
-  pieces on or off (the name is always shown) and drag them into place in the XP Window
+  pieces on or off (the name is always shown) and drag them into place in the Info Window
   page's list ("Restore Default Column Order" resets it) or in the window itself
-  ("Enable drag&drop mode for the XP window" /
+  ("Enable drag&drop mode for the Info window" /
   `/mmt xp arrange`: every piece shows with dots, drag pieces along a row and rows up or
   down to change the team order). "Column alignment behavior" puts each piece in its own column
   (centred, left or right in it, or "icons lined up": bag and durability icons at the
@@ -115,7 +117,7 @@ Saved data from MMT 0.1.x is converted automatically.
   Shift + drag moves the window, Shift-right-click opens the settings. A crown marks
   the FTL leader.
   "Click-through" turns the mouse off for it. During a layer hop countdown every
-  client's XP window shows "Layer Hop 5, 4, ...".
+  client's Info window shows "Layer Hop 5, 4, ...".
 - **Alerts** (settings page):
   "Follow": every client reports when its character starts or stops following (/follow).
   A member who stops gets a red row that pulses for 10 seconds, then "(no follow)" in red
@@ -151,7 +153,7 @@ Saved data from MMT 0.1.x is converted automatically.
   `/cast [@{FTL},nodead] Lesser Heal`, "Dru: Heal Touch" (Healing Touch) and "Sha: Light
   Bolt" = `/cast [@focustarget,nodead,harm] Lightning Bolt`.
   Lines with {FTL} are left out on the leader's own client (setting). Change the leader
-  by clicking a character in the XP window, with the key binding "Make this character
+  by clicking a character in the Info window, with the key binding "Make this character
   the leader (FTL)", with `/mmt leader [name]`, or automatically when you move a
   character on its own (Leader: "Automatic, when you move"; off by default). Automatic detection ignores movement while following, on a
   flight path, in combat or without control (feared, charmed), and movement of several team
@@ -436,7 +438,7 @@ Saved data from MMT 0.1.x is converted automatically.
 - **Profiles** ("Show Minimap button" on top; tiles: Active Profile, New & Copy, Share with the Team, Export / Import): per character; copy, reset, delete, export/import. After a reset or a new
   empty profile, MMT asks whether to switch the modules back to their default (on or off) too.
 - **Sync to team**: `/mmt sync` (or the blue button in the bottom right of Profiles) sends
-  the core settings of the active profile: team, roles, XP window incl. its position,
+  the core settings of the active profile: team, roles, Info window incl. its position,
   automations, distance window. Module settings are not included. Item Compare, Loot
   Distribution and Quest Tracker have their own button and `/mmt sync <module>`
   (e.g. `/mmt sync questtracker`), which sends only that module's settings.
@@ -464,7 +466,7 @@ Saved data from MMT 0.1.x is converted automatically.
   follows the talent tree with the most points), its opacity (default 30 %) and whether
   the painting is drawn in MMT's accent colour. Per account, default None; sent along with
   the profile sync (`/mmt sync`), together with the settings window's scale.
-  "Debug mode (ignore online requirements)" (off, per account): the XP window and the
+  "Debug mode (ignore online requirements)" (off, per account): the Info window and the
   Quest Tracker list every team member, also those offline or never heard from (in grey,
   with their last known values). Only for testing: while it is on, MMT asks at every
   login or /reload whether to switch it off.
@@ -473,14 +475,14 @@ The page list on the left shows up to 16 pages; scroll it with the mouse wheel. 
 CORE or MODULES to collapse or expand that section (remembered per account).
 
 The settings window has its own scale (- / + at the bottom left, right-click resets, Help > Appearance,
-or `/mmt scale 130`), kept per account and sent along with the profile sync. The XP window's scale is under XP Window > Look.
+or `/mmt scale 130`), kept per account and sent along with the profile sync. The Info window's scale is under Info Window > Look.
 
 Names follow Team > Privacy (first name by default) in windows and chat messages;
 the debug report keeps full names unless "Keep full names in debug logs" is off.
 
 ## Layer and phasing
 - Layer (zoneUID of nearby NPCs) and phasing (`UnitPhaseReason`) are still shown in the
-  XP window's mouseover details and in the debug report:
+  Info window's mouseover details and in the debug report:
   0 Phased, 1 Sharded, 2 War Mode, 3 Chromie Time, 4 Timerunning, 5 Ruleset.
 - Layer hops ("World refresh in N minutes", event SHARD_TRANSFER_IMMINENT) are accepted
   with `C_PlayerInteractionManager.ShardTransferConfirm()`.
@@ -501,8 +503,8 @@ progress). The heartbeat carries a hash (qt=), an outdated copy is requested onc
 Team abandon is QTAB:<questID>.
 
 ## Commands
-- Minimap button (Profiles > "Show Minimap button", per account): left-click opens the settings, right-click shows / hides the XP window, drag moves it.
-- `/mmt` settings, `/mmt xp` toggle XP window, `/mmt xp arrange` drag its pieces and rows, `/mmt trade` refill open trade,
+- Minimap button (Profiles > "Show Minimap button", per account): left-click opens the settings, right-click shows / hides the Info window, drag moves it.
+- `/mmt` settings, `/mmt xp` toggle Info window, `/mmt xp arrange` drag its pieces and rows, `/mmt trade` refill open trade,
   `/mmt sync` send the core settings to the team, `/mmt sync <module>` only that module's settings, `/mmt sync modules` only which modules are on or off, `/mmt modules` installed
   modules, `/mmt scale <percent>` settings window size, `/mmt leader [name]` FTL leader (this character or the named one), `/jamba-team iammaster all` same as `/mmt leader` (only when Jamba isn't loaded, for old Jamba macros), `/mmt help` help page, `/mmt reset` reset profile.
 
@@ -572,7 +574,7 @@ with `/mmt sync` (accept the popup on the others).
    log). *Select all*, Ctrl+C, paste it to Claude.
 - `/mmt ping` whispers every team member with three spellings of the name.
 - `/mmt debug name First Last` shows how a typed name is understood.
-- `/mmt debug talents` lists what the game offers to view talents (XP window Ctrl-click).
+- `/mmt debug talents` lists what the game offers to view talents (Info window Ctrl-click).
 - `/mmt debug chat` prints the log lines live into chat.
 
 ## Logo

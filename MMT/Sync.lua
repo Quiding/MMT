@@ -1,7 +1,7 @@
 -- MMT: settings sync between the team's game clients.
 --
 --   /mmt sync            core settings of the active profile (team, roles,
---                        XP window incl. position, automations, distance
+--                        Info window incl. position, automations, distance
 --                        window ...). Settings of modules are NOT included.
 --   /mmt sync modules    which modules are on or off (also part of /mmt sync)
 --   /mmt sync <module>   only the settings of that module, e.g.
@@ -637,7 +637,7 @@ local function Complete(t)
     ns.Print("%sReceived|r the %s from %s completely.", OK, label, Name(t.who))
     Answer(t, "RECV")
     -- own dialog instead of Blizzard's StaticPopup (taint)
-    AskOrAccept(("%s wants to share the MMT core settings (profile \"%s\") with you: team, roles, XP window incl. position, automations%s%s.\n\nAccepting overwrites them in a profile with that name and makes it your active profile.%s"):format(
+    AskOrAccept(("%s wants to share the MMT core settings (profile \"%s\") with you: team, roles, Info window incl. position, automations%s%s.\n\nAccepting overwrites them in a profile with that name and makes it your active profile.%s"):format(
             t.who, name, moduleSettings and ", which modules are on or off, and the settings of the modules"
                 or (states and ", which modules are on or off" or ""),
             look and ", and the look and size of the settings window (Help > Appearance)" or "",

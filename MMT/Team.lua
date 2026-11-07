@@ -75,7 +75,7 @@ function ns.MoveMember(key, delta)
     end
 end
 
--- moves a member above another one (nil: to the end), e.g. a row dragged in the XP window
+-- moves a member above another one (nil: to the end), e.g. a row dragged in the Info window
 function ns.MoveMemberBefore(key, beforeKey)
     local list = ns.SortedMembers()
     local from

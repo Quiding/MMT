@@ -8,7 +8,7 @@
 -- The heartbeat (XP2, field 16) repeats the state every 30 s, so a lost
 -- message is caught up.
 --
--- A break marks that member's row in the XP window (on every client). The
+-- A break marks that member's row in the Info window (on every client). The
 -- raid warning "<Name> stopped following" and the sound come from the client
 -- of the character that was followed (the one you play), so they don't go off
 -- on every client at once; if that character isn't in the team, every client
@@ -28,7 +28,7 @@ local function F(key)
     return ns.follow[key]
 end
 
-ns.FOLLOW_PULSE_TIME = 10   -- seconds the XP window row pulses after a break
+ns.FOLLOW_PULSE_TIME = 10   -- seconds the Info window row pulses after a break
 
 function ns.FollowBroken(key)
     local f = ns.follow[key]
