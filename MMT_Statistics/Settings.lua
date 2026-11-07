@@ -1,5 +1,5 @@
 -- MMT Statistics: the module's page under MODULES, with the tabs Gold,
--- Kills, Quests, Leveling, Zones and Settings.
+-- Kills, Quests, Leveling, Zones, Professions and Settings.
 
 local _, mod = ...
 local MMT = MMT
@@ -240,7 +240,7 @@ M.Page = function(_, page)
     local panels, buttons = {}, {}
     local current = "gold"
     -- notice on the tabs whose numbers stay on this account
-    local LOCAL_TABS = { kills = true, quests = true, leveling = true, zones = true }
+    local LOCAL_TABS = { kills = true, quests = true, leveling = true, zones = true, professions = true }
     local NOTICE_H = 24
     local notice = CreateFrame("Frame", nil, page)
     notice:SetPoint("TOPLEFT", 0, -32)
@@ -265,10 +265,11 @@ M.Page = function(_, page)
         if mod.Redraw then mod.Redraw() end
     end
     local tabs = { { "gold", "Gold" }, { "kills", "Kills" }, { "quests", "Quests" }, { "leveling", "Leveling" },
-        { "zones", "Zones" }, { "settings", "Settings" } }
+        { "zones", "Zones" }, { "professions", "Professions" }, { "settings", "Settings" } }
+    local TAB_STEP = math.floor((PAGE_W + 8) / #tabs)
     for i, t in ipairs(tabs) do
-        local b = UI.Button(page, 108, t[2], function() Show(t[1]) end)
-        b:SetPoint("TOPLEFT", (i - 1) * 116, 0)
+        local b = UI.Button(page, TAB_STEP - 8, t[2], function() Show(t[1]) end)
+        b:SetPoint("TOPLEFT", (i - 1) * TAB_STEP, 0)
         buttons[t[1]] = b
         local p = CreateFrame("Frame", nil, page)
         local shift = LOCAL_TABS[t[1]] and (NOTICE_H + 8) or 0
@@ -651,13 +652,14 @@ M.Page = function(_, page)
     local LEVEL_ROWS = 17
     local levelGrid = Grid(lvp, {
         { "Level", right = 44, w = 40 },
-        { "Time to Level", x = 56, w = 100 },
-        { "Date/Time leveled", x = 160, w = 122 },
-        { "compl. Quests", right = 372, w = 88 },
-        { "NPCs killed", right = 452, w = 76 },
-        { "Deaths", right = 502, w = 46 },
-        { "Instances", right = 572, w = 64 },
-        { "Fav. Zone", x = 588, w = PAGE_W - 592 },
+        { "Time to Level", x = 56, w = 96 },
+        { "Date/Time leveled", x = 156, w = 120 },
+        { "Quests", right = 334, w = 54 },
+        { "NPCs", right = 388, w = 50 },
+        { "Deaths", right = 440, w = 48 },
+        { "Instances", right = 506, w = 62 },
+        { "Professions", right = 584, w = 74 },
+        { "Fav. Zone", x = 596, w = PAGE_W - 600 },
     }, LEVEL_ROWS)
     lc:Add(levelGrid, ROW_H * (LEVEL_ROWS + 1) + 10)
     local levelNote = lc:Note("")
@@ -670,22 +672,29 @@ M.Page = function(_, page)
         end
         local rows = {}
         -- first row: the sum of every row below (time, quests, kills, deaths, instances)
-        local total = { t = 0, q = 0, k = 0, d = 0, i = 0, zones = {} }
-        local function Count(t, q, k, d, i, z)
+        local total = { t = 0, q = 0, k = 0, d = 0, i = 0, pf = 0, zones = {}, pr = {} }
+        local function Count(t, q, k, d, i, z, pf, pr)
             total.t, total.q, total.k, total.d, total.i = total.t + (t or 0), total.q + (q or 0),
                 total.k + (k or 0), total.d + (d or 0), total.i + (i or 0)
+            total.pf = total.pf + (pf or 0)
             if z and z ~= "" then total.zones[z] = (total.zones[z] or 0) + 1 end
+            for name, x in pairs(pr or {}) do
+                local tp = total.pr[name]
+                if tp then tp.s, tp.e = math.min(tp.s, x.s), math.max(tp.e, x.e)
+                else total.pr[name] = { s = x.s, e = x.e } end
+            end
         end
         local function TotalRow(average)
             local fav, favN
             for z, n in pairs(total.zones) do if not favN or n > favN then fav, favN = z, n end end
             local F = average and Avg or Num
             return { accent = true,
-                cells = { "Total", mod.Duration(total.t), "", F(total.q), F(total.k), F(total.d), F(total.i), fav or "" },
+                cells = { "Total", mod.Duration(total.t), "", F(total.q), F(total.k), F(total.d), F(total.i), F(total.pf), fav or "" },
                 tip = function(t)
                     t:SetText("Total")
                     t:AddLine(average and "The sum of the averages below: what a character of this account takes up to the highest level listed."
                         or "The sum of every level below. Fav. Zone: the zone that was the favourite on the most levels.", 1, 1, 1, true)
+                    if not average then mod.ProfessionTooltip(t, select(2, mod.ProfessionSum(total.pr))) end
                 end }
         end
         if scope ~= "ACCOUNT" then
@@ -695,7 +704,7 @@ M.Page = function(_, page)
             for _, r in ipairs(c and mod.CharLevelRows(c, true, key) or {}) do
                 if r.missing then
                     rows[#rows + 1] = {
-                        cells = { tostring(r.L), "no data recorded", "(was addon disabled?)", "", "", "", "", "" },
+                        cells = { tostring(r.L), "no data recorded", "(was addon disabled?)", "", "", "", "", "", "" },
                         grey = true,
                         tip = function(t)
                             t:SetText(("Level %d"):format(r.L))
@@ -703,31 +712,33 @@ M.Page = function(_, page)
                         end,
                     }
                 else
+                local pf, plist = mod.ProfessionSum(r.pr)
                 rows[#rows + 1] = {
                     cells = { tostring(r.L), mod.Duration(r.t) .. ((r.partial or r.current or r.estimated) and " *" or ""),
                         r.done and ((r.estimated and "~ " or "") .. date("%Y-%m-%d %H:%M", r.done))
                             or (r.current and "(current)" or "(unknown)"),
-                        Num(r.q), Num(r.k), Num(r.d), Num(r.i or 0), r.z or "" },
+                        Num(r.q), Num(r.k), Num(r.d), Num(r.i or 0), Num(pf), r.z or "" },
                     grey = r.current,
-                    tip = (r.partial or r.current or r.estimated or r.open) and function(t)
+                    tip = (r.partial or r.current or r.estimated or r.open or #plist > 0) and function(t)
                         t:SetText(("Level %d"):format(r.L))
                         if r.current then t:AddLine("The current level: still running.", 1, 1, 1, true) end
                         if r.estimated or r.open then t:AddLine("The level-up wasn't recorded (MMT or the Leveling tracking was off then): the time shown is the next level's start.", 1, 1, 1, true) end
                         if r.partial then t:AddLine("Tracking began during this level: the time and counts are only from then on.", 1, 1, 1, true) end
+                        mod.ProfessionTooltip(t, plist)
                     end or nil,
                 }
                 end
             end
-            for _, r in ipairs(c and mod.CharLevelRows(c) or {}) do Count(r.t, r.q, r.k, r.d, r.i, r.z) end
+            for _, r in ipairs(c and mod.CharLevelRows(c) or {}) do Count(r.t, r.q, r.k, r.d, r.i, r.z, (mod.ProfessionSum(r.pr)), r.pr) end
             if #rows > 0 then table.insert(rows, 1, TotalRow(false)) end
-            levelNote:SetText("Time counts while this character is logged in. * = the current level, tracking began during it, or its level-up wasn't recorded (~ time). Instances: entered on that level.")
+            levelNote:SetText("Time counts while this character is logged in. * = the current level, tracking began during it, or its level-up wasn't recorded (~ time). Instances: entered on that level. Professions: skill-ups on that level (hover for each).")
         else
             levelGrid.heads[3]:SetText("Characters")
             for _, r in ipairs(mod.AverageLevelRows(scope)) do
                 rows[#rows + 1] = {
-                    cells = { tostring(r.L), r.t and mod.Duration(r.t) or "-", tostring(r.n), Avg(r.q), Avg(r.k), Avg(r.d), Avg(r.i), r.z or "" },
+                    cells = { tostring(r.L), r.t and mod.Duration(r.t) or "-", tostring(r.n), Avg(r.q), Avg(r.k), Avg(r.d), Avg(r.i), Avg(r.pf or 0), r.z or "" },
                 }
-                Count(r.t, r.q, r.k, r.d, r.i, r.z)
+                Count(r.t, r.q, r.k, r.d, r.i, r.z, r.pf)
             end
             if #rows > 0 then table.insert(rows, 1, TotalRow(true)) end
             levelNote:SetText("Averages per level over this account's characters that have it; the time only over the ones that finished it (from its start).")
@@ -783,9 +794,10 @@ M.Page = function(_, page)
         { "Time Spent", right = 338, w = 70 },
         { "Kills", right = 380, w = 38 },
         { "Quests", right = 430, w = 46 },
-        { "XP Gain", right = 498, w = 64 },
-        { "XP/hr", right = 562, w = 60 },
-        { "Money", right = PAGE_W - 8, w = 124 },
+        { "XP Gain", right = 494, w = 60 },
+        { "XP/hr", right = 548, w = 50 },
+        { "Prof.", right = 592, w = 40 },
+        { "Money", right = PAGE_W - 8, w = 92 },
     }, ZONE_ROWS)
     instGrid:SetPoint("TOPLEFT", 0, zy)
     local zoneNote = UI.Label(zp, "")
@@ -836,13 +848,14 @@ M.Page = function(_, page)
             for _, e in ipairs(runs) do
                 local r = e.r
                 local perHour = (r.t or 0) >= 60 and (r.xp or 0) / (r.t / 3600) or nil
+                local pf, plist = mod.ProfessionSum(r.pr)
                 rows[#rows + 1] = {
                     cells = { r.n or ("Instance " .. tostring(r.map)), r.uid and tostring(r.uid) or ("#" .. e.nr),
                         r.lvIn and tostring(r.lvIn) or "",
                         (r.lvOut and not (r.leave == nil and e.key == me)) and tostring(r.lvOut)
                             or ((r.leave == nil and e.key == me) and (mod.LevelNow() .. "*") or ""),
                         mod.Clock(r.t),
-                        Num(r.k), Num(r.q or 0), Num(r.xp), perHour and Num(perHour) or "-", mod.Money(r.cp or 0) },
+                        Num(r.k), Num(r.q or 0), Num(r.xp), perHour and Num(perHour) or "-", Num(pf), mod.Money(r.cp or 0) },
                     tip = function(t)
                         t:SetText((r.n or "Instance") .. (r.zn and (" (" .. r.zn .. ")") or ""), 1, 1, 1)
                         local lvOut = r.lvOut
@@ -857,6 +870,12 @@ M.Page = function(_, page)
                         t:AddDoubleLine("Money gained:", mod.Money(r.cp or 0) .. (cpH and ("  (%s / hr)"):format(mod.Money(cpH)) or ""), 0.7, 0.7, 0.7, 1, 1, 1)
                         t:AddDoubleLine("Kills:", Num(r.k or 0), 0.7, 0.7, 0.7, 1, 1, 1)
                         t:AddDoubleLine("Quests completed:", Num(r.q or 0), 0.7, 0.7, 0.7, 1, 1, 1)
+                        t:AddDoubleLine("Profession skill-ups:", Num(pf), 0.7, 0.7, 0.7, 1, 1, 1)
+                        if #plist > 0 then
+                            for _, x in ipairs(plist) do
+                                t:AddDoubleLine("   " .. x[1], ("%d - %d"):format(x[2] or 0, x[3] or 0), 0.7, 0.7, 0.7, 1, 1, 1)
+                            end
+                        end
                         t:AddLine(" ")
                         t:AddLine(mod.CharName(e.key, e.class), 0.7, 0.7, 0.7)
                         -- this character's visits of this instance (all / in the last 60 minutes)
@@ -887,6 +906,91 @@ M.Page = function(_, page)
         end
     end
 
+    -- Professions ------------------------------------------------------------------
+    local pp = panels.professions
+    local TILE_GAP, TILE_H = 8, 66
+    local tileW = math.floor((PAGE_W - 4 * TILE_GAP) / 5)
+    local profTiles = {}
+    for i = 1, 5 do
+        local tile = CreateFrame("Frame", nil, pp)
+        tile:SetSize(tileW, TILE_H)
+        tile:SetPoint("TOPLEFT", pp, "TOPLEFT", (i - 1) * (tileW + TILE_GAP), 0)
+        UI.Fill(tile, 1, 1, 1, 0.03)
+        UI.Border(tile, 1, 1, 1, 0.08)
+        tile.kind = UI.Label(tile, "", "GameFontDisableSmall")
+        tile.kind:SetPoint("TOP", 0, -6)
+        tile.name = UI.Label(tile, "", "GameFontHighlight")
+        tile.name:SetPoint("TOP", tile.kind, "BOTTOM", 0, -4)
+        tile.name:SetWidth(tileW - 12) tile.name:SetWordWrap(false)
+        tile.value = UI.Label(tile, "", "GameFontHighlightLarge")
+        pcall(tile.value.SetFont, tile.value, STANDARD_TEXT_FONT, 18, "")
+        tile.value:SetPoint("TOP", tile.name, "BOTTOM", 0, -4)
+        profTiles[i] = tile
+    end
+    local py = -(TILE_H + 12)
+    local pscope = UI.Dropdown(pp, COL_W, "Character", function() return mod.CharChoices("All Characters") end,
+        function() return M.db.profScope end, function(v) M.db.profScope = v; mod.Redraw() end)
+    pscope:SetPoint("TOPLEFT", 0, py)
+    local pfilter = UI.Dropdown(pp, COL_W, "Profession", function() return mod.ProfessionChoices(M.db.profScope) end,
+        function() return M.db.profFilter end, function(v) M.db.profFilter = v; mod.Redraw() end)
+    pfilter:SetPoint("TOPLEFT", COL2_X, py)
+    py = py - UI.ROW - 10
+    local PROF_ROWS = 13
+    local profGrid = Grid(pp, {
+        { "Character", x = 8, w = 116 },
+        { "Char. Lvl", right = 190, w = 60 },
+        { "Profession", x = 202, w = 104 },
+        { "DateTime", x = 310, w = 112 },
+        { "Level Ups", right = 516, w = 90 },
+        { "Gold Start", right = 604, w = 84 },
+        { "Gold End", right = PAGE_W - 8, w = 84 },
+    }, PROF_ROWS)
+    profGrid:SetPoint("TOPLEFT", 0, py)
+    local profNote = UI.Label(pp, "")
+    profNote:SetPoint("TOPLEFT", 0, py - ROW_H * (PROF_ROWS + 1) - 12)
+    profNote:SetWidth(PAGE_W)
+    profNote:SetJustifyH("LEFT")
+    profNote:SetTextColor(0.6, 0.6, 0.6)
+
+    local function DrawProfessions()
+        pscope.Refresh()
+        pfilter.Refresh()
+        local scope = M.db.profScope or "CHAR"
+        if scope ~= "CHAR" and scope ~= "ACCOUNT" and not (scope:sub(1, 5) == "char:" and mod.Store().chars[scope:sub(6)]) then
+            scope = "CHAR"
+        end
+        -- tiles: the chosen character, else this one
+        local key = scope:sub(1, 5) == "char:" and scope:sub(6) or MMT.PlayerFull()
+        local c = key and mod.Store().chars[key]
+        for i, tdata in ipairs(mod.ProfessionTiles(c)) do
+            local tile = profTiles[i]
+            tile.kind:SetText(tdata[1])
+            if tdata[2] then
+                tile.name:SetText(tdata[2])
+                tile.name:SetTextColor(1, 1, 1)
+                tile.value:SetText(tdata[4] and tdata[4] > 0 and ("%d / %d"):format(tdata[3] or 0, tdata[4]) or tostring(tdata[3] or 0))
+                tile.value:SetTextColor(A[1], A[2], A[3])
+            else
+                tile.name:SetText(tdata.fixed or "Primary")
+                tile.name:SetTextColor(0.5, 0.5, 0.5)
+                tile.value:SetText("not learned")
+                tile.value:SetTextColor(0.5, 0.5, 0.5)
+            end
+        end
+        local rows = {}
+        for _, x in ipairs(mod.ProfessionRows(scope, M.db.profFilter or "ALL")) do
+            local e = x.e
+            rows[#rows + 1] = {
+                cells = { mod.CharName(x.key, x.class), tostring(e.lv or ""), e.p or "", date("%Y-%m-%d %H:00", e.h or 0),
+                    ("+%d  (%d - %d)"):format(e.n or 0, e.s or 0, e.e or 0),
+                    e.g1 and mod.Money(e.g1) or "-", e.g2 and mod.Money(e.g2) or "-" },
+            }
+        end
+        profGrid:Show_(rows, M.db.trackProfessions == false and "Profession tracking is off (Settings tab)."
+            or "No profession skill-ups recorded yet.")
+        profNote:SetText("Skill-ups of one profession in the same hour on the same character level are one row (by the hour). Gold: at the first and the last skill-up of the row. This account only, not sent to the team.")
+    end
+
     -- Settings -----------------------------------------------------------------
     local s = panels.settings
     local SL = UI.Column(s, 0, 0, COL_W)
@@ -896,6 +1000,9 @@ M.Page = function(_, page)
     SL:Check("Track kills and deaths", function() return M.db.trackKills end, function(v) M.db.trackKills = v end)
     SL:Check("Track leveling, zones and instances", function() return M.db.trackLeveling end, function(v) M.db.trackLeveling = v end,
         "Time played per level, zone and instance copy, with the quests, kills, deaths and experience there. For the Leveling and Zones tabs.")
+    SL:Check("Track professions", function() return M.db.trackProfessions ~= false end,
+        function(v) M.db.trackProfessions = v if v then mod.CheckProfessions() end end,
+        "Records every skill-up of the primary and secondary professions: when (by the hour), the character level, the profession and its skill, and the gold at the time. For the Professions tab and the export. This account only, not sent to the team.")
     SL:Check("Ask if a re-entered instance is the same", function() return M.db.askSameInstance ~= false end,
         function(v) M.db.askSameInstance = v end,
         "Entering an instance you left within the last 3 hours (no reset since) asks whether it is the same instance as before; \"Same instance\" adds the visit to the earlier row. Off: every entry is a new row. (The game hides the instance ID from addons.)")
@@ -956,7 +1063,7 @@ M.Page = function(_, page)
         { value = ",", text = "Comma (1234.56)" },
         { value = ";", text = "Semicolon (1234,56)" },
     }, function() return M.db.exportSep end, function(v) M.db.exportSep = v end)
-    local area = UI.TextArea(s, PAGE_W, 120)
+    local area = UI.TextArea(s, PAGE_W, 100)
     local estatus = UI.Label(s, "")
     estatus:SetTextColor(0.6, 0.6, 0.6)
     local exportButton = UI.Button(s, COL_W, "Export", function()
@@ -1017,6 +1124,8 @@ M.Page = function(_, page)
             DrawLeveling()
         elseif current == "zones" then
             DrawZones()
+        elseif current == "professions" then
+            DrawProfessions()
         end
     end
     page:SetScript("OnShow", function() mod.Redraw() end)

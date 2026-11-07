@@ -206,30 +206,40 @@ Saved data from MMT 0.1.x is converted automatically.
     abandoned together), completed, abandoned, scanned and scanned completed, and the last
     10 completed quests (date, character, quest, quest level, character level, XP, money).
   - Leveling (a character, or the average of the account): per level 1-59, newest first,
-    the time played to the next level (dd:hh:mm:ss), when it was reached, quests
-    completed, NPCs killed, deaths, instances entered on that level and the zone with the
-    most time; a "Total" row on top sums up every level below. For a character every level
+    the time played to the next level (dd:hh:mm:ss), when it was reached, Quests
+    (completed), NPCs (killed), deaths, instances entered on that level, Professions
+    (skill-ups of all professions on that level; hover: each profession with its start
+    and end skill) and the zone with the most time; a "Total" row on top sums up every level below. For a character every level
     from 1 up to its level has a row: one without data says "no data recorded (was addon
     disabled?)", one whose level-up wasn't recorded ends at the next level's start (~), and
     only the highest level can be "(current)".
   - Zones (a character or the account): favourite zone by time and by kills; per main zone
     (a town counts for its zone) time (hh:mm:ss), NPC kills, quests and XP gain; per
     instance visit Lvl In / Lvl Out, time, kills, quests, XP gain (incl. quest rewards),
-    XP/hr and money (tooltip: zone of the entrance, dates, per-hour values, visits in the
+    XP/hr, profession skill-ups (Prof.) and money (tooltip: each profession's skill-ups, zone of the entrance, dates, per-hour values, visits in the
     last 60 minutes). The instance ID is hidden from addons on WoW: Forever, so every
     entry is a new row, numbered #1, #2; re-entering an instance left within 3 hours
     without a reset asks whether it is the same ("Same instance" merges the rows); after
     a /reload or a relog within 2 minutes inside, it is the same without asking. Chat
     notes on entering: new or the same instance, and how many instances the account
     entered in the last hour (the game allows 5).
+  - Professions (this account only, not shared): five tiles with the current skill of
+    the two primary professions and Cooking, Fishing and First Aid ("not learned" when
+    missing; an unlearned profession leaves the tiles but its history stays), then a
+    Character dropdown (this character by default, any character of this account or "All
+    Characters") and a Profession dropdown ("All Professions" by default) over a table:
+    Character, Char. Lvl, Profession, DateTime (by the hour), Level Ups (+n with the skill
+    before and after), Gold Start, Gold End. Skill-ups of one profession in the same hour on
+    the same character level are one row.
   - Settings tab: what to track (gold, kills and deaths, leveling / zones / instances,
-    quests), share with the team, ask about re-entered instances, chat notes about
+    professions, quests), share with the team, ask about re-entered instances, chat notes about
     instances, money format, scan completed quests, clear this account's statistics,
     forget other accounts.
   - Export (Settings tab): CSV text to copy into a spreadsheet or a .csv file (addons can't
     write files): gold per day and character, gold per day and account, characters, kills
     and deaths per NPC (with their kind), the kill summary per character, kills by zone and
-    level, the Dungeon Journal, quests, zones, instance visits, or leveling (one row per
+    level, the Dungeon Journal, quests, zones, instance visits, professions (skill-ups by
+    the hour, this account), or leveling (one row per
     character and level, levels without data included: start, end and where the end comes from, how the Leveling tab
     shows it, time, quests, kills, deaths, instances, favourite zone); comma or semicolon (decimal
     comma) as separator; names follow the privacy setting.

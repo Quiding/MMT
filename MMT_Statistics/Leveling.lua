@@ -3,12 +3,14 @@
 -- Per character record (Module.lua Store().chars[key]):
 --   levels[L] = { start, done, t = seconds played on L, q = quests completed,
 --                 k = NPCs killed, d = deaths, z = { [zoneKey] = seconds },
---                 partial = true while L was already running when tracking began }
+--                 partial = true while L was already running when tracking began,
+--                 pr = { [profession] = { s, e } } skill-ups on L (Professions.lua) }
 --   zones[zoneKey] = { n = name, inst = true for instances, t, k, d, q, xp }
 --   runs = { { map = instance map ID, n = name, uid = instance copy ID,
 --              enter, leave, t, k, d, q, xp, cp = money gained,
 --              lvIn / lvOut = character level on entering / leaving,
---              zn = the zone the character came from (the entrance) }, ... }   newest last, at most 300
+--              zn = the zone the character came from (the entrance),
+--              pr = { [profession] = { s, e } } skill-ups in the run }, ... }   newest last, at most 300
 --   killDetail[npc] = { ["<level>|<zoneKey>"] = count }   (also deathDetail)
 -- Zone keys: "z:<uiMapID>" (the main zone: Goldshire counts as Elwynn Forest),
 -- "i:<instanceMapID>" (every dungeon / raid / battleground its own zone),
@@ -397,6 +399,27 @@ function mod.OnQuestDone()
     return zoneKey
 end
 
+-- a profession skill-up (Professions.lua): kept on the level and the instance run
+local function AddUp(pr, name, from, to)
+    local x = pr[name]
+    if x then x.s, x.e = math.min(x.s, from), math.max(x.e, to)
+    else pr[name] = { s = from, e = to } end
+end
+function mod.OnProfessionUp(name, from, to)
+    local c = mod.Char()
+    if not c or not M.db.trackLeveling then return end
+    local L = Level()
+    if L >= 1 then
+        local lv = LevelRec(c, L)
+        lv.pr = lv.pr or {}
+        AddUp(lv.pr, name, from, to)
+    end
+    if run then
+        run.pr = run.pr or {}
+        AddUp(run.pr, name, from, to)
+    end
+end
+
 ---------------------------------------------------------------------------
 -- Events
 ---------------------------------------------------------------------------
@@ -537,7 +560,8 @@ function mod.CharLevelRows(c, fill, key)
             -- only the highest level can be the current one
             local current = not r.done and #rows == 0
             rows[#rows + 1] = { L = L, t = r.t, done = r.done, q = r.q, k = r.k, d = r.d, z = r.z, i = r.i,
-                partial = r.p ~= nil, current = current, estimated = r.e ~= nil, open = not r.done and not current }
+                partial = r.p ~= nil, current = current, estimated = r.e ~= nil, open = not r.done and not current,
+                pr = c.levels and c.levels[L] and c.levels[L].pr }   -- profession skill-ups (local only)
         end
     end
     return rows
@@ -553,8 +577,18 @@ function mod.LevelChars(scope)
         list[#list + 1] = { key, lv }
     end
     local own = mod.Store().chars
+    -- this account's characters: plus the profession skill-ups per level (pf;
+    -- local only, so not part of CompactLevels, which is sent to the team)
+    local function Own(c)
+        local lv = mod.CompactLevels(c)
+        for L, r in pairs(lv) do
+            local raw = c.levels and c.levels[L]
+            if raw and raw.pr and mod.ProfessionSum then r.pf = (mod.ProfessionSum(raw.pr)) end
+        end
+        return lv
+    end
     if scope == "ACCOUNT" or scope == "ALL" then
-        for key, c in pairs(own) do Add(key, mod.CompactLevels(c)) end
+        for key, c in pairs(own) do Add(key, Own(c)) end
     end
     if scope == "ALL" then
         for _, a in pairs(mod.Store().accounts) do
@@ -566,7 +600,7 @@ function mod.LevelChars(scope)
         if me then table.insert(members, 1, me) end
         for _, key in ipairs(members) do
             if own[key] then
-                Add(key, mod.CompactLevels(own[key]))
+                Add(key, Own(own[key]))
             else
                 local acc = mod.AccountOf(key)
                 local a = acc and mod.Account(acc)
@@ -596,16 +630,17 @@ function mod.AverageLevelRows(scope)
         end
         local use = #done > 0 and done or any
         if #use > 0 then
-            local t, q, k, d, inst, zones = 0, 0, 0, 0, 0, {}
+            local t, q, k, d, inst, zones, pf = 0, 0, 0, 0, 0, {}, 0
             for _, r in ipairs(use) do
                 t, q, k, d = t + (r.t or 0), q + (r.q or 0), k + (r.k or 0), d + (r.d or 0)
                 inst = inst + (r.i or 0)   -- characters synced before 1.3.1 send no count: 0
                 if r.z then zones[r.z] = (zones[r.z] or 0) + 1 end
+                pf = pf + (r.pf or 0)
             end
             local z, zn
             for name, n in pairs(zones) do if not zn or n > zn then z, zn = name, n end end
             rows[#rows + 1] = { L = L, t = #done > 0 and t / #done or nil, n = #use, q = q / #use,
-                k = k / #use, d = d / #use, i = inst / #use, z = z }
+                k = k / #use, d = d / #use, i = inst / #use, z = z, pf = pf / #use }
         end
     end
     return rows

@@ -11,6 +11,7 @@
 --   sep   "," (decimal point) | ";" (decimal comma, e.g. German Excel)
 --         QUESTS     quests of this account's characters (Quests.lua)
 --         ZONES / INSTANCES  zones and instance visits of this account's characters (Leveling.lua)
+--         PROFESSIONS profession skill-ups of this account's characters (by the hour)
 --         LEVELING   one row per character and level, the data behind the Leveling tab
 --                    (this account's raw records; other accounts what they sent)
 --         KILL_SUMMARY / KILL_DETAIL / JOURNAL  the Kills tab (KillTypes.lua)
@@ -32,6 +33,7 @@ mod.EXPORT_KINDS = {
     { value = "ZONES", text = "Zones (this account)" },
     { value = "INSTANCES", text = "Instances (this account)" },
     { value = "LEVELING", text = "Leveling (per character and level)" },
+    { value = "PROFESSIONS", text = "Professions (this account)" },
 }
 
 local function Field(v, sep)
@@ -136,9 +138,23 @@ function mod.ExportCSV(kind, scope, sep)
                 end
             end
         end
+    elseif kind == "PROFESSIONS" then
+        Row("Account", "Character", "Character level", "Profession", "Hour", "Skill-ups", "From", "To",
+            "Gold start", "Gold end", "Copper start", "Copper end")
+        for _, id in ipairs(ids) do
+            if id == own then
+                local rows = mod.ProfessionRows("ACCOUNT", "ALL")
+                for i = #rows, 1, -1 do   -- oldest first
+                    local x, e = rows[i], rows[i].e
+                    Row(mod.AccountLabel(id), mod.CharName(x.key, x.class), e.lv or "", e.p or "",
+                        date("%Y-%m-%d %H:00", e.h or 0), e.n or 0, e.s or "", e.e or "",
+                        Gold(e.g1, sep), Gold(e.g2, sep), e.g1 and math.floor(e.g1) or "", e.g2 and math.floor(e.g2) or "")
+                end
+            end
+        end
     elseif kind == "LEVELING" then
         Row("Account", "Character", "Level", "Started", "Finished", "Finished from", "Shown as", "Partial",
-            "Time played", "Seconds", "Quests", "Kills", "Deaths", "Instances", "Favourite zone")
+            "Time played", "Seconds", "Quests", "Kills", "Deaths", "Instances", "Profession skill-ups", "Favourite zone")
         local function Date(t) return t and t > 0 and date("%Y-%m-%d %H:%M:%S", t) or "" end
         local function Rows(acc, key, class, lv, raw)
             local name = mod.CharName(key, class)
@@ -153,7 +169,7 @@ function mod.ExportCSV(kind, scope, sep)
                 local r = lv[L]
                 if not r and L <= highest then
                     top = top or L
-                    Row(acc, name, L, "", "", "", "no data recorded (was addon disabled?)", "", "", "", "", "", "", "", "")
+                    Row(acc, name, L, "", "", "", "no data recorded (was addon disabled?)", "", "", "", "", "", "", "", "", "")
                 elseif r then
                     local shown = r.done and (r.e and "finished (level-up not recorded)" or "finished")
                         or (not top and "current" or "unknown end")
@@ -162,7 +178,8 @@ function mod.ExportCSV(kind, scope, sep)
                     Row(acc, name, L, Date(rr and rr.start), Date(r.done),
                         rr and (rr.done and "level-up" or (r.e and "next level start" or "")) or (r.e and "next level start" or (r.done and "level-up" or "")),
                         shown, r.p and "yes" or "no", mod.Clock(r.t or 0), math.floor(r.t or 0),
-                        r.q or 0, r.k or 0, r.d or 0, r.i or 0, r.z or "")
+                        r.q or 0, r.k or 0, r.d or 0, r.i or 0,
+                        rr and rr.pr and (mod.ProfessionSum(rr.pr)) or 0, r.z or "")
                 end
             end
         end
