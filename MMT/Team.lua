@@ -351,7 +351,6 @@ ns.ITEM_GROUPS = {
     { header = "Other" },
     { id = "reagents", name = "Reagents", class = 5 },
     { id = "recipes", name = "Recipes", class = 9 },
-    { id = "gems", name = "Gems", class = 3 },
     { id = "containers", name = "Bags", class = 1 },
     { id = "projectiles", name = "Arrows & bullets", class = 6 },
     { id = "weapons", name = "Weapons", class = 2 },
