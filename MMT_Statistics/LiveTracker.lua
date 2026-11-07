@@ -97,11 +97,11 @@ local function Build()
     f.icon = f:CreateTexture(nil, "ARTWORK")
     f.icon:SetTexture("Interface\\Icons\\INV_Misc_PocketWatch_01")
     f.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-    f.title = f:CreateFontString(nil, "OVERLAY")
+    f.title = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     f.title:SetText("Live tracker")
     f.title:SetTextColor(A[1], A[2], A[3])
     f.close = CreateFrame("Button", nil, f)
-    f.close.text = f.close:CreateFontString(nil, "OVERLAY")
+    f.close.text = f.close:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     f.close.text:SetPoint("CENTER")
     f.close.text:SetText("x")
     f.close.text:SetTextColor(0.6, 0.6, 0.6)
@@ -118,7 +118,7 @@ local function Build()
     -- Session / On this level / XP: label left, value right
     lines = {}
     for i = 1, 3 do
-        lines[i] = { l = f:CreateFontString(nil, "OVERLAY"), v = f:CreateFontString(nil, "OVERLAY") }
+        lines[i] = { l = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"), v = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall") }
         lines[i].l:SetJustifyH("LEFT")
         lines[i].l:SetTextColor(0.75, 0.75, 0.75)
         lines[i].v:SetJustifyH("RIGHT")
@@ -132,7 +132,7 @@ local function Build()
     for r = 1, 4 do
         cells[r] = {}
         for c = 1, 3 do
-            local fs = f:CreateFontString(nil, "OVERLAY")
+            local fs = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
             fs:SetJustifyH(c == 1 and "LEFT" or "RIGHT")
             fs:SetWordWrap(false)
             if r == 1 or c == 1 then fs:SetTextColor(0.75, 0.75, 0.75) end
@@ -153,7 +153,7 @@ local function Build()
     f.reset.bg = f.reset:CreateTexture(nil, "BACKGROUND")
     f.reset.bg:SetAllPoints()
     f.reset.bg:SetColorTexture(1, 1, 1, 0.06)
-    f.reset.text = f.reset:CreateFontString(nil, "OVERLAY")
+    f.reset.text = f.reset:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     f.reset.text:SetPoint("CENTER")
     f.reset.text:SetText("Reset session")
     f.reset:SetScript("OnClick", function() StartSession() mod.RedrawLiveTracker(true) end)
