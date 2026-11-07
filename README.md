@@ -113,7 +113,8 @@ Saved data from MMT 0.1.x is converted automatically.
   XP and Completed quest XP (colour and opacity on the bar; the R % / Q % text follows in a
   lighter shade), Free bag slots and Durability (when they turn yellow / red; durability
   lowest or average), Gold (format), Level ("L60" or "60"), Layer (orange when not your
-  layer). Window-wide choices (class colours, what the bars show) stay in Basics
+  layer), Reputation ("Watch my faction on every character": every team character watches
+  the faction this one watches, so the Info window compares the same one). Window-wide choices (class colours, what the bars show) stay in Basics
   ("Enable drag&drop mode for the Info window" /
   `/mmt info arrange`: every piece shows with dots, drag pieces along a row and rows up or
   down to change the team order). "Column alignment behavior" puts each piece in its own column

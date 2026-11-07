@@ -222,8 +222,59 @@ ns.RegisterXPPiece{ id = "rested", title = "Rested XP (%)", side = "RIGHT", on =
         if s.rested <= 0 then return nil end
         return Hex(ns.XPRestedTextColour()) .. ("R %d%%"):format(math.floor(s.rested / s.max * 100 + 0.5)) .. "|r"
     end }
+-- Watch a faction (by name) on the reputation bar: the cogwheel's "Watch it on every
+-- character". Headers are expanded so a faction under a collapsed one is found too.
+function ns.WatchFactionNamed(name)
+    if type(name) ~= "string" or name == "" then return false end
+    local CR = C_Reputation
+    if CR and CR.GetNumFactions and CR.GetFactionDataByIndex and CR.SetWatchedFactionByIndex then
+        if CR.ExpandAllFactionHeaders then pcall(CR.ExpandAllFactionHeaders) end
+        for i = 1, (tonumber(CR.GetNumFactions()) or 0) do
+            local ok, d = pcall(CR.GetFactionDataByIndex, i)
+            if ok and type(d) == "table" and d.name == name and (not d.isHeader or d.isHeaderWithRep) then
+                return (pcall(CR.SetWatchedFactionByIndex, i))
+            end
+        end
+        return false
+    end
+    if GetNumFactions and GetFactionInfo and SetWatchedFactionIndex then
+        if ExpandAllFactionHeaders then pcall(ExpandAllFactionHeaders) end
+        for i = 1, (GetNumFactions() or 0) do
+            local n, _, _, _, _, _, _, _, isHeader, _, hasRep = GetFactionInfo(i)
+            if n == name and (not isHeader or hasRep) then
+                return (pcall(SetWatchedFactionIndex, i))
+            end
+        end
+    end
+    return false
+end
+
+-- this character's watched faction on every team character
+function ns.WatchFactionOnTeam()
+    local r = ns.WatchedFaction and ns.WatchedFaction()
+    if not r or not r.name then
+        ns.Print("Watch a faction on the reputation bar first (Reputation tab: \"Show as Experience Bar\").")
+        return
+    end
+    ns.SendToTeam("REPW:" .. r.name, true, "ALERT")
+    ns.Print("Asked the team to watch %s.", r.name)
+end
+ns.Listen("TEAM_MESSAGE", function(key, sender, text)
+    local name = text:match("^REPW:(.+)$")
+    if not name then return end
+    if ns.WatchFactionNamed(name) then
+        C_Timer.After(0.5, function() if ns.BroadcastXP then ns.BroadcastXP(true) end end)
+    else
+        ns.Print("%s asked to watch %s, but this character doesn't know that faction.", ns.FullDisplay(key), name)
+    end
+end)
+
 ns.RegisterXPPiece{ id = "rep", title = "Reputation", side = "RIGHT", on = false, sample = "Friendly 40%",
     tip = "Standing with the watched faction, whatever the bar shows.",
+    options = {
+        { "Button", "Watch my faction on every character", function() ns.WatchFactionOnTeam() end },
+        { "Note", "Every team character then shows the faction this character watches on its reputation bar, so this column (and \"Bars show: Reputation\") compares the same faction." },
+    },
     text = function(_, s) return RepText(s) end }
 ns.RegisterXPPiece{ id = "layer", title = "Layer", side = "RIGHT", on = false, sample = "#3",
     options = { O("Check", "Orange when not on your layer", XOpt("layerMark", false)) },
