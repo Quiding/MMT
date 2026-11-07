@@ -58,8 +58,29 @@ local function Thousands(n)
 end
 
 local function DurabilityColour(pct)
-    if pct >= 60 then return Hex(0.4, 1, 0.4) elseif pct >= 25 then return Hex(1, 0.85, 0.2) end
+    local x = ns.db.xp
+    if pct >= (x.durWarn or 60) then return Hex(0.4, 1, 0.4) elseif pct >= (x.durBad or 25) then return Hex(1, 0.85, 0.2) end
     return Hex(1, 0.3, 0.3)
+end
+
+-- settings behind the cogwheels (def.options): a setting of ns.db.xp, the window redrawn
+local function XOpt(key, default)
+    return function() local v = ns.db.xp[key] if v == nil then return default end return v end,
+           function(v) ns.db.xp[key] = v if ns.UpdateXPWindow then ns.UpdateXPWindow() end end
+end
+local function XColour(key, dr, dg, db)
+    return function() local c = ns.db.xp[key] or {} return { r = c.r or dr, g = c.g or dg, b = c.b or db } end,
+           function(c) ns.db.xp[key] = { r = c.r, g = c.g, b = c.b } if ns.UpdateXPWindow then ns.UpdateXPWindow() end end
+end
+-- options entry: { kind, text, <getter, setter>, ... }
+local function O(kind, text, get, set, ...) return { kind, text, get, set, ... } end
+local function OCycle(text, choices, get, set) return { "Cycle", text, choices, get, set } end
+local function OSlider(text, min, max, step, get, set, fmt) return { "Slider", text, min, max, step, get, set, fmt } end
+
+-- the XP fill without class colours
+function ns.XPBarColour()
+    local c = ns.db.xp.barColour or {}
+    return c.r or 0.31, c.g or 0.70, c.b or 1.00
 end
 
 local function StandingLabel(standing)
@@ -105,33 +126,61 @@ local DUR_ICON = "|TInterface\\Icons\\Trade_BlackSmithing:0:0:0:0:64:64:6:58:6:5
 -- Built-in pieces
 ---------------------------------------------------------------------------
 ns.RegisterXPPiece{ id = "gold", title = "Gold", side = "LEFT", on = true, sample = "123" .. GOLD_ICON, icon = "END",
-    tip = "Gold of the character (format: Gold below).",
+    tip = "Gold of the character (format: cogwheel, or Miscellaneous).",
+    options = {
+        OCycle("Show as", { { value = "GOLD", text = "Gold only" }, { value = "FULL", text = "Gold, silver, copper" } },
+            XOpt("goldFormat", "GOLD")),
+    },
     text = function(_, s)
         if not s.money then return nil end
         if ns.db.xp.goldFormat == "FULL" then return FullCoins(math.floor(s.money)) end
         return Thousands(math.floor(s.money / 10000)) .. GOLD_ICON
     end }
 ns.RegisterXPPiece{ id = "bags", title = "Free bag slots", side = "LEFT", on = true, sample = BAG_ICON .. " 12", icon = "START",
+    options = {
+        OSlider("Yellow at or below (slots)", 0, 30, 1, XOpt("bagWarn", 4)),
+        OSlider("Red at or below (slots)", 0, 30, 1, XOpt("bagBad", 0)),
+    },
     text = function(_, s)
         if not s.free then return nil end
-        local colour = (s.free == 0 and Hex(1, 0.3, 0.3)) or (s.free <= 4 and Hex(1, 0.85, 0.2)) or ""
+        local x = ns.db.xp
+        local colour = (s.free <= (x.bagBad or 0) and Hex(1, 0.3, 0.3)) or (s.free <= (x.bagWarn or 4) and Hex(1, 0.85, 0.2)) or ""
         return BAG_ICON .. " " .. colour .. s.free .. (colour ~= "" and "|r" or "")
     end }
 ns.RegisterXPPiece{ id = "durability", title = "Durability", side = "LEFT", on = true, sample = DUR_ICON .. " 100%", icon = "START",
-    tip = "Lowest item or the average (Durability below).",
+    tip = "Lowest item or the average (cogwheel, or Miscellaneous).",
+    options = {
+        OCycle("Show as", { { value = "LOWEST", text = "Lowest item" }, { value = "AVERAGE", text = "Average of all items" } },
+            XOpt("durability", "LOWEST")),
+        OSlider("Yellow below (%)", 5, 100, 5, XOpt("durWarn", 60)),
+        OSlider("Red below (%)", 0, 95, 5, XOpt("durBad", 25)),
+    },
     text = function(_, s)
         local pct = (ns.db.xp.durability == "AVERAGE") and s.durAvg or s.durMin
         if pct then return DUR_ICON .. " " .. DurabilityColour(pct) .. pct .. "%|r" end
     end }
 ns.RegisterXPPiece{ id = "level", title = "Level", side = "RIGHT", on = true, sample = "L60",
-    text = function(_, s) return Hex(0.75, 0.75, 0.75) .. "L" .. s.level .. "|r" end }
+    options = { O("Check", "Show \"L\" in front (L60)", XOpt("levelPrefix", true)) },
+    text = function(_, s)
+        return Hex(0.75, 0.75, 0.75) .. (ns.db.xp.levelPrefix == false and "" or "L") .. s.level .. "|r"
+    end }
 ns.RegisterXPPiece{ id = "value", title = "Bar value (XP % or reputation)", side = "RIGHT", on = true, sample = "45.0%",
     tip = "What the bar shows (Bar shows): the XP in percent, or the standing with the watched faction.",
+    options = {
+        OCycle("Bar shows", { { value = "XP", text = "XP" }, { value = "REP", text = "Reputation (watched faction)" } },
+            XOpt("barMode", "XP")),
+        OCycle("Decimals of the XP %", { { value = 0, text = "45%" }, { value = 1, text = "45.0%" }, { value = 2, text = "45.03%" } },
+            XOpt("valueDecimals", 1)),
+        O("Check", "Class colors (bar and name)", XOpt("classColors", true)),
+        O("Color", "Bar colour without class colors", XColour("barColour", 0.31, 0.70, 1.00)),
+        O("Check", "Highlight when I can level up", XOpt("levelUpHint", true)),
+        O("Check", "Highlight big XP gains", XOpt("xpFlash", true)),
+    },
     text = function(key, s)
         if ns.db.xp.barMode == "REP" then return RepText(s) end
         if s.isMax or s.max <= 0 then return "max" end
         if ns.LevelUpShowing and ns.LevelUpShowing(key, s) then return LEVEL_UP, true end
-        local text = ("%.1f%%"):format(s.cur / s.max * 100)
+        local text = ("%." .. (tonumber(ns.db.xp.valueDecimals) or 1) .. "f%%"):format(s.cur / s.max * 100)
         if ns.XPGainFlashing and ns.XPGainFlashing(key) then return Hex(1, 0.85, 0.2) .. text .. "|r", true end
         return text
     end }
@@ -173,11 +222,20 @@ ns.RegisterXPPiece{ id = "rep", title = "Reputation", side = "RIGHT", on = false
     tip = "Standing with the watched faction, whatever the bar shows.",
     text = function(_, s) return RepText(s) end }
 ns.RegisterXPPiece{ id = "layer", title = "Layer", side = "RIGHT", on = false, sample = "#3",
-    text = function(_, s) return s.layer and (Hex(0.7, 0.7, 0.7) .. "#" .. s.layer .. "|r") or nil end }
+    options = { O("Check", "Orange when not on your layer", XOpt("layerMark", false)) },
+    text = function(_, s)
+        if not s.layer then return nil end
+        local me = ns.status[ns.PlayerFull() or ""]
+        if ns.db.xp.layerMark and me and me.layer and me.layer ~= s.layer then
+            return Hex(1, 0.6, 0.2) .. "#" .. s.layer .. "|r"
+        end
+        return Hex(0.7, 0.7, 0.7) .. "#" .. s.layer .. "|r"
+    end }
 
 -- the name: placed and filled by XPWindow.lua (crown, "(no follow)", Layer Hop)
 ns.RegisterXPPiece{ id = "name", title = "Name", side = "RIGHT", on = true, fixed = true, sample = "Name",
     tip = "The character's name (with the leader crown and notes like \"no follow\"). Always shown; it takes the free space with the layout \"Name takes the free space\".",
+    options = { O("Check", "Class colors (name and bar)", XOpt("classColors", true)) },
     text = function() return nil end }
 
 ---------------------------------------------------------------------------

@@ -909,7 +909,8 @@ local function Update()
         -- the bar behind the whole row
         row.bar:SetPoint("LEFT", 0, 0)
         local barWidth = rowWidth
-        local r, g, b = e.useClass and e.cr or A[1], e.useClass and e.cg or A[2], e.useClass and e.cb or A[3]
+        local br, bg, bb = ns.XPBarColour()
+        local r, g, b = e.useClass and e.cr or br, e.useClass and e.cg or bg, e.useClass and e.cb or bb
         local pct, restPct
         if rep then
             local rp = s.rep
