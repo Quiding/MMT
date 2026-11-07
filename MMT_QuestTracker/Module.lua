@@ -8,8 +8,8 @@
 --   announce "ready for turn-in", share new quests, announce quests that
 --   can't be shared, abandon a quest on the whole team (Automation.lua).
 -- * Completed quest XP: the XP of the quests ready to turn in (added up by the
---   core, MMT.TurnInXP), shaded on the Info window's bars (every member) and on
---   the game's XP bar (QuestXP.lua).
+--   core, MMT.TurnInXP), shaded on the Info window's bars of every member
+--   (QuestXP.lua).
 
 local _, mod = ...
 local MMT = MMT
@@ -39,7 +39,6 @@ local M = MMT.NewModule({
 
         -- completed quest XP (QuestXP.lua)
         questXP         = true,   -- show it (Info window piece "Completed quest XP")
-        questXPGameBar  = true,   -- shade it on the game's XP bar too
         questXPColour   = { r = 1, g = 0.72, b = 0.15 },
         questXPAlpha    = 0.55,
 

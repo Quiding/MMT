@@ -255,7 +255,7 @@ Saved data from MMT 0.1.x is converted automatically.
     forget other accounts, live tracker.
   - Live tracker ("Show live tracker", off): a small window of its own for the character you
     play: session length (since login or /reload), time on the current level (not at max
-    level), XP % (rested %), and a table of XP, gold and kills in the session and per hour.
+    level), XP % (rested %, and "Q %" for the XP of quests ready to turn in), and a table of XP, gold and kills in the session and per hour.
     "Reset session" starts a new session in that window only. Lock, font and font size in
     the Settings tab; redrawn at most once a second.
   - Export (Settings tab): CSV text to copy into a spreadsheet or a .csv file (addons can't
@@ -388,10 +388,8 @@ Saved data from MMT 0.1.x is converted automatically.
   Core > Automations are copied over once.
   Completed quest XP (Quest XP tab, on by default): the XP of the quests ready to turn
   in, shaded like rested XP but in its own colour (default gold; colour and opacity can
-  be set) right after the XP: on every member's bar in the Info window (piece "Completed
-  quest XP", "Q 20%") and on the game's own XP bar for your character (a frame of MMT's
-  own over the bar; the game's bar isn't changed; where it overlaps the game's rested
-  fill, the smaller of the two is drawn on top). The XP is the core's turn-in XP (the
+  be set) right after the XP, on every member's bar in the Info window (piece "Completed
+  quest XP", "Q 20%"). The game's own XP bar is left alone. The XP is the core's turn-in XP (the
   same value as "LvlUp available"; needs MMT 1.1.0 or newer). When turning in would reach the next level the shade stops
   at the end of the bar with a bright edge, and the piece shows over 100%.
 - **Automations** (tiles: NPC Interactions, Socializing, Group-wide Interactions; camera

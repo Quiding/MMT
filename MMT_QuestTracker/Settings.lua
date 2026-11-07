@@ -201,10 +201,7 @@ M.Page = function(_, page)
     local _, XL = Tile(Xp, 0, 0, TILE_W, PANEL_H, "Completed Quest XP", "Interface\\Icons\\INV_Scroll_03")
     local gqx, sqx = Opt("questXP")
     XL:Check("Show completed quest XP", gqx, sqx,
-        "The XP of the quests ready to turn in (MMT adds it up for every member), shown like rested XP, in its own colour: on every member's bar in the Info window (piece \"Completed quest XP\") and on the game's XP bar.")
-    local ggb, sgb = Opt("questXPGameBar")
-    XL:Check("Also on the game's XP bar", ggb, sgb,
-        "Shades this character's completed quest XP on the game's own XP bar, after the XP. A frame of MMT's own lies over the bar; nothing of the game's bar is changed.")
+        "The XP of the quests ready to turn in (MMT adds it up for every member), shown like rested XP, in its own colour, on every member's bar in the Info window (piece \"Completed quest XP\").")
     local gcl, scl = Opt("questXPColour")
     XL:Color("Colour", gcl, scl)
     local gqa, sqa = Opt("questXPAlpha")

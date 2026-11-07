@@ -1,6 +1,7 @@
 -- MMT Statistics: the live tracker, a small window of its own (option "Show
 -- live tracker"): the session (since login or /reload) of the character you
--- play - its length, time on the current level, XP %, and XP, gold and kills
+-- play - its length, time on the current level, XP % (rested %, quest % of the
+-- quests ready to turn in), and XP, gold and kills
 -- in the session and per hour. "Reset" starts a new session in this window
 -- only; the statistics themselves are not touched.
 -- Redrawn at most once a second after a change, else every 15 seconds.
@@ -179,7 +180,7 @@ local function Layout()
     Font(f.reset.text, 0.9)
 
     -- widths from the font size (values change, the window should not jump)
-    local w1, w2, w3 = size * 4, size * 7, size * 7
+    local w1, w2, w3 = size * 5, size * 7, size * 7
     local width = PAD * 2 + w1 + w2 + w3
     f.icon:SetSize(size + 2, size + 2)
     f.icon:ClearAllPoints()
@@ -261,6 +262,9 @@ function mod.RedrawLiveTracker(now)
     else
         local text = ("%.1f%%"):format(xp / max * 100)
         if rested and rested > 0 then text = text .. ("  |cffbf99ff(%d%%)|r"):format(math.floor(rested / max * 100 + 0.5)) end
+        -- XP of the quests ready to turn in (the core's sum, LevelUp.lua)
+        local qx = MMT.TurnInXP and tonumber(MMT.TurnInXP(MMT.PlayerFull() or "")) or 0
+        if qx > 0 then text = text .. ("  |cffffc04dQ %d%%|r"):format(math.floor(qx / max * 100 + 0.5)) end
         lines[3].v:SetText(text)
     end
 
@@ -303,6 +307,7 @@ end)
 M:On("PLAYER_LEVEL_UP", Changed)
 M:On("PLAYER_MONEY", Changed)
 M:On("UPDATE_EXHAUSTION", Changed)
+M:Listen("STATUS_CHANGED", Changed)   -- e.g. the turn-in XP changed
 -- kills: Kills.lua counts them (no event of its own): the 1 s ticker below catches them
 local lastKills
 M:On("PLAYER_ENTERING_WORLD", function()
