@@ -37,6 +37,7 @@ local M = MMT.NewModule({
     defaults = {
         autoMethod   = true,
         outsiderGroup = false,     -- Group Loot while a player outside the team is in the group
+        keepRaid     = false,      -- in a raid: keep the chosen method even with outsiders
         method       = "master",   -- freeforall | roundrobin | master
         threshold    = 0,          -- item quality (0 = Poor, 2 = Uncommon)
         looter       = "LEADER",   -- master looter: "LEADER" or a team key
@@ -182,9 +183,10 @@ function mod.HasOutsider()
     return false
 end
 
--- the method to use now: Group Loot with an outsider (option), else the chosen one
+-- the method to use now: Group Loot with an outsider (option; not in a raid with
+-- "Keep loot settings in raid"), else the chosen one
 function mod.WantedMethod()
-    if M.db.outsiderGroup and mod.HasOutsider() then return "group" end
+    if M.db.outsiderGroup and not (M.db.keepRaid and IsInRaid()) and mod.HasOutsider() then return "group" end
     return M.db.method
 end
 
@@ -246,11 +248,13 @@ local function Evaluate()
     M:Debug("group check: outsider=%s%s wanted=%s from %s, game has %s from %s, handled=%s",
         tostring(outsider), who and (" (" .. MMT.Repr(who) .. ")") or "", tostring(method),
         tostring(mod.WantedThreshold(method)), tostring((mod.GetMethod())), tostring(mod.GetThreshold()), tostring(handledFor))
-    -- an outsider joining or leaving changes the method: apply again
-    if handledFor and handledFor == method then return end
+    -- an outsider joining or leaving changes the method, and so does converting
+    -- between party and raid (the game resets the loot settings then): apply again
+    local situation = method .. (IsInRaid() and ":raid" or ":party")
+    if handledFor and handledFor == situation then return end
     local ok, changed = mod.ApplyLootSettings(false)
     if not ok then M:Debug("group check: not applied (%s)", tostring(changed)) return end   -- e.g. in combat: tried again later
-    handledFor = method
+    handledFor = situation
     if changed and M.db.report then
         MMT.Print("Loot set to %s%s%s.", mod.METHOD_TEXT[method] or method,
             method ~= "freeforall" and (" from " .. MMT.QualityName(mod.WantedThreshold(method))) or "",

@@ -33,6 +33,9 @@ M.Page = function(_, page)
     local gog, sog = Opt("outsiderGroup")
     L:Check("Return to Group Loot when outsiders join", gog, sog,
         "While a player who isn't in your team list is in the group, the loot method is Group Loot with the threshold Uncommon. When they leave, the method and threshold below are set again.")
+    local gkr, skr = Opt("keepRaid")
+    L:Check("Keep loot settings in raid, even with outsiders", gkr, skr,
+        "In a raid group the method and threshold below stay, also while players outside the team are in it (overrides \"Return to Group Loot when outsiders join\" there). In a party the option above applies as usual.")
     local ga, sa = Opt("autoMethod")
     L:Check("Set loot method automatically", ga, sa,
         "When a group forms or one of your team characters becomes leader, that character sets the method and threshold below. Only the group leader can change loot settings.")
@@ -229,8 +232,8 @@ function M.Report(_, add)
     add(("-- Loot Distribution  current=%s partyML=%s raidML=%s threshold=%s isMaster=%s leader=%s"):format(
         tostring(method), tostring(partyIndex), tostring(raidIndex), tostring(mod.GetThreshold()),
         tostring(mod.IsMasterLooter()), tostring(IsInGroup() and UnitIsGroupLeader("player"))))
-    add(("settings: auto=%s outsiderGroup=%s method=%s threshold=%s looter=%s byRoles=%s reserve=%s unassigned=%s rrNotice=%s multiRole=%s noRoom=%s autoPass=%s optOut=%s (game: %s) passExcept=%s"):format(
-        tostring(M.db.autoMethod), tostring(M.db.outsiderGroup), tostring(M.db.method), tostring(M.db.threshold), tostring(M.db.looter),
+    add(("settings: auto=%s outsiderGroup=%s keepRaid=%s method=%s threshold=%s looter=%s byRoles=%s reserve=%s unassigned=%s rrNotice=%s multiRole=%s noRoom=%s autoPass=%s optOut=%s (game: %s) passExcept=%s"):format(
+        tostring(M.db.autoMethod), tostring(M.db.outsiderGroup), tostring(M.db.keepRaid), tostring(M.db.method), tostring(M.db.threshold), tostring(M.db.looter),
         tostring(M.db.byRoles), tostring(M.db.reserve), tostring(M.db.unassigned), tostring(M.db.rrNotice),
         tostring(M.db.multiRole), tostring(M.db.noRoom), tostring(M.db.autoPass), tostring(M.db.optOut),
         tostring(GetOptOutOfLoot and GetOptOutOfLoot()), tostring(M.db.passExcept)))
