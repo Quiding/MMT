@@ -15,7 +15,9 @@
 --   zone:  Ctrl-click              collapse / expand all quests of that zone
 --   zone:  Ctrl-right-click        focus the zone (only its quests), again = all zones
 --   right-click elsewhere          settings
--- The mouse wheel scrolls when the list is taller than the maximum height.
+-- The mouse wheel scrolls when the list is taller than the maximum height: the window
+-- then keeps the maximum height, and a thin scroll bar shows while scrolling or under the mouse (fades out);
+-- drag its thumb or click the track to scroll there.
 -- The Blizzard quest tracker is moved into a hidden frame (re-parenting out of
 -- combat; nothing of Blizzard's code is replaced). So are other addons' trackers
 -- (option hideOthers): Questie's window, EllesmereUI's through its own API.
@@ -58,8 +60,84 @@ end)
 -- a click that ends a drag is not a click
 local function JustDragged() return dragging or GetTime() - dragEnd < 0.2 end
 f:SetScript("OnMouseUp", function(_, button) if button == "RightButton" then MMT.ToggleConfig("QuestTracker") end end)
+-- scroll bar: our own thin bar at the edge, shown while scrolling or under the mouse,
+-- then faded out. Drag the thumb, or click the track to jump there.
+local SB_HOLD, SB_FADE, SB_W, SB_HIT = 1.0, 0.4, 3, 10
+f.sb = CreateFrame("Frame", nil, f)
+f.sb:SetWidth(SB_HIT)   -- wider than it looks, so it is easy to grab
+f.sb:SetAlpha(0)
+f.sb:EnableMouse(true)
+f.sb:EnableMouseWheel(true)
+f.sb:Hide()
+f.sb.track = f.sb:CreateTexture(nil, "ARTWORK")
+f.sb.track:SetWidth(SB_W)
+f.sb.track:SetColorTexture(1, 1, 1, 0.12)
+f.sb.thumb = f.sb:CreateTexture(nil, "OVERLAY")
+f.sb.thumb:SetWidth(SB_W)
+f.sb.thumb:SetColorTexture(1, 1, 1, 0.55)
+
+-- cursor height below the top of the bar
+local function CursorFromTop(sb)
+    local _, cy = GetCursorPosition()
+    return (sb:GetTop() or 0) - cy / sb:GetEffectiveScale()
+end
+-- offset for a thumb top at pos (pixels below the top of the bar)
+local function OffsetAt(pos)
+    local room = (f.sbTrackH or 0) - (f.sbThumbH or 0)
+    if room <= 0 or not f.maxOffset or f.maxOffset <= 0 then return f.offset end
+    local frac = math.max(0, math.min(1, pos / room))
+    return math.floor(frac * f.maxOffset + 0.5)
+end
+
+local function ScrollBarUpdate(self)
+    if self.dragging then
+        local new = OffsetAt(CursorFromTop(self) - self.grab)
+        if new ~= f.offset then f.offset = new mod.Redraw() end
+        return
+    end
+    if self:IsMouseOver() then f.sbUntil = GetTime() + SB_HOLD self:SetAlpha(1) return end
+    local t = GetTime() - (f.sbUntil or 0)
+    if t <= 0 then return end
+    local a = 1 - t / SB_FADE
+    if a <= 0 then
+        self:SetAlpha(0)
+        self:SetScript("OnUpdate", nil)
+    else
+        self:SetAlpha(a)
+    end
+end
+local function FlashScrollBar()
+    f.sbUntil = GetTime() + SB_HOLD
+    f.sb:SetAlpha(1)
+    f.sb:SetScript("OnUpdate", ScrollBarUpdate)
+end
+f.sb:SetScript("OnEnter", FlashScrollBar)
+f.sb:SetScript("OnMouseDown", function(self, button)
+    if button ~= "LeftButton" then return end
+    local pos = CursorFromTop(self)
+    local top, h = f.sbThumbTop or 0, f.sbThumbH or 0
+    if pos >= top and pos <= top + h then
+        self.grab = pos - top            -- on the thumb: drag it from where it was grabbed
+    else
+        self.grab = h / 2                -- on the track: the thumb jumps there, then drags
+        local new = OffsetAt(pos - self.grab)
+        if new ~= f.offset then f.offset = new mod.Redraw() end
+    end
+    self.dragging = true
+    FlashScrollBar()
+end)
+f.sb:SetScript("OnMouseUp", function(self)
+    self.dragging = false
+    FlashScrollBar()
+end)
+f.sb:SetScript("OnHide", function(self) self.dragging = false end)
+f.sb:SetScript("OnMouseWheel", function(_, delta) f:GetScript("OnMouseWheel")(f, delta) end)
+
 f:SetScript("OnMouseWheel", function(self, delta)
-    self.offset = math.max(0, self.offset - delta)
+    local new = math.max(0, math.min(self.offset - delta, self.maxOffset or math.huge))
+    if new == self.offset and not self.more and self.offset == 0 then return end   -- nothing to scroll
+    self.offset = new
+    FlashScrollBar()
     mod.Redraw()
 end)
 
@@ -616,7 +694,18 @@ local function Draw()
         y = y + FillRow(Row(i), header, y, width) + 2
     end
 
-    f.offset = math.max(0, math.min(f.offset, #entries - 1))
+    -- the furthest offset that still fills the window (no scrolling past the end, so the
+    -- window doesn't shrink while scrolling)
+    local room = cfg.maxHeight - PAD - y
+    local maxOffset, used = 0, 0
+    for idx = #entries, 1, -1 do
+        local e = entries[idx]
+        used = used + Style(e.kind).size + 4 + ((e.kind == "zone" and idx > 1) and 4 or 0)
+        if used > room then maxOffset = idx break end
+    end
+    f.maxOffset = maxOffset
+    f.offset = math.max(0, math.min(f.offset, maxOffset))
+    local listTop = y
     local more = false
     for idx = f.offset + 1, #entries do
         local e = entries[idx]
@@ -642,8 +731,35 @@ local function Draw()
         end
     end
 
+    -- a list that scrolls keeps the maximum height, so the window doesn't jump
+    local scrolls = more or f.offset > 0
+    local height = scrolls and math.max(y + PAD, cfg.maxHeight) or (y + PAD)
     f:SetScale(cfg.scale)
-    f:SetSize(cfg.width, y + PAD)
+    f:SetSize(cfg.width, height)
+    if scrolls and maxOffset > 0 then
+        local sb = f.sb
+        local edge = cfg.align == "RIGHT" and "LEFT" or "RIGHT"
+        local x = edge == "RIGHT" and -1.5 or 1.5
+        sb:ClearAllPoints()
+        sb:SetPoint("TOP" .. edge, f, "TOP" .. edge, x, -listTop)
+        sb:SetPoint("BOTTOM" .. edge, f, "BOTTOM" .. edge, x, PAD)
+        sb:SetFrameLevel(f:GetFrameLevel() + 20)   -- above the rows it overlaps
+        sb:EnableMouse(not cfg.clickThrough)
+        sb:EnableMouseWheel(not cfg.clickThrough)
+        sb.track:ClearAllPoints()
+        sb.track:SetPoint("TOP" .. edge); sb.track:SetPoint("BOTTOM" .. edge)
+        local trackH = math.max(1, height - listTop - PAD)
+        local shown = i - (cfg.showHeader and 1 or 0)
+        local thumbH = math.max(8, math.min(trackH, trackH * shown / math.max(1, #entries)))
+        local thumbTop = (trackH - thumbH) * f.offset / maxOffset
+        f.sbTrackH, f.sbThumbH, f.sbThumbTop = trackH, thumbH, thumbTop
+        sb.thumb:SetHeight(thumbH)
+        sb.thumb:ClearAllPoints()
+        sb.thumb:SetPoint("TOP" .. edge, sb, "TOP" .. edge, 0, -thumbTop)
+        sb:Show()
+    else
+        f.sb:Hide()
+    end
     local bg = cfg.bg or { r = 0, g = 0, b = 0 }
     f.bg:SetColorTexture(bg.r, bg.g, bg.b, cfg.bgAlpha)
     f:EnableMouse(not cfg.clickThrough)

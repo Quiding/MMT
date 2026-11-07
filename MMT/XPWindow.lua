@@ -276,6 +276,14 @@ local function RowTooltip(row)
             tip:AddDoubleLine("Rested", ("%d XP (%d%%)"):format(s.rested, math.floor(s.rested / s.max * 100 + 0.5)), 0.75, 0.6, 1, 0.75, 0.6, 1)
         end
         if ns.LevelUpTooltip then ns.LevelUpTooltip(tip, key, s) end
+        for _, sh in ipairs(ns.XPBarPieces(key, s)) do
+            if sh.def.barTitle then   -- a tooltip line only when the piece names one
+                local r, g, b = 0.4 + sh.r * 0.6, 0.4 + sh.g * 0.6, 0.4 + sh.b * 0.6   -- readable on the dark tooltip
+                local right = ("%d XP (%d%%)"):format(sh.xp, math.floor(sh.xp / s.max * 100 + 0.5))
+                if s.cur + sh.xp >= s.max then right = right .. ", next level" end
+                tip:AddDoubleLine(sh.def.barTitle, right, r, g, b, r, g, b)
+            end
+        end
     end
     if s.money then tip:AddDoubleLine("Gold", TipCoins(s.money), 1, 1, 1, 1, 1, 1) end
     if s.free then tip:AddDoubleLine("Bags", ("%d of %d slots free"):format(s.free, s.slots or 0), 1, 1, 1, 1, 1, 1) end
@@ -561,7 +569,6 @@ local function Row(i)
     row.fill = row.bar:CreateTexture(nil, "BORDER")
     row.fill:SetPoint("TOPLEFT"); row.fill:SetPoint("BOTTOMLEFT")
     row.rest = row.bar:CreateTexture(nil, "BORDER")
-    row.rest:SetPoint("TOPLEFT", row.fill, "TOPRIGHT"); row.rest:SetPoint("BOTTOMLEFT", row.fill, "BOTTOMRIGHT")
     row.rest:SetColorTexture(0.65, 0.45, 1.0, 0.30)
     -- a big XP gain: the gained part of the bar lights up (CheckGain)
     row.gain = row.bar:CreateTexture(nil, "ARTWORK")
@@ -576,6 +583,7 @@ local function Row(i)
     end
     row.gain.anim:SetScript("OnFinished", function() row.gain:SetAlpha(0) row.gain:Hide() end)
     row.gain:Hide()
+    row.shades = {}   -- shades of pieces with a bar value (XPPieces.lua), made when needed
     -- red, pulsing mark: this member stopped following
     row.alertLayer = CreateFrame("Frame", nil, row)   -- above the bar area
     row.alertLayer:SetAllPoints()
@@ -915,6 +923,40 @@ local function Update()
         end
         row.fill:SetShown(x.showBars and pct > 0)
         row.fill:SetWidth(math.max(1, barWidth * pct))
+        -- shades of pieces (e.g. completed quest XP) right after the fill, then rested XP;
+        -- each capped at the end of the bar, with a bright edge there when it would go past it
+        local at, nShades = pct, 0
+        if x.showBars and not rep and not s.isMax and s.max > 0 then
+            for _, sh in ipairs(ns.XPBarPieces(key, s)) do
+                if at >= 1 then break end
+                nShades = nShades + 1
+                local t = row.shades[nShades]
+                if not t then
+                    t = row.bar:CreateTexture(nil, "BORDER", nil, 1)
+                    t.edge = row.bar:CreateTexture(nil, "BORDER", nil, 2)
+                    t.edge:SetWidth(2)
+                    t.edge:SetPoint("TOPRIGHT", row.bar, "TOPRIGHT"); t.edge:SetPoint("BOTTOMRIGHT", row.bar, "BOTTOMRIGHT")
+                    row.shades[nShades] = t
+                end
+                local w = sh.xp / s.max
+                local over = at + w > 1
+                if over then w = 1 - at end
+                t:ClearAllPoints()
+                t:SetPoint("TOPLEFT", row.bar, "TOPLEFT", barWidth * at, 0)
+                t:SetPoint("BOTTOMLEFT", row.bar, "BOTTOMLEFT", barWidth * at, 0)
+                t:SetWidth(math.max(1, barWidth * w))
+                t:SetColorTexture(sh.r, sh.g, sh.b, sh.a)
+                t:Show()
+                t.edge:SetColorTexture(sh.r, sh.g, sh.b, 1)
+                t.edge:SetShown(over)
+                at = at + w
+            end
+        end
+        for i = nShades + 1, #row.shades do row.shades[i]:Hide(); row.shades[i].edge:Hide() end
+        restPct = math.min(restPct, math.max(0, 1 - at))
+        row.rest:ClearAllPoints()
+        row.rest:SetPoint("TOPLEFT", row.bar, "TOPLEFT", barWidth * at, 0)
+        row.rest:SetPoint("BOTTOMLEFT", row.bar, "BOTTOMLEFT", barWidth * at, 0)
         row.rest:SetShown(x.showBars and not rep and ns.XPPieceOn("rested") and restPct > 0)
         row.rest:SetWidth(math.max(1, barWidth * restPct))
         row.track:SetShown(x.showBars)

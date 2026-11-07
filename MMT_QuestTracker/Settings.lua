@@ -1,5 +1,5 @@
--- MMT Quest Tracker: settings page (under MODULES in /mmt) with three
--- sub-tabs (Tracker, Automation, Fonts) in the tile design, and the debug report.
+-- MMT Quest Tracker: settings page (under MODULES in /mmt) with sub-tabs (Tracker,
+-- Order, Automation, Quest XP, Fonts) in the tile design, and the debug report.
 
 local _, mod = ...
 local MMT = MMT
@@ -32,6 +32,7 @@ M.Page = function(_, page)
         { "tracker", "Tracker", "INV_Misc_Book_09" },
         { "order", "Order", "INV_Misc_Map_01" },
         { "auto", "Automation", "INV_Misc_Gear_01" },
+        { "xp", "Quest XP", "INV_Scroll_03" },
         { "fonts", "Fonts", "INV_Misc_Note_01" },
     }, H.SYNC_RESERVE)
     local status
@@ -194,6 +195,31 @@ M.Page = function(_, page)
     R2:Note("Sharing and team abandon need MMT with this module on every client.")
 
     -------------------------------------------------------------------------
+    -- Quest XP: completed quest XP on the bars (QuestXP.lua)
+    -------------------------------------------------------------------------
+    local Xp = tabs.xp
+    local _, XL = Tile(Xp, 0, 0, TILE_W, PANEL_H, "Completed Quest XP", "Interface\\Icons\\INV_Scroll_03")
+    local gqx, sqx = Opt("questXP")
+    XL:Check("Show completed quest XP", gqx, sqx,
+        "The XP of the quests ready to turn in (MMT adds it up for every member), shown like rested XP, in its own colour: on every member's bar in the Info window (piece \"Completed quest XP\") and on the game's XP bar.")
+    local ggb, sgb = Opt("questXPGameBar")
+    XL:Check("Also on the game's XP bar", ggb, sgb,
+        "Shades this character's completed quest XP on the game's own XP bar, after the XP. A frame of MMT's own lies over the bar; nothing of the game's bar is changed.")
+    local gcl, scl = Opt("questXPColour")
+    XL:Color("Colour", gcl, scl)
+    local gqa, sqa = Opt("questXPAlpha")
+    XL:Slider("Opacity", 0.1, 1, 0.05, gqa, sqa, "%.2f")
+    XL:Space(4)
+    XL:Note("When turning in would reach the next level, the shade stops at the end of the bar with a bright edge there, and the piece shows more than 100% (Q 120%).")
+    XL:Space(4)
+    XL:Note("Info window: switch the piece \"Completed quest XP\" on or off and drag it on the Info Window page. Teammates need MMT 1.1.0 or newer for theirs to show.")
+
+    local _, XR = Tile(Xp, X2, 0, TILE_W, PANEL_H, "Where the XP comes from", "Interface\\Icons\\INV_Misc_Note_02")
+    XR:Note("MMT itself adds it up: each character sums the reward XP of the quests in its log that are ready to turn in (the game's value, already for its level) and sends the total with the team heartbeat. The same value drives MMT's \"LvlUp available\" hint and the \"Ready quests\" line in the Info window's row tooltip.")
+    XR:Space(4)
+    XR:Note("This tab only decides how it is shown. /mmt debug dump lists the quests counted (\"-- Level up\").")
+
+    -------------------------------------------------------------------------
     -- Fonts: one tile per level (font, size, colour), two by two
     -------------------------------------------------------------------------
     local Fo = tabs.fonts
@@ -230,6 +256,7 @@ function M.Report(_, add)
         MMT.Repr(M.store.focusZone), watchedN))
     add(("other trackers: hideOthers=%s  %s"):format(tostring(M.db.hideOthers), mod.OtherTrackersReport()))
     add(mod.ArrangeReport())
+    if mod.QuestXPReport then add(mod.QuestXPReport()) end
     for _, id in ipairs(mod.ownOrder or {}) do
         local own = mod.AllData()[MMT.PlayerFull()]
         local q = own and own.quests and own.quests[id]

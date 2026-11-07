@@ -18,7 +18,11 @@ ns.xpPieceIds = {}    -- registration order
 --         icon sits in the text (the "Line up the icons" choice aligns the column by it),
 --         before = id: placed before that piece when first added (else by side),
 --         hidden = function() -> true: the whole column is left out for now (e.g. no
---         pet out on the team) although it is switched on }
+--         pet out on the team) although it is switched on,
+--         bar = function(key, status) -> XP: also shaded on the XP bar while the piece is on,
+--         right after the fill (before rested XP), capped at the end of the bar,
+--         barColour = function() -> r, g, b, a: the colour of that shade,
+--         barTitle = its line in the row tooltip (no line without) }
 -- text() may return a second value, true: the piece pulses (e.g. "LvlUp available")
 function ns.RegisterXPPiece(def)
     assert(type(def) == "table" and type(def.id) == "string" and type(def.text) == "function",
@@ -250,6 +254,28 @@ function ns.MoveXPPiece(id, _, beforeId)
     end
     table.insert(list, at or (#list + 1), p)
     ns.UpdateXPWindow()
+end
+
+-- the bar shades of a row (pieces with bar = fn, switched on), in piece order:
+-- { { def, xp, r, g, b, a }, ... }, only those with XP > 0
+function ns.XPBarPieces(key, s)
+    local out = {}
+    for _, p in ipairs(ns.XPPieceOrder()) do
+        local d = p.on and ns.xpPieces[p.id]
+        if d and d.bar then
+            local ok, xp = pcall(d.bar, key, s)
+            xp = ok and tonumber(xp) or 0
+            if xp > 0 then
+                local r, g, b, a = 1, 0.75, 0.2, 0.5
+                if d.barColour then
+                    local ok2, r2, g2, b2, a2 = pcall(d.barColour)
+                    if ok2 and r2 then r, g, b, a = r2, g2, b2, a2 or a end
+                end
+                out[#out + 1] = { def = d, xp = xp, r = r, g = g, b = b, a = a }
+            end
+        end
+    end
+    return out
 end
 
 -- the shown pieces of a row, in order: { { id, def, text }, ... }; the name comes

@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 1.1.1: core addon (MMT) plus optional modules (MMT_*).
+Version 1.1.2: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -371,7 +371,7 @@ Saved data from MMT 0.1.x is converted automatically.
   first (needs Questie); quests ready to turn in in order, on top or at the bottom.
   With a "nearest" order the tracker re-sorts every 5 s after you moved 20 yards and
   redraws only when the order changed.
-  Background colour and opacity, width, maximum height (scrolls beyond), indent,
+  Background colour and opacity, width, maximum height (scrolls beyond; a scrolling list keeps that height, and a thin scroll bar shows while scrolling or under the mouse, then fades; drag it or click the track to scroll), indent,
   alignment, outline, and font, size and colour for each of the four levels.
   "Hide other addons' quest trackers" (on by default): Questie's tracker window and
   EllesmereUI Quest Tracker are hidden while the module is on (their own settings stay
@@ -384,6 +384,14 @@ Saved data from MMT 0.1.x is converted automatically.
   [Item] - it starts a quest!", on by default), and abandon a quest on the whole team (asks first:
   "Do you want to abort this quest on your entire team?"). The quest settings of
   Core > Automations are copied over once.
+  Completed quest XP (Quest XP tab, on by default): the XP of the quests ready to turn
+  in, shaded like rested XP but in its own colour (default gold; colour and opacity can
+  be set) right after the XP: on every member's bar in the Info window (piece "Completed
+  quest XP", "Q 20%") and on the game's own XP bar for your character (a frame of MMT's
+  own over the bar; the game's bar isn't changed; where it overlaps the game's rested
+  fill, the smaller of the two is drawn on top). The XP is the core's turn-in XP (the
+  same value as "LvlUp available"; needs MMT 1.1.0 or newer). When turning in would reach the next level the shade stops
+  at the end of the bar with a bright edge, and the piece shows over 100%.
 - **Automations** (tiles: NPC Interactions, Socializing, Group-wide Interactions; camera
   and distance window in the "Miscellaneous" side window): gossip to vendor or flight map, click through dialog-only NPCs (plain
   dialog lines; anything that could cost gold, teleport, train or start a fight stays
