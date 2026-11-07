@@ -77,6 +77,13 @@ local function Started(key, target)
     ns.Fire("STATUS_CHANGED")
 end
 
+-- inside a dungeon / raid (or battleground) right now
+function ns.InInstanceNow()
+    if not IsInInstance then return false end
+    local inside, kind = IsInInstance()
+    return inside == true and kind ~= "none"
+end
+
 local function Stopped(key, why)
     local f = F(key)
     local was = f.following or f.combatBreak
@@ -86,6 +93,12 @@ local function Stopped(key, why)
     if why == "t" then f.combatBreak = false return end   -- flight path ends follow for everybody
     local x = ns.db.xp
     if not x.followCheck then return end
+    -- "Disable follow breaks while in instance": inside a dungeon / raid nothing counts
+    if x.followIgnoreInstance and ns.InInstanceNow() then
+        f.combatBreak = false
+        ns.Fire("STATUS_CHANGED")
+        return
+    end
     -- in combat on either side: the break only counts if it lasts until
     -- after combat (checked when combat ends here, see below)
     if x.followIgnoreCombat and (why == "c" or InCombat()) then

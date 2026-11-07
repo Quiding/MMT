@@ -1058,7 +1058,7 @@ ns.RegisterPage("alerts", "Alerts", function(page)
     local TOP = Intro(page, "You can have MMT notify you via XP window, sound or text warnings about certain conditions and situations, to help you keeping track of your team.")
     local FULL_H = 564 + TOP
     local X2 = TILE_W + TILE_GAP
-    local FOLLOW_H = 42 + UI.ROW + 4 * UI.ROW + 36 + 10
+    local FOLLOW_H = 42 + UI.ROW + 5 * UI.ROW + 36 + 10
 
     -- Follow (top left) -------------------------------------------------------------
     local ft, L = Tile(page, 0, TOP, TILE_W, FOLLOW_H, "Follow", "Interface\\Icons\\Ability_Rogue_Sprint")
@@ -1077,6 +1077,9 @@ ns.RegisterPage("alerts", "Alerts", function(page)
         "Follow often breaks in a fight. A break in combat only counts if the character still isn't following when the time below has passed after its combat ended.")
     local gfd, sfd = Opt("xp", "followCombatDelay")
     L:Slider("Check after combat (seconds)", 1, 30, 1, gfd, sfd)
+    local gfn, sfn = Opt("xp", "followIgnoreInstance")
+    L:Check("Disable follow breaks while in instance", gfn, sfn,
+        "In dungeons and raids a break never counts: no red row, no warning, no sound (follow is often left on purpose there). Outside instances it works as set above.")
 
     local followDep = After(followMark)
 
