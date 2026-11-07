@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 1.0.17: core addon (MMT) plus optional modules (MMT_*).
+Version 1.0.18: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -82,7 +82,7 @@ Saved data from MMT 0.1.x is converted automatically.
   once to existing profiles too, deleted ones stay deleted); create roles, tick their members, add items (drop one on the slot, or
   click the field and shift-click an item anywhere; IDs and exact names work too),
   rules (all grey, all Bind on Equip, by quality) and item groups (Cloth, Leather,
-  Herbs, Ore/bars/stone, Enchanting, Potions, Food & drink, Reagents, Consumables, ...).
+  Herbs, Ore/bars/stone, Gems, Enchanting, Potions, Food & drink, Reagents, Consumables, ...).
   Opening a trade with a team member puts the matching items in (switch on the Trade /
   Mail / Vendor page). You accept yourself.
 - **XP Window**: XP %, rested XP %, gold, free bag slots, durability (lowest item or

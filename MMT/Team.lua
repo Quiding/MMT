@@ -328,6 +328,11 @@ ns.ITEM_GROUPS = {
       ids = Set({ 765, 2447, 785, 2449, 2450, 2452, 3820, 2453, 3355, 3369, 3356, 3357, 3818, 3821,
                   3358, 3819, 4625, 8831, 8836, 8838, 8839, 8845, 8846, 13464, 13463, 13465, 13466,
                   13467, 13468 }) },
+    -- gems: the category Gem, plus the classic gems and pearls by ID (filed as gems or
+    -- plain trade goods depending on the client)
+    { id = "gems", name = "Gems", class = 3,
+      ids = Set({ 774, 818, 1210, 1206, 1705, 1529, 3864, 7909, 7910, 12361, 12364, 12799, 12800,
+                  11754, 12363, 5498, 5500, 7971, 13926 }) },
     { id = "cooking", name = "Cooking ingredients", class = 7, subs = { 8 } },
     { id = "elemental", name = "Elemental", class = 7, subs = { 10 } },
     { id = "enchanting", name = "Enchanting materials", class = 7, subs = { 12 },
