@@ -1072,14 +1072,14 @@ ns.RegisterPage("alerts", "Alerts", function(page)
         "Raid warning \"<Name> stopped following\" on the client of the character that was followed (the one you play).")
     local gfs, sfs = Opt("xp", "followSound")
     L:Check("Play sound when follow breaks", gfs, sfs, "The raid warning sound, on the same client as the warning.")
+    local gfn, sfn = Opt("xp", "followIgnoreInstance")
+    L:Check("Ignore follow breaks in instances", gfn, sfn,
+        "In dungeons and raids a break never counts: no red row, no warning, no sound (follow is often left on purpose there). Outside instances it works as set here.")
     local gfi, sfi = Opt("xp", "followIgnoreCombat")
     L:Check("Ignore follow breaks during combat", gfi, sfi,
         "Follow often breaks in a fight. A break in combat only counts if the character still isn't following when the time below has passed after its combat ended.")
     local gfd, sfd = Opt("xp", "followCombatDelay")
     L:Slider("Check after combat (seconds)", 1, 30, 1, gfd, sfd)
-    local gfn, sfn = Opt("xp", "followIgnoreInstance")
-    L:Check("Disable follow breaks while in instance", gfn, sfn,
-        "In dungeons and raids a break never counts: no red row, no warning, no sound (follow is often left on purpose there). Outside instances it works as set above.")
 
     local followDep = After(followMark)
 
