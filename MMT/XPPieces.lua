@@ -75,6 +75,10 @@ end
 -- options entry: { kind, text, <getter, setter>, ... }
 local function O(kind, text, get, set, ...) return { kind, text, get, set, ... } end
 local function OCycle(text, choices, get, set) return { "Cycle", text, choices, get, set } end
+local function OCheck(text, key, default, tip)
+    local get, set = XOpt(key, default)
+    return { "Check", text, get, set, tip }
+end
 local function OSlider(text, min, max, step, get, set, fmt) return { "Slider", text, min, max, step, get, set, fmt } end
 
 -- the XP fill without class colours
@@ -167,14 +171,14 @@ ns.RegisterXPPiece{ id = "level", title = "Level", side = "RIGHT", on = true, sa
 ns.RegisterXPPiece{ id = "value", title = "Bar value (XP % or reputation)", side = "RIGHT", on = true, sample = "45.0%",
     tip = "What the bar shows (Bar shows): the XP in percent, or the standing with the watched faction.",
     options = {
-        OCycle("Bar shows", { { value = "XP", text = "XP" }, { value = "REP", text = "Reputation (watched faction)" } },
-            XOpt("barMode", "XP")),
         OCycle("Decimals of the XP %", { { value = 0, text = "45%" }, { value = 1, text = "45.0%" }, { value = 2, text = "45.03%" } },
             XOpt("valueDecimals", 1)),
-        O("Check", "Class colors (bar and name)", XOpt("classColors", true)),
         O("Color", "Bar colour without class colors", XColour("barColour", 0.31, 0.70, 1.00)),
-        O("Check", "Highlight when I can level up", XOpt("levelUpHint", true)),
-        O("Check", "Highlight big XP gains", XOpt("xpFlash", true)),
+        OCheck("Highlight when I can level up", "levelUpHint", true,
+            "A pulsing \"LvlUp available\" in place of the XP when turning in the quests that are ready would reach the next level."),
+        OCheck("Highlight big XP gains", "xpFlash", true,
+            "The XP bar and the XP value light up when a character gets at least 3% of the level's XP at once (e.g. from quest turn-ins)."),
+        { "Note", "Class colors and what the bars show (XP or reputation): Basics." },
     },
     text = function(key, s)
         if ns.db.xp.barMode == "REP" then return RepText(s) end
@@ -235,7 +239,6 @@ ns.RegisterXPPiece{ id = "layer", title = "Layer", side = "RIGHT", on = false, s
 -- the name: placed and filled by XPWindow.lua (crown, "(no follow)", Layer Hop)
 ns.RegisterXPPiece{ id = "name", title = "Name", side = "RIGHT", on = true, fixed = true, sample = "Name",
     tip = "The character's name (with the leader crown and notes like \"no follow\"). Always shown; it takes the free space with the layout \"Name takes the free space\".",
-    options = { O("Check", "Class colors (name and bar)", XOpt("classColors", true)) },
     text = function() return nil end }
 
 ---------------------------------------------------------------------------

@@ -108,12 +108,12 @@ Saved data from MMT 0.1.x is converted automatically.
   bag slots, Gold, Name, Level, Bar value, Rested XP), the bar behind the whole row. Switch
   pieces on or off (the name is always shown) and drag them into place in the Info Window
   page's list ("Restore Default Column Order" resets it) or in the window itself. A
-  cogwheel in a piece's row opens its own settings: Bar value (XP or reputation, decimals,
-  class colours, the bar colour without them, the level-up and XP-gain highlights), Rested
+  cogwheel in a piece's row opens its own settings: Bar value (decimals, the bar colour
+  without class colours, the level-up and XP-gain highlights), Rested
   XP and Completed quest XP (colour and opacity on the bar; the R % / Q % text follows in a
   lighter shade), Free bag slots and Durability (when they turn yellow / red; durability
   lowest or average), Gold (format), Level ("L60" or "60"), Layer (orange when not your
-  layer) and Name (class colours)
+  layer). Window-wide choices (class colours, what the bars show) stay in Basics
   ("Enable drag&drop mode for the Info window" /
   `/mmt info arrange`: every piece shows with dots, drag pieces along a row and rows up or
   down to change the team order). "Column alignment behavior" puts each piece in its own column
