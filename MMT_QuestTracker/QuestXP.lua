@@ -1,7 +1,7 @@
--- MMT Quest Tracker: completed quest XP. The XP of every quest in your log that is
--- ready to turn in, added up (setting questXP), shown like rested XP in a colour of
--- its own:
---   * on the team heartbeat ("qx=<XP>"), so every client knows it for every member,
+-- MMT Quest Tracker: completed quest XP, shown like rested XP in a colour of its own.
+-- The XP itself comes from the core (MMT 1.1.0+, LevelUp.lua): every client adds up
+-- the reward XP of its quests that are ready to turn in and sends it with the
+-- heartbeat ("qx"); MMT.TurnInXP(key) reads it for any member. This file only shows it:
 --   * in the Info window as the piece "Completed quest XP" (Q 20%), which also shades
 --     each member's bar right after the fill (core XPPieces.lua, bar = fn),
 --   * on the game's own XP bar, for this character (setting questXPGameBar): a frame
@@ -12,48 +12,14 @@
 -- ends); the smaller of the two is drawn on top, so neither hides the other.
 -- The shade stops at the end of the bar, with a bright edge there, when turning in
 -- would reach the next level; the piece then shows more than 100%.
---
--- A quest's XP: GetQuestLogRewardXP(questID) from the game (already adjusted to the
--- character's level), else Questie's QuestXP database when Questie is loaded.
 
 local _, mod = ...
 local MMT = MMT
 local M = mod.M
 
-mod.questXP = 0         -- this character's completed quest XP
-mod.questXPCount = 0    -- quests counted
-mod.questXPSources = {} -- [questID] = "game" | "Questie" | "none" (debug report)
-
 local function Num(v)
     if type(v) ~= "number" or MMT.IsSecret(v) then return nil end
     return v
-end
-
----------------------------------------------------------------------------
--- XP of one quest
----------------------------------------------------------------------------
-local function GameXP(id)
-    local f = rawget(_G, "GetQuestLogRewardXP")
-    if type(f) ~= "function" then return nil end
-    local ok, xp = pcall(f, id)
-    return ok and Num(xp) or nil
-end
-
-local function QuestieXP(id)
-    local L = rawget(_G, "QuestieLoader")
-    if type(L) ~= "table" or type(L.ImportModule) ~= "function" then return nil end
-    local ok, q = pcall(L.ImportModule, L, "QuestXP")
-    if not ok or type(q) ~= "table" or type(q.db) ~= "table" or type(q.GetQuestLogRewardXP) ~= "function" then return nil end
-    local ok2, xp = pcall(q.GetQuestLogRewardXP, q, id)
-    return ok2 and Num(xp) or nil
-end
-
-function mod.QuestRewardXP(id)
-    local xp = GameXP(id)
-    if xp and xp > 0 then return xp, "game" end
-    xp = QuestieXP(id)
-    if xp and xp > 0 then return xp, "Questie" end
-    return 0, "none"
 end
 
 local function AtMaxLevel()
@@ -68,8 +34,7 @@ end
 function mod.QuestXPOf(key, s)
     if not M.enabled or not M.db.questXP then return 0 end
     if not s or s.isMax or (s.max or 0) <= 0 then return 0 end
-    if MMT.IsSelf(key) then return mod.questXP end
-    return tonumber(s.ext and s.ext.qx) or 0
+    return MMT.TurnInXP and tonumber(MMT.TurnInXP(key, s)) or 0
 end
 
 local function Colour()
@@ -91,7 +56,6 @@ MMT.RegisterXPPiece{
     id = "questxp", title = "Completed quest XP (%)", side = "RIGHT", on = true, before = "rep",
     sample = Hex(1, 0.8, 0.4) .. "Q 20%|r",
     tip = "XP of the quests ready to turn in, in percent of the current level, e.g. Q 20% (over 100%: enough for the next level). Also shaded on the bar after the XP, in its own colour (Quest Tracker > Quest XP).",
-    barTitle = "Completed quests",
     text = function(key, s)
         if MMT.db.xp.barMode == "REP" then return nil end
         local xp = mod.QuestXPOf(key, s)
@@ -179,7 +143,7 @@ function mod.UpdateGameXPBar()
     local o = Overlay(statusBar)
     local cur, max = Num(UnitXP("player")), Num(UnitXPMax("player"))
     local w = o:GetWidth() or 0
-    local xp = mod.questXP
+    local xp = MMT.TurnInXP and tonumber(MMT.TurnInXP(MMT.PlayerFull() or "")) or 0
     if not cur or not max or max <= 0 or xp <= 0 or w <= 0 or AtMaxLevel() then
         o:Hide()
         return
@@ -218,80 +182,32 @@ function mod.UpdateGameXPBar()
 end
 
 ---------------------------------------------------------------------------
--- Adding up (after the quest log scans, level ups) and telling the team
+-- Keeping it current (the sum itself is the core's: LevelUp.lua)
 ---------------------------------------------------------------------------
-local sendPending = false
-local function SendSoon()
-    if sendPending then return end
-    sendPending = true
-    C_Timer.After(1, function()
-        sendPending = false
-        if M.enabled then MMT.BroadcastXP(true) end
-    end)
-end
-
-function mod.UpdateQuestXP()
-    local total, n, sources = 0, 0, {}
-    local own = M.enabled and M.db.questXP and not AtMaxLevel() and mod.AllData()[MMT.PlayerFull()]
-    for id, rec in pairs(own and own.quests or {}) do
-        if rec.state == 1 then
-            local xp, src = mod.QuestRewardXP(id)
-            total, n, sources[id] = total + xp, n + 1, src
-        end
-    end
-    local changed = total ~= mod.questXP
-    mod.questXP, mod.questXPCount, mod.questXPSources = total, n, sources
+local function Refresh()
     mod.UpdateGameXPBar()
-    if changed then
-        M:Debug("completed quest XP: %d (%d quests)", total, n)
-        if MMT.UpdateXPWindow then MMT.UpdateXPWindow() end
-        SendSoon()
-    end
+    if MMT.UpdateXPWindow then MMT.UpdateXPWindow() end
 end
 
-local updatePending = false
-function mod.UpdateQuestXPSoon()
-    if updatePending then return end
-    updatePending = true
-    C_Timer.After(1, function()
-        updatePending = false
-        mod.UpdateQuestXP()
-    end)
-end
-
-M:Heartbeat("qx", function()
-    return M.db.questXP and mod.questXP > 0 and mod.questXP or nil
-end)
-
-mod.OnOwnQuestsChanged(function() mod.UpdateQuestXPSoon() end)
-M:On("QUEST_LOG_UPDATE", function() mod.UpdateQuestXPSoon() end)   -- reward data arriving late
-M:On("PLAYER_LEVEL_UP", function() mod.UpdateQuestXPSoon() end)
+M:Listen("STATUS_CHANGED", function() mod.UpdateGameXPBar() end)   -- the turn-in XP changed, or a member's status
 M:On("PLAYER_XP_UPDATE", function() mod.UpdateGameXPBar() end)
 M:On("UPDATE_EXHAUSTION", function() mod.UpdateGameXPBar() end)
-M:On("PLAYER_ENTERING_WORLD", function() C_Timer.After(5, mod.UpdateQuestXP) end)   -- Questie's data loads late
-M:Listen("REFRESH", function()   -- settings changed (also after a sync)
-    mod.UpdateQuestXP()
-    if MMT.UpdateXPWindow then MMT.UpdateXPWindow() end
-end)
+M:On("PLAYER_LEVEL_UP", function() C_Timer.After(1, mod.UpdateGameXPBar) end)
+M:Listen("REFRESH", Refresh)   -- settings changed (also after a sync)
 
 function mod.OnEnableQuestXP()
-    C_Timer.After(3, mod.UpdateQuestXP)   -- after the first quest log scan (Data.lua, 2 s)
+    C_Timer.After(4, Refresh)   -- after the core's first read of the quest log (3 s)
 end
 
 function mod.OnDisableQuestXP()
-    mod.questXP, mod.questXPCount, mod.questXPSources = 0, 0, {}
     if overlay then overlay:Hide() end
     if MMT.UpdateXPWindow then MMT.UpdateXPWindow() end
 end
 
 function mod.QuestXPReport()
-    local srcs = {}
-    for id, src in pairs(mod.questXPSources) do srcs[#srcs + 1] = id .. ":" .. src end
-    table.sort(srcs)
     local bar = GameXPStatusBar()
-    return ("quest XP: on=%s gameBar=%s total=%d quests=%d [%s]  game bar=%s overlay=%s  GetQuestLogRewardXP=%s Questie=%s"):format(
-        tostring(M.db.questXP), tostring(M.db.questXPGameBar), mod.questXP, mod.questXPCount, table.concat(srcs, " "),
-        bar and (bar:GetName() or "found") or "not found", overlay and (overlay:IsVisible() and "visible" or "hidden") or "none",
-        type(rawget(_G, "GetQuestLogRewardXP")) == "function" and "yes" or "no",
-        rawget(_G, "QuestieLoader") and "loaded" or "not loaded")
+    return ("quest XP: on=%s gameBar=%s turn-in XP=%s (core; per quest: \"-- Level up\" in /mmt debug dump)  game bar=%s overlay=%s"):format(
+        tostring(M.db.questXP), tostring(M.db.questXPGameBar),
+        tostring(MMT.TurnInXP and MMT.TurnInXP(MMT.PlayerFull() or "") or "no MMT.TurnInXP"),
+        bar and (bar:GetName() or "found") or "not found", overlay and (overlay:IsVisible() and "visible" or "hidden") or "none")
 end

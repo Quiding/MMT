@@ -277,10 +277,12 @@ local function RowTooltip(row)
         end
         if ns.LevelUpTooltip then ns.LevelUpTooltip(tip, key, s) end
         for _, sh in ipairs(ns.XPBarPieces(key, s)) do
-            local r, g, b = 0.4 + sh.r * 0.6, 0.4 + sh.g * 0.6, 0.4 + sh.b * 0.6   -- readable on the dark tooltip
-            local right = ("%d XP (%d%%)"):format(sh.xp, math.floor(sh.xp / s.max * 100 + 0.5))
-            if s.cur + sh.xp >= s.max then right = right .. ", next level" end
-            tip:AddDoubleLine(sh.def.barTitle or sh.def.title, right, r, g, b, r, g, b)
+            if sh.def.barTitle then   -- a tooltip line only when the piece names one
+                local r, g, b = 0.4 + sh.r * 0.6, 0.4 + sh.g * 0.6, 0.4 + sh.b * 0.6   -- readable on the dark tooltip
+                local right = ("%d XP (%d%%)"):format(sh.xp, math.floor(sh.xp / s.max * 100 + 0.5))
+                if s.cur + sh.xp >= s.max then right = right .. ", next level" end
+                tip:AddDoubleLine(sh.def.barTitle, right, r, g, b, r, g, b)
+            end
         end
     end
     if s.money then tip:AddDoubleLine("Gold", TipCoins(s.money), 1, 1, 1, 1, 1, 1) end

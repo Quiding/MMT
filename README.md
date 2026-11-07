@@ -389,9 +389,8 @@ Saved data from MMT 0.1.x is converted automatically.
   be set) right after the XP: on every member's bar in the Info window (piece "Completed
   quest XP", "Q 20%") and on the game's own XP bar for your character (a frame of MMT's
   own over the bar; the game's bar isn't changed; where it overlaps the game's rested
-  fill, the smaller of the two is drawn on top). The XP comes from the game's quest
-  log (for your level), else from Questie when it is loaded; each character sends its
-  total with the heartbeat. When turning in would reach the next level the shade stops
+  fill, the smaller of the two is drawn on top). The XP is the core's turn-in XP (the
+  same value as "LvlUp available"; needs MMT 1.1.0 or newer). When turning in would reach the next level the shade stops
   at the end of the bar with a bright edge, and the piece shows over 100%.
 - **Automations** (tiles: NPC Interactions, Socializing, Group-wide Interactions; camera
   and distance window in the "Miscellaneous" side window): gossip to vendor or flight map, click through dialog-only NPCs (plain

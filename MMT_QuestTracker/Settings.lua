@@ -201,7 +201,7 @@ M.Page = function(_, page)
     local _, XL = Tile(Xp, 0, 0, TILE_W, PANEL_H, "Completed Quest XP", "Interface\\Icons\\INV_Scroll_03")
     local gqx, sqx = Opt("questXP")
     XL:Check("Show completed quest XP", gqx, sqx,
-        "Adds up the XP of the quests in your log that are ready to turn in and tells the team. Shown like rested XP, in its own colour: on every member's bar in the Info window (piece \"Completed quest XP\") and on the game's XP bar.")
+        "The XP of the quests ready to turn in (MMT adds it up for every member), shown like rested XP, in its own colour: on every member's bar in the Info window (piece \"Completed quest XP\") and on the game's XP bar.")
     local ggb, sgb = Opt("questXPGameBar")
     XL:Check("Also on the game's XP bar", ggb, sgb,
         "Shades this character's completed quest XP on the game's own XP bar, after the XP. A frame of MMT's own lies over the bar; nothing of the game's bar is changed.")
@@ -212,12 +212,12 @@ M.Page = function(_, page)
     XL:Space(4)
     XL:Note("When turning in would reach the next level, the shade stops at the end of the bar with a bright edge there, and the piece shows more than 100% (Q 120%).")
     XL:Space(4)
-    XL:Note("Info window: switch the piece \"Completed quest XP\" on or off and drag it on the Info Window page. Teammates show theirs when their Quest Tracker is 1.3.7 or newer.")
+    XL:Note("Info window: switch the piece \"Completed quest XP\" on or off and drag it on the Info Window page. Teammates need MMT 1.1.0 or newer for theirs to show.")
 
     local _, XR = Tile(Xp, X2, 0, TILE_W, PANEL_H, "Where the XP comes from", "Interface\\Icons\\INV_Misc_Note_02")
-    XR:Note("Each quest's XP comes from the game (the quest log's reward XP, already for your level). When the game gives none, Questie's quest XP data is used if Questie is loaded.")
+    XR:Note("MMT itself adds it up: each character sums the reward XP of the quests in its log that are ready to turn in (the game's value, already for its level) and sends the total with the team heartbeat. The same value drives MMT's \"LvlUp available\" hint and the \"Ready quests\" line in the Info window's row tooltip.")
     XR:Space(4)
-    XR:Note("Only quests ready to turn in count. Each character adds up its own quests and sends the total with the team heartbeat, so the Info window shows the right value for every member's level.")
+    XR:Note("This tab only decides how it is shown. /mmt debug dump lists the quests counted (\"-- Level up\").")
 
     -------------------------------------------------------------------------
     -- Fonts: one tile per level (font, size, colour), two by two

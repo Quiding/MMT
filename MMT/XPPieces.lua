@@ -22,7 +22,7 @@ ns.xpPieceIds = {}    -- registration order
 --         bar = function(key, status) -> XP: also shaded on the XP bar while the piece is on,
 --         right after the fill (before rested XP), capped at the end of the bar,
 --         barColour = function() -> r, g, b, a: the colour of that shade,
---         barTitle = its line in the row tooltip (else the title) }
+--         barTitle = its line in the row tooltip (no line without) }
 -- text() may return a second value, true: the piece pulses (e.g. "LvlUp available")
 function ns.RegisterXPPiece(def)
     assert(type(def) == "table" and type(def.id) == "string" and type(def.text) == "function",
