@@ -247,6 +247,18 @@ MMT.RegisterXPPiece{
 `text` runs on every redraw of the window: keep it cheap. `MMT.UpdateXPWindow()`
 redraws it when your value changed.
 
+A piece can also shade part of the bar, like rested XP does, in a colour of its own:
+
+```lua
+    bar = function(key, status) return 1200 end,      -- XP; nil or 0 = no shade
+    barColour = function() return 1, 0.72, 0.15, 0.55 end,   -- r, g, b, alpha
+    barTitle = "Completed quests",                    -- tooltip line (else the title)
+```
+
+While the piece is switched on, the shade starts where the fill ends (before rested XP)
+and stops at the end of the bar, with a bright edge there when it would go past it.
+The row's tooltip gets a line with the XP and percent.
+
 ### Core callbacks (`M:Listen`)
 
 | Callback | Arguments | When |

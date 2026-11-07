@@ -7,6 +7,8 @@
 -- * Quest automation (moved here from Core > Automations): accept, turn in,
 --   announce "ready for turn-in", share new quests, announce quests that
 --   can't be shared, abandon a quest on the whole team (Automation.lua).
+-- * Completed quest XP: the XP of the quests ready to turn in, shaded on the
+--   Info window's bars (every member) and on the game's XP bar (QuestXP.lua).
 
 local _, mod = ...
 local MMT = MMT
@@ -33,6 +35,12 @@ local M = MMT.NewModule({
         abortTeam       = true,   -- abandoning asks to abandon on the whole team
         announceStarter = true,   -- "Looted [Item] - it starts a quest!" in party chat
         markRewards     = true,   -- coin on the best-selling reward, arrow on upgrades
+
+        -- completed quest XP (QuestXP.lua)
+        questXP         = true,   -- add it up, tell the team (Info window piece "Completed quest XP")
+        questXPGameBar  = true,   -- shade it on the game's XP bar too
+        questXPColour   = { r = 1, g = 0.72, b = 0.15 },
+        questXPAlpha    = 0.55,
 
         -- tracker
         show          = true,
@@ -100,10 +108,12 @@ function M.OnEnable()
     MigrateCoreSettings()
     if mod.OnEnableData then mod.OnEnableData() end
     if mod.OnEnableTracker then mod.OnEnableTracker() end
+    if mod.OnEnableQuestXP then mod.OnEnableQuestXP() end
 end
 
 function M.OnDisable()
     if mod.OnDisableTracker then mod.OnDisableTracker() end
+    if mod.OnDisableQuestXP then mod.OnDisableQuestXP() end
 end
 
 function M.OnProfileChanged()
