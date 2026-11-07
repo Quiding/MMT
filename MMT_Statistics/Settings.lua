@@ -412,9 +412,9 @@ M.Page = function(_, page)
     KL:Header("Top 10 kills")
     local top = RankList(k, COL_W, 10)
     KL:Add(top, 10 * 18 + 4)
-    KL:Header("Top 3 killed by")
-    local killers = RankList(k, COL_W, 3)
-    KL:Add(killers, 3 * 18)
+    KL:Header("Top 3 zones with most NPC kills")
+    local topZones = RankList(k, COL_W, 3)
+    KL:Add(topZones, 3 * 18)
 
     -- right: the Dungeon Journal, a box of its own with a title like a page's
     local JROWS = 7
@@ -455,6 +455,12 @@ M.Page = function(_, page)
     }, JROWS, COL_W)
     KR:Add(journal, ROW_H * (JROWS + 1) + 6)
 
+    -- below the journal: who killed you most
+    local KB = UI.Column(k, COL2_X, below - jbox:GetHeight() - 10, COL_W)
+    KB:Header("Top 3 killed by")
+    local killers = RankList(k, COL_W, 3)
+    KB:Add(killers, 3 * 18)
+
     local function DrawKills()
         kscope.Refresh() kkind.Refresh() kzone.Refresh() jinst.Refresh()
         local scope = M.db.killScope
@@ -462,6 +468,7 @@ M.Page = function(_, page)
         for key, b in pairs(kboxes) do b.number:SetText(Num(t[key] or 0)) end
         top:Show_(mod.TopKills(scope, M.db.killKind or "ALL", M.db.killZone or "ALL", "killDetail", 10), "No kills recorded yet.")
         killers:Show_(mod.TopKills(scope, "ALL", M.db.killZone or "ALL", "deathDetail", 3), "Nobody killed you yet.")
+        topZones:Show_(mod.TopKillZones(scope, 3), "No kills with a zone recorded yet.")
         local inst = mod.JournalInstance(scope)
         local j = inst and mod.Journal(scope, inst)
         local uniq = mod.UniqueInstances(scope)

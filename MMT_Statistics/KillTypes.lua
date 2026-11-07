@@ -364,6 +364,29 @@ function mod.TopKills(scope, kind, zone, field, n)
     return list
 end
 
+-- top n zones (and instances) by NPC kills: { {name, count}, ... } (kills
+-- recorded with their zone, MMT 1.0.18 on)
+function mod.TopKillZones(scope, n)
+    local sum, names = {}, {}
+    for _, c in ipairs(ScopeChars(scope)) do
+        for _, map in pairs(c.killDetail or {}) do
+            for lk, count in pairs(map) do
+                local zk = lk:match("^%-?%d+|(.+)$")
+                if zk and zk ~= "?" then
+                    local value, text = ZoneValue(c, zk)
+                    sum[value] = (sum[value] or 0) + count
+                    names[value] = text .. (value:sub(1, 2) == "i:" and " (instance)" or "")
+                end
+            end
+        end
+    end
+    local list = {}
+    for value, count in pairs(sum) do list[#list + 1] = { names[value], count } end
+    table.sort(list, function(a, b) if a[2] ~= b[2] then return a[2] > b[2] end return a[1] < b[1] end)
+    while #list > n do table.remove(list) end
+    return list
+end
+
 -- zones with kills: "All zones", then the zones and instances by name
 function mod.KillZoneChoices(scope)
     local seen, list = {}, {}
