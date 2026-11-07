@@ -956,7 +956,7 @@ ns.RegisterPage("xp", "Info Window", function(page)
         arrange.label:SetText(ns.xpArrange and "Stop drag&drop mode" or "Enable drag&drop mode for the Info window")
     end
     ArrangeText()
-    UI.Tooltip(arrange, "Drag&drop mode", "Every switched-on piece, the name too, shows in the Info window with dots: drag a piece along its row, or a row up or down to change the team order. Until you click again or /reload. Also /mmt xp arrange.")
+    UI.Tooltip(arrange, "Drag&drop mode", "Every switched-on piece, the name too, shows in the Info window with dots: drag a piece along its row, or a row up or down to change the team order. Until you click again or /reload. Also /mmt info arrange.")
     local xpDependent
     page.OnRefresh = function()
         Redraw()

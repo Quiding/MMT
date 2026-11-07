@@ -1,7 +1,7 @@
 -- MMT: vertical, movable window with XP %, rested XP %, layer and phasing
 -- of every online team member. Offline members are hidden. A row shows the name
 -- and the other pieces (XPPieces.lua) in the player's order, the bar behind them;
--- /mmt xp arrange drags them (and the rows) into place.
+-- /mmt info arrange drags them (and the rows) into place.
 
 local _, ns = ...
 
@@ -312,7 +312,7 @@ local function RowTooltip(row)
     if ns.IsFTLLeader(key) then tip:AddLine("FTL leader: {FTL} macros point to this character.", 1, 0.82, 0) end
     tip:AddLine(" ")
     if ns.xpArrange then
-        tip:AddLine("Arranging: drag the row up or down, or a piece along it. /mmt xp arrange to stop.", 0.5, 0.5, 0.5, true)
+        tip:AddLine("Arranging: drag the row up or down, or a piece along it. /mmt info arrange to stop.", 0.5, 0.5, 0.5, true)
         tip:Show()
         return
     end
@@ -325,7 +325,7 @@ local function RowTooltip(row)
 end
 
 ---------------------------------------------------------------------------
--- Arranging (ns.xpArrange, session only: /mmt xp arrange, Info Window page):
+-- Arranging (ns.xpArrange, session only: /mmt info arrange, Info Window page):
 -- every switched-on piece, the name included, shows with dots and can be
 -- dragged along its row (XPPieces.lua keeps the order); a row dragged up or
 -- down changes the team order.
@@ -461,8 +461,8 @@ end
 function ns.ToggleXPArrange(on)
     if on == nil then on = not ns.xpArrange end
     ns.xpArrange = on and true or nil
-    if on and not ns.db.xp.enabled then ns.Print("The Info window is hidden: /mmt xp shows it.") end
-    ns.Print(on and "Info window: arranging. Drag a piece (the name too) along its row, or a row up or down. /mmt xp arrange again to stop."
+    if on and not ns.db.xp.enabled then ns.Print("The Info window is hidden: /mmt info shows it.") end
+    ns.Print(on and "Info window: arranging. Drag a piece (the name too) along its row, or a row up or down. /mmt info arrange again to stop."
         or "Info window: arranging off.")
     ns.Refresh()
 end

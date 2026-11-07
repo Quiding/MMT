@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 1.0.23: core addon (MMT) plus optional modules (MMT_*).
+Version 1.0.24: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -101,7 +101,7 @@ Saved data from MMT 0.1.x is converted automatically.
   pieces on or off (the name is always shown) and drag them into place in the Info Window
   page's list ("Restore Default Column Order" resets it) or in the window itself
   ("Enable drag&drop mode for the Info window" /
-  `/mmt xp arrange`: every piece shows with dots, drag pieces along a row and rows up or
+  `/mmt info arrange`: every piece shows with dots, drag pieces along a row and rows up or
   down to change the team order). "Column alignment behavior" puts each piece in its own column
   (centred, left or right in it, or "icons lined up": bag and durability icons at the
   column's start, the gold coins at its end), so it sits in the same place on every row; "Layout":
@@ -504,7 +504,7 @@ Team abandon is QTAB:<questID>.
 
 ## Commands
 - Minimap button (Profiles > "Show Minimap button", per account): left-click opens the settings, right-click shows / hides the Info window, drag moves it.
-- `/mmt` settings, `/mmt xp` toggle Info window, `/mmt xp arrange` drag its pieces and rows, `/mmt trade` refill open trade,
+- `/mmt` settings, `/mmt info` (or `/mmt xp`) toggle Info window, `/mmt info arrange` drag its pieces and rows, `/mmt trade` refill open trade,
   `/mmt sync` send the core settings to the team, `/mmt sync <module>` only that module's settings, `/mmt sync modules` only which modules are on or off, `/mmt modules` installed
   modules, `/mmt scale <percent>` settings window size, `/mmt leader [name]` FTL leader (this character or the named one), `/jamba-team iammaster all` same as `/mmt leader` (only when Jamba isn't loaded, for old Jamba macros), `/mmt help` help page, `/mmt reset` reset profile.
 

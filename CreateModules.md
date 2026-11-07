@@ -226,7 +226,7 @@ out by the quest item round robin. The reason is shown in the "Gave ... to ..." 
 A row of the Info window is a line of pieces in the player's order, left to right,
 the name being one of them (durability, bags, gold, name, level, XP %, ...), with
 the bar behind the row. Players switch them on or off and drag them into their
-order (Info Window page, or `/mmt xp arrange`). A module can add its own piece:
+order (Info Window page, or `/mmt info arrange`). A module can add its own piece:
 
 ```lua
 MMT.RegisterXPPiece{
