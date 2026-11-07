@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 1.1.2: core addon (MMT) plus optional modules (MMT_*).
+Version 1.1.3: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -86,13 +86,15 @@ Saved data from MMT 0.1.x is converted automatically.
   Opening a trade with a team member puts the matching items in (switch on the Trade /
   Mail / Vendor page). You accept yourself.
 - **Info Window**: XP %, rested XP %, gold, free bag slots, durability (lowest item or
-  average), level, reputation, hunter pets and layer. "Pet happiness & loyalty" (off by
+  average), level, reputation, hunter pets and layer. "Pet happiness" (off by
   default, before Layer): every hunter's client sends whether a pet is out with its
-  happiness and loyalty (with the heartbeat, and when the pet is summoned, dismissed
-  or its happiness or loyalty changes: only a real change, at most every 10 seconds); shown as icons, "-" for characters that aren't
-  hunters. The column hides while no hunter of the team has a pet out and comes back when
-  one is summoned; the row tooltip keeps the last known values ("?" when the game gives
-  no happiness or loyalty: `/mmt debug dump` shows what the client can read). "New mail" (off by
+  happiness, read from the game's pet frame (with the heartbeat, and when the pet is
+  summoned, dismissed or its happiness changes: only a real change, at most every 10
+  seconds); shown as an icon, "-" for characters that aren't hunters. Loyalty isn't shown:
+  the game gives addons no way to read it. The column hides while no hunter of the team
+  has a pet out and comes back when one is summoned; the row tooltip keeps the last known
+  value ("?" when the game gives no happiness: `/mmt debug dump` shows what the client
+  can read). "New mail" (off by
   default): a letter for characters with unread mail waiting (sent with the heartbeat,
   and when it changes). "Highlight when I can level up" (Basics, on): every client adds up
   the XP of its quests that are ready to turn in and sends it with the heartbeat; when that
