@@ -15,7 +15,8 @@
 --   zone:  Ctrl-click              collapse / expand all quests of that zone
 --   zone:  Ctrl-right-click        focus the zone (only its quests), again = all zones
 --   right-click elsewhere          settings
--- The mouse wheel scrolls when the list is taller than the maximum height.
+-- The mouse wheel scrolls when the list is taller than the maximum height: the window
+-- then keeps the maximum height, and a thin scroll bar shows while scrolling (fades out).
 -- The Blizzard quest tracker is moved into a hidden frame (re-parenting out of
 -- combat; nothing of Blizzard's code is replaced). So are other addons' trackers
 -- (option hideOthers): Questie's window, EllesmereUI's through its own API.
@@ -58,8 +59,40 @@ end)
 -- a click that ends a drag is not a click
 local function JustDragged() return dragging or GetTime() - dragEnd < 0.2 end
 f:SetScript("OnMouseUp", function(_, button) if button == "RightButton" then MMT.ToggleConfig("QuestTracker") end end)
+-- scroll bar: our own thin bar at the edge, shown while scrolling, then faded out
+local SB_HOLD, SB_FADE = 1.0, 0.4
+f.sb = CreateFrame("Frame", nil, f)
+f.sb:SetWidth(3)
+f.sb:SetAlpha(0)
+f.sb:Hide()
+f.sb.track = f.sb:CreateTexture(nil, "ARTWORK")
+f.sb.track:SetAllPoints()
+f.sb.track:SetColorTexture(1, 1, 1, 0.12)
+f.sb.thumb = f.sb:CreateTexture(nil, "OVERLAY")
+f.sb.thumb:SetPoint("LEFT"); f.sb.thumb:SetPoint("RIGHT")
+f.sb.thumb:SetColorTexture(1, 1, 1, 0.55)
+local function ScrollBarFade(self)
+    local t = GetTime() - (f.sbUntil or 0)
+    if t <= 0 then return end
+    local a = 1 - t / SB_FADE
+    if a <= 0 then
+        self:SetAlpha(0)
+        self:SetScript("OnUpdate", nil)
+    else
+        self:SetAlpha(a)
+    end
+end
+local function FlashScrollBar()
+    f.sbUntil = GetTime() + SB_HOLD
+    f.sb:SetAlpha(1)
+    f.sb:SetScript("OnUpdate", ScrollBarFade)
+end
+
 f:SetScript("OnMouseWheel", function(self, delta)
-    self.offset = math.max(0, self.offset - delta)
+    local new = math.max(0, math.min(self.offset - delta, self.maxOffset or math.huge))
+    if new == self.offset and not self.more and self.offset == 0 then return end   -- nothing to scroll
+    self.offset = new
+    FlashScrollBar()
     mod.Redraw()
 end)
 
@@ -616,7 +649,18 @@ local function Draw()
         y = y + FillRow(Row(i), header, y, width) + 2
     end
 
-    f.offset = math.max(0, math.min(f.offset, #entries - 1))
+    -- the furthest offset that still fills the window (no scrolling past the end, so the
+    -- window doesn't shrink while scrolling)
+    local room = cfg.maxHeight - PAD - y
+    local maxOffset, used = 0, 0
+    for idx = #entries, 1, -1 do
+        local e = entries[idx]
+        used = used + Style(e.kind).size + 4 + ((e.kind == "zone" and idx > 1) and 4 or 0)
+        if used > room then maxOffset = idx break end
+    end
+    f.maxOffset = maxOffset
+    f.offset = math.max(0, math.min(f.offset, maxOffset))
+    local listTop = y
     local more = false
     for idx = f.offset + 1, #entries do
         local e = entries[idx]
@@ -642,8 +686,29 @@ local function Draw()
         end
     end
 
+    -- a list that scrolls keeps the maximum height, so the window doesn't jump
+    local scrolls = more or f.offset > 0
+    local height = scrolls and math.max(y + PAD, cfg.maxHeight) or (y + PAD)
     f:SetScale(cfg.scale)
-    f:SetSize(cfg.width, y + PAD)
+    f:SetSize(cfg.width, height)
+    if scrolls and maxOffset > 0 then
+        local sb = f.sb
+        local edge = cfg.align == "RIGHT" and "LEFT" or "RIGHT"
+        local x = edge == "RIGHT" and -1.5 or 1.5
+        sb:ClearAllPoints()
+        sb:SetPoint("TOP" .. edge, f, "TOP" .. edge, x, -listTop)
+        sb:SetPoint("BOTTOM" .. edge, f, "BOTTOM" .. edge, x, PAD)
+        local trackH = math.max(1, height - listTop - PAD)
+        local shown = i - (cfg.showHeader and 1 or 0)
+        local thumbH = math.max(8, math.min(trackH, trackH * shown / math.max(1, #entries)))
+        sb.thumb:SetHeight(thumbH)
+        sb.thumb:ClearAllPoints()
+        sb.thumb:SetPoint("LEFT"); sb.thumb:SetPoint("RIGHT")
+        sb.thumb:SetPoint("TOP", sb, "TOP", 0, -(trackH - thumbH) * f.offset / maxOffset)
+        sb:Show()
+    else
+        f.sb:Hide()
+    end
     local bg = cfg.bg or { r = 0, g = 0, b = 0 }
     f.bg:SetColorTexture(bg.r, bg.g, bg.b, cfg.bgAlpha)
     f:EnableMouse(not cfg.clickThrough)
