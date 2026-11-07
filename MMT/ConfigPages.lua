@@ -921,11 +921,14 @@ ns.RegisterPage("xp", "Info Window", function(page)
                 local fn = col[o[1]]
                 if type(fn) == "function" then
                     local w = fn(col, select(2, unpack(o)))
-                    -- the colour palette above this popup (both FULLSCREEN_DIALOG)
-                    if o[1] == "Color" and w and w.HookScript then
+                    -- a drop-down list or colour palette opened from here goes above this
+                    -- popup (all of them are FULLSCREEN_DIALOG)
+                    if type(w) == "table" and w.HasScript and w:HasScript("OnClick") then
                         w:HookScript("OnClick", function()
-                            local cp = rawget(_G, "MMTColorPopup")
-                            if cp then cp:SetFrameLevel(p:GetFrameLevel() + 10) end
+                            for _, name in ipairs({ "MMTDropdownList", "MMTColorPopup" }) do
+                                local f = rawget(_G, name)
+                                if f and f:IsShown() then f:SetFrameLevel(p:GetFrameLevel() + 10) end
+                            end
                         end)
                     end
                 end
