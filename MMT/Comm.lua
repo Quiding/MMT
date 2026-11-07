@@ -163,6 +163,18 @@ end
 local function Send(msg, channel, target, prio, done, prefix)
     prio = queues[prio] and prio or "NORMAL"
     local q = queues[prio]
+    -- a heartbeat replaces one still waiting for the same channel and target:
+    -- an old one going out late would report an old state (e.g. "not following"
+    -- after the FOL message said otherwise)
+    if type(msg) == "string" and msg:sub(1, 4) == "XP2:" and not done then
+        for i = #q, 1, -1 do
+            local it = q[i]
+            if it.channel == channel and it.target == target and not it.done
+                and type(it.msg) == "string" and it.msg:sub(1, 4) == "XP2:" then
+                table.remove(q, i)
+            end
+        end
+    end
     q[#q + 1] = { msg = msg, channel = channel, target = target, done = done, prefix = prefix or ns.prefix }
     local n = #queues.ALERT + #queues.NORMAL + #queues.BULK
     if n > ns.commStats.maxQueued then ns.commStats.maxQueued = n end

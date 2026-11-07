@@ -50,7 +50,6 @@ local function Decode(v)
     return { h = (h and h > 0) and h or nil, l = (l and l > 0) and l or nil }
 end
 
-ns.CoreHeartbeat("pt", function() return Encode(OwnPet()) end)
 
 local function Last()
     MMTDB.petLast = MMTDB.petLast or {}
@@ -118,8 +117,32 @@ function ns.PetTooltip(tip, key)
     tip:AddDoubleLine(p and "Pet" or "Pet (none out)", HappyIcon(shown.h) .. " " .. text, 1, 1, 1, c[1], c[2], c[3])
 end
 
--- pet summoned / dismissed / happiness changed: tell the team now (one message per burst)
-local sendSoon = ns.Coalesce(function() if ns.ready then ns.BroadcastXP(true) end end, 1.5)
-ns.On("UNIT_PET", function(unit) if unit == "player" then sendSoon() end end)
-ns.On("UNIT_HAPPINESS", function(unit) if unit == nil or unit == "pet" then sendSoon() end end)
-ns.On("PET_UI_UPDATE", function() sendSoon() end)
+-- pet summoned / dismissed / happiness or loyalty changed: tell the team now.
+-- The game fires these events very often (in combat about every second), so
+-- only a real change of what is sent goes out, and at most every 10 seconds;
+-- the regular heartbeat carries it otherwise.
+local lastSent, lastAt, pending = nil, 0, false
+local function SendIfChanged()
+    pending = false
+    if not ns.ready then return end
+    local v = Encode(OwnPet())
+    if v == lastSent then return end
+    local wait = 10 - (GetTime() - lastAt)
+    if wait > 0 then
+        pending = true
+        C_Timer.After(wait, SendIfChanged)
+        return
+    end
+    lastSent, lastAt = v, GetTime()
+    ns.BroadcastXP(true)
+end
+local function Changed()
+    if pending then return end
+    pending = true
+    C_Timer.After(1, SendIfChanged)
+end
+ns.On("UNIT_PET", function(unit) if unit == "player" then Changed() end end)
+ns.On("UNIT_HAPPINESS", function(unit) if unit == nil or unit == "pet" then Changed() end end)
+ns.On("PET_UI_UPDATE", Changed)
+-- the heartbeat sent it too: that counts as told
+ns.CoreHeartbeat("pt", function() local v = Encode(OwnPet()) lastSent = v return v end)
