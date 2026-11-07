@@ -103,7 +103,7 @@ Saved data from MMT 0.1.x is converted automatically.
   gains" (Basics, on): a gain of at least 3% of the level's XP at once lights up the gained
   part of the bar and the XP value. The settings page has four tiles: Basics, General
   Look & Feel (with a "Fonts, Bars, Scale, Opacity" side window), Column Visibility & Order
-  and Miscellaneous (durability and gold format, Layer Hop). Each of
+  and Miscellaneous (Layer Hop). Each of
   these is a piece, and so is the name: one order left to right (default: Durability, Free
   bag slots, Gold, Name, Level, Bar value, Rested XP), the bar behind the whole row. Switch
   pieces on or off (the name is always shown) and drag them into place in the Info Window

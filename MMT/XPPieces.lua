@@ -126,7 +126,7 @@ local DUR_ICON = "|TInterface\\Icons\\Trade_BlackSmithing:0:0:0:0:64:64:6:58:6:5
 -- Built-in pieces
 ---------------------------------------------------------------------------
 ns.RegisterXPPiece{ id = "gold", title = "Gold", side = "LEFT", on = true, sample = "123" .. GOLD_ICON, icon = "END",
-    tip = "Gold of the character (format: cogwheel, or Miscellaneous).",
+    tip = "Gold of the character (format: cogwheel).",
     options = {
         OCycle("Show as", { { value = "GOLD", text = "Gold only" }, { value = "FULL", text = "Gold, silver, copper" } },
             XOpt("goldFormat", "GOLD")),
@@ -148,7 +148,7 @@ ns.RegisterXPPiece{ id = "bags", title = "Free bag slots", side = "LEFT", on = t
         return BAG_ICON .. " " .. colour .. s.free .. (colour ~= "" and "|r" or "")
     end }
 ns.RegisterXPPiece{ id = "durability", title = "Durability", side = "LEFT", on = true, sample = DUR_ICON .. " 100%", icon = "START",
-    tip = "Lowest item or the average (cogwheel, or Miscellaneous).",
+    tip = "Lowest item or the average (cogwheel).",
     options = {
         OCycle("Show as", { { value = "LOWEST", text = "Lowest item" }, { value = "AVERAGE", text = "Average of all items" } },
             XOpt("durability", "LOWEST")),

@@ -1052,17 +1052,7 @@ ns.RegisterPage("xp", "Info Window", function(page)
 
     -- Miscellaneous ---------------------------------------------------------
     local mtile, M = Tile(page, X2, Y2, TILE_W, BOTTOM_H, "Miscellaneous", "Interface\\Icons\\INV_Misc_Bag_08")
-    local function Now(set) return function(v) set(v); if ns.UpdateXPWindow then ns.UpdateXPWindow() end end end
-    local gdm, sdm = Opt("xp", "durability")
-    M:Cycle("Durability show as:", {
-        { value = "LOWEST", text = "Lowest item" },
-        { value = "AVERAGE", text = "Average of all items" },
-    }, gdm, Now(sdm))
-    local ggf, sgf = Opt("xp", "goldFormat")
-    M:Cycle("Gold show as:", {
-        { value = "GOLD", text = "Gold only" },
-        { value = "FULL", text = "Gold, silver, copper" },
-    }, ggf, Now(sgf))
+    -- (durability and gold format: the cogwheels of those pieces)
     M:Header("Layer hop")
     local gn, sn = Opt("xp", "layerHopNotify")
     M:Check("Notify when layer/phase switch is pending", gn, sn,
