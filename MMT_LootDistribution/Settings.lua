@@ -87,9 +87,10 @@ M.Page = function(_, page)
     masterOnly[#masterOnly + 1] = R:Cycle("Several have the role", {
         { value = "FILL", text = "Fill up by team order" },
         { value = "RR", text = "Round robin" },
+        { value = "ML", text = "Prioritize Master Looter" },
     }, gmr, smr)
     UI.Tooltip(masterOnly[#masterOnly], "Several have the role",
-        "Fill up by team order: the first of them in team order gets everything until their bags are full (keeping the free slots below), then the next. Round robin: they get the items in turns.")
+        "Fill up by team order: the first of them in team order gets everything until their bags are full (keeping the free slots below), then the next. Round robin: they get the items in turns. Prioritize Master Looter: when the master looter has the role too, it gets the item regardless of team order; the others (in team order) only when its bags are full.")
     local gnr, snr = Opt("noRoom")
     masterOnly[#masterOnly + 1] = R:Cycle("Role members have no room", {
         { value = "LEAVE", text = "Leave for manual" },

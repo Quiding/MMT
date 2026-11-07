@@ -44,7 +44,7 @@ local M = MMT.NewModule({
         reserve      = 2,          -- free bag slots every member keeps
         unassigned   = "RR",       -- items no role wants: LEAVE | SELF | RR (round robin)
         rrNotice     = true,       -- chat line when an item without rule goes round robin
-        multiRole    = "FILL",     -- several members with the role: FILL (team order) | RR (in turns)
+        multiRole    = "FILL",     -- several members with the role: FILL (team order) | RR (in turns) | ML (master looter first)
         noRoom       = "RR",       -- no role member has room: LEAVE | RR (next with room) | SELF
         autoPass     = false,      -- pass on loot rolls (Need/Greed) ...
         optOut       = false,      -- "Pass on Loot" (SetOptOutOfLoot) while in a group ...
@@ -440,8 +440,9 @@ local function Choose(slot, link, planned, isQuest)
     local keys, roles = MMT.MembersForItem(link)
     -- "give by roles" off: items a role wants stay for manual assignment
     if not cfg.byRoles and #keys > 0 then return nil, nil, "roles off" end
-    -- several members want it: in team order (fill up), or in turns from the
-    -- one after the last receiver of this group (round robin)
+    -- several members want it: in team order (fill up), in turns from the
+    -- one after the last receiver of this group (round robin), or the master
+    -- looter first when it is one of them
     local order = keys
     local group = table.concat(keys, "|")
     if cfg.multiRole == "RR" and #keys > 1 then
@@ -450,6 +451,12 @@ local function Choose(slot, link, planned, isQuest)
         for i, key in ipairs(keys) do if key == last then start = i + 1 end end
         order = {}
         for n = 0, #keys - 1 do order[#order + 1] = keys[(start - 1 + n) % #keys + 1] end
+    elseif cfg.multiRole == "ML" and #keys > 1 then
+        -- prioritize the master looter (the one handing out: this character),
+        -- then the others in team order (also when its bags are full)
+        order = {}
+        for _, key in ipairs(keys) do if MMT.IsSelf(key) then order[#order + 1] = key end end
+        for _, key in ipairs(keys) do if not MMT.IsSelf(key) then order[#order + 1] = key end end
     end
     for _, key in ipairs(order) do
         local index = CandidateIndex(slot, key)

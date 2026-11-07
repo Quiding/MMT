@@ -259,8 +259,9 @@ Saved data from MMT 0.1.x is converted automatically.
   wins: an exact item, then an item group ("Cloth"), then an item class, then Bind on
   Equip or a quality ("white items"); this also applies to trades and mail. "Several
   have the role": fill up by team order (the first in team order with
-  more free bag slots than the reserve gets everything, then the next) or round robin
-  (in turns). "Role members have no room": leave for manual, give to the next team
+  more free bag slots than the reserve gets everything, then the next), round robin
+  (in turns) or prioritize Master Looter (when the master looter has the role too, it
+  gets the item regardless of team order; the others only when its bags are full). "Role members have no room": leave for manual, give to the next team
   member with room (round robin, the default), or to the master looter. "No role wants
   it" defaults to round robin to the team. Bind on Pickup
   items are never given out: they are posted in group chat for manual assignment.
