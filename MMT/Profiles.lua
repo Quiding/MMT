@@ -32,6 +32,8 @@ ns.defaults = {
         followIgnoreInstance = false, -- breaks inside a dungeon / raid never count
         followCombatDelay  = 5,    -- ... this many seconds after combat
         showBars    = true,
+        restedColour = { r = 0.65, g = 0.45, b = 1.0 },   -- rested XP on the bar (cogwheel of the piece "Rested XP")
+        restedAlpha  = 0.30,
         levelUpHint = true,      -- pulsing "LvlUp available" when the ready quests reach the next level (LevelUp.lua)
         xpFlash     = true,      -- big XP gains (3 % of the level or more) light up the bar and the XP value
         classColors = true,

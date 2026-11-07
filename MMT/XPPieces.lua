@@ -22,7 +22,11 @@ ns.xpPieceIds = {}    -- registration order
 --         bar = function(key, status) -> XP: also shaded on the XP bar while the piece is on,
 --         right after the fill (before rested XP), capped at the end of the bar,
 --         barColour = function() -> r, g, b, a: the colour of that shade,
---         barTitle = its line in the row tooltip (no line without) }
+--         barTitle = its line in the row tooltip (no line without),
+--         options = { { kind, ... }, ... }: settings of the piece, shown in a small popup
+--         behind a cogwheel in its row of "Column Visibility & Order". kind is a method
+--         of UI.Column ("Color", "Slider", "Check", "Cycle", "Note", "Space"), the rest
+--         its arguments as usual, e.g. { "Color", "Colour", get, set } }
 -- text() may return a second value, true: the piece pulses (e.g. "LvlUp available")
 function ns.RegisterXPPiece(def)
     assert(type(def) == "table" and type(def.id) == "string" and type(def.text) == "function",
@@ -131,8 +135,30 @@ ns.RegisterXPPiece{ id = "value", title = "Bar value (XP % or reputation)", side
         if ns.XPGainFlashing and ns.XPGainFlashing(key) then return Hex(1, 0.85, 0.2) .. text .. "|r", true end
         return text
     end }
+-- the rested colour (cogwheel of the piece): the bar's shade, and lighter for the text
+function ns.XPRestedColour()
+    local c = ns.db.xp.restedColour or {}
+    return c.r or 0.65, c.g or 0.45, c.b or 1.0, ns.db.xp.restedAlpha or 0.30
+end
+function ns.XPRestedTextColour()
+    local r, g, b = ns.XPRestedColour()
+    return 0.35 + r * 0.65, 0.35 + g * 0.65, 0.35 + b * 0.65
+end
+local function RestedOptions()
+    return {
+        { "Color", "Colour on the bar",
+            function() local r, g, b = ns.XPRestedColour() return { r = r, g = g, b = b } end,
+            function(c) ns.db.xp.restedColour = { r = c.r, g = c.g, b = c.b } ns.UpdateXPWindow() end },
+        { "Slider", "Opacity on the bar", 0.05, 1, 0.05,
+            function() return ns.db.xp.restedAlpha or 0.30 end,
+            function(v) ns.db.xp.restedAlpha = v ns.UpdateXPWindow() end, "%.2f" },
+        { "Note", "The R % text uses a lighter shade of the same colour." },
+    }
+end
+
 ns.RegisterXPPiece{ id = "rested", title = "Rested XP (%)", side = "RIGHT", on = true, sample = Hex(0.75, 0.6, 1) .. "R 35%|r",
     tip = "Rested XP in percent of the current level, e.g. R 35%. Also shaded on the bar.",
+    options = RestedOptions(),
     text = function(key, s)
         if ns.db.xp.barMode == "REP" or s.isMax or s.max <= 0 then return nil end
         if ns.LevelUpShowing and ns.LevelUpShowing(key, s) then
@@ -141,7 +167,7 @@ ns.RegisterXPPiece{ id = "rested", title = "Rested XP (%)", side = "RIGHT", on =
             return nil
         end
         if s.rested <= 0 then return nil end
-        return Hex(0.75, 0.6, 1) .. ("R %d%%"):format(math.floor(s.rested / s.max * 100 + 0.5)) .. "|r"
+        return Hex(ns.XPRestedTextColour()) .. ("R %d%%"):format(math.floor(s.rested / s.max * 100 + 0.5)) .. "|r"
     end }
 ns.RegisterXPPiece{ id = "rep", title = "Reputation", side = "RIGHT", on = false, sample = "Friendly 40%",
     tip = "Standing with the watched faction, whatever the bar shows.",

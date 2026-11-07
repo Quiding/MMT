@@ -36,10 +36,24 @@ local function TextHex()
     return Hex(0.35 + r * 0.65, 0.35 + g * 0.65, 0.35 + b * 0.65)
 end
 
+local function Refresh()
+    if MMT.UpdateXPWindow then MMT.UpdateXPWindow() end
+end
+
 MMT.RegisterXPPiece{
     id = "questxp", title = "Completed quest XP (%)", side = "RIGHT", on = true, before = "rep",
     sample = Hex(1, 0.8, 0.4) .. "Q 20%|r",
-    tip = "XP of the quests ready to turn in, in percent of the current level, e.g. Q 20% (over 100%: enough for the next level). Also shaded on the bar after the XP, in its own colour (Quest Tracker > Quest XP).",
+    tip = "XP of the quests ready to turn in, in percent of the current level, e.g. Q 20% (over 100%: enough for the next level). Also shaded on the bar after the XP, in its own colour (cogwheel, or Quest Tracker > Quest XP).",
+    -- the cogwheel in "Column Visibility & Order": the same settings as the Quest XP tab
+    options = {
+        { "Color", "Colour on the bar",
+            function() local r, g, b = Colour() return { r = r, g = g, b = b } end,
+            function(c) M.db.questXPColour = { r = c.r, g = c.g, b = c.b } Refresh() end },
+        { "Slider", "Opacity on the bar", 0.1, 1, 0.05,
+            function() return M.db.questXPAlpha or 0.55 end,
+            function(v) M.db.questXPAlpha = v Refresh() end, "%.2f" },
+        { "Note", "The Q % text uses a lighter shade of the same colour. Also in Quest Tracker > Quest XP." },
+    },
     text = function(key, s)
         if MMT.db.xp.barMode == "REP" then return nil end
         local xp = mod.QuestXPOf(key, s)
@@ -53,9 +67,6 @@ MMT.RegisterXPPiece{
 ---------------------------------------------------------------------------
 -- Keeping it current (the sum itself is the core's: LevelUp.lua)
 ---------------------------------------------------------------------------
-local function Refresh()
-    if MMT.UpdateXPWindow then MMT.UpdateXPWindow() end
-end
 
 M:Listen("REFRESH", Refresh)   -- settings changed (also after a sync)
 

@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 1.1.3: core addon (MMT) plus optional modules (MMT_*).
+Version 1.1.4: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -107,7 +107,9 @@ Saved data from MMT 0.1.x is converted automatically.
   these is a piece, and so is the name: one order left to right (default: Durability, Free
   bag slots, Gold, Name, Level, Bar value, Rested XP), the bar behind the whole row. Switch
   pieces on or off (the name is always shown) and drag them into place in the Info Window
-  page's list ("Restore Default Column Order" resets it) or in the window itself
+  page's list ("Restore Default Column Order" resets it) or in the window itself. A
+  cogwheel in a piece's row opens its own settings: Rested XP and Completed quest XP have
+  their colour and opacity on the bar there (the R % / Q % text follows in a lighter shade)
   ("Enable drag&drop mode for the Info window" /
   `/mmt info arrange`: every piece shows with dots, drag pieces along a row and rows up or
   down to change the team order). "Column alignment behavior" puts each piece in its own column
@@ -388,7 +390,7 @@ Saved data from MMT 0.1.x is converted automatically.
   Core > Automations are copied over once.
   Completed quest XP (Quest XP tab, on by default): the XP of the quests ready to turn
   in, shaded like rested XP but in its own colour (default gold; colour and opacity can
-  be set) right after the XP, on every member's bar in the Info window (piece "Completed
+  be set here or with the piece's cogwheel on the Info Window page) right after the XP, on every member's bar in the Info window (piece "Completed
   quest XP", "Q 20%"). The game's own XP bar is left alone. The XP is the core's turn-in XP (the
   same value as "LvlUp available"; needs MMT 1.1.0 or newer). When turning in would reach the next level the shade stops
   at the end of the bar with a bright edge, and the piece shows over 100%.

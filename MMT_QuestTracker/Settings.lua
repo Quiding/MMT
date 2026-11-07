@@ -209,7 +209,7 @@ M.Page = function(_, page)
     XL:Space(4)
     XL:Note("When turning in would reach the next level, the shade stops at the end of the bar with a bright edge there, and the piece shows more than 100% (Q 120%).")
     XL:Space(4)
-    XL:Note("Info window: switch the piece \"Completed quest XP\" on or off and drag it on the Info Window page. Teammates need MMT 1.1.0 or newer for theirs to show.")
+    XL:Note("Info window: switch the piece \"Completed quest XP\" on or off and drag it on the Info Window page. The cogwheel in its row there has the colour and opacity too. Teammates need MMT 1.1.0 or newer for theirs to show.")
 
     local _, XR = Tile(Xp, X2, 0, TILE_W, PANEL_H, "Where the XP comes from", "Interface\\Icons\\INV_Misc_Note_02")
     XR:Note("MMT itself adds it up: each character sums the reward XP of the quests in its log that are ready to turn in (the game's value, already for its level) and sends the total with the team heartbeat. The same value drives MMT's \"LvlUp available\" hint and the \"Ready quests\" line in the Info window's row tooltip.")
