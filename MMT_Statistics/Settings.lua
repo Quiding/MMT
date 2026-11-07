@@ -1029,6 +1029,19 @@ M.Page = function(_, page)
         { value = "COINS", text = "Coin icons" },
     }, function() return M.db.money end, function(v) M.db.money = v; mod.Redraw() end)
     local SR = UI.Column(s, COL2_X, 0, COL_W)
+    SR:Header("Live tracker")
+    SR:Check("Show live tracker", function() return M.db.liveTracker end,
+        function(v) M.db.liveTracker = v mod.UpdateLiveTracker() end,
+        "A small window of its own (outside the MMT settings) for the character you play: session length (since login or /reload), time on the current level, XP %, and XP, gold and kills in the session and per hour. Its \"Reset session\" button starts a new session in that window only; the statistics are not changed.")
+    SR:Check("Lock its position", function() return M.db.liveLocked end, function(v) M.db.liveLocked = v end,
+        "Unlocked, drag the window to move it.")
+    SR:Cycle("Font", function()
+        local l = {}
+        for _, font in ipairs(MMT.fonts) do l[#l + 1] = { value = font.name, text = font.name } end
+        return l
+    end, function() return M.db.liveFont end, function(v) M.db.liveFont = v mod.UpdateLiveTracker() end)
+    SR:Slider("Font size", 8, 16, 1, function() return M.db.liveSize or 10 end,
+        function(v) M.db.liveSize = v mod.UpdateLiveTracker() end)
     SR:Header("Data")
     SR:Note("Accounts: every WoW account keeps its own data. Other accounts are named after the team member that sent them (\"Account of Hunter 2\").")
     SR:Add(H.ConfirmButton(s, COL_W, "Clear this account's statistics", function()

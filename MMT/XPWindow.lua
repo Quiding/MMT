@@ -275,6 +275,7 @@ local function RowTooltip(row)
         if s.rested > 0 then
             tip:AddDoubleLine("Rested", ("%d XP (%d%%)"):format(s.rested, math.floor(s.rested / s.max * 100 + 0.5)), 0.75, 0.6, 1, 0.75, 0.6, 1)
         end
+        if ns.LevelUpTooltip then ns.LevelUpTooltip(tip, key, s) end
     end
     if s.money then tip:AddDoubleLine("Gold", TipCoins(s.money), 1, 1, 1, 1, 1, 1) end
     if s.free then tip:AddDoubleLine("Bags", ("%d of %d slots free"):format(s.free, s.slots or 0), 1, 1, 1, 1, 1, 1) end
@@ -494,6 +495,11 @@ local function PieceFrame(row, n)
     p.grip:SetPoint("LEFT", 2, 0)
     p.text = p:CreateFontString(nil, "OVERLAY")
     p.text:SetWordWrap(false)
+    -- pulsing text ("LvlUp available", a big XP gain)
+    p.pulse = p.text:CreateAnimationGroup()
+    p.pulse:SetLooping("BOUNCE")
+    local pf = p.pulse:CreateAnimation("Alpha")
+    pf:SetFromAlpha(1); pf:SetToAlpha(0.3); pf:SetDuration(0.5)
     p:RegisterForDrag("LeftButton")
     p:SetScript("OnDragStart", function(self)
         if ns.xpArrange and self.id and not drag then StartDrag({ kind = "piece", id = self.id, row = row }) end
@@ -531,6 +537,11 @@ local function SetPiece(p, piece, h, arranging)
     p.grip:SetShown(draggable)
     p:EnableMouse(draggable)
     p:SetAlpha((drag and drag.kind == "piece" and drag.id == piece.id and drag.row == p:GetParent()) and 0.4 or 1)
+    if piece.pulse then
+        if not p.pulse:IsPlaying() then p.pulse:Play() end
+    elseif p.pulse:IsPlaying() then
+        p.pulse:Stop()
+    end
     p:ClearAllPoints()
     p:Show()
 end
@@ -552,6 +563,19 @@ local function Row(i)
     row.rest = row.bar:CreateTexture(nil, "BORDER")
     row.rest:SetPoint("TOPLEFT", row.fill, "TOPRIGHT"); row.rest:SetPoint("BOTTOMLEFT", row.fill, "BOTTOMRIGHT")
     row.rest:SetColorTexture(0.65, 0.45, 1.0, 0.30)
+    -- a big XP gain: the gained part of the bar lights up (CheckGain)
+    row.gain = row.bar:CreateTexture(nil, "ARTWORK")
+    row.gain:SetPoint("TOP"); row.gain:SetPoint("BOTTOM")
+    row.gain:SetColorTexture(1, 0.85, 0.2, 0.8)
+    row.gain:SetAlpha(0)
+    row.gain.anim = row.gain:CreateAnimationGroup()
+    local steps = { { 0, 1, 0.15 }, { 1, 0.3, 0.3 }, { 0.3, 1, 0.3 }, { 1, 0.3, 0.3 }, { 0.3, 1, 0.3 }, { 1, 0, 0.8 } }
+    for n, st in ipairs(steps) do
+        local a = row.gain.anim:CreateAnimation("Alpha")
+        a:SetFromAlpha(st[1]); a:SetToAlpha(st[2]); a:SetDuration(st[3]); a:SetOrder(n)
+    end
+    row.gain.anim:SetScript("OnFinished", function() row.gain:SetAlpha(0) row.gain:Hide() end)
+    row.gain:Hide()
     -- red, pulsing mark: this member stopped following
     row.alertLayer = CreateFrame("Frame", nil, row)   -- above the bar area
     row.alertLayer:SetAllPoints()
@@ -627,6 +651,33 @@ local function Row(i)
 end
 
 local Hex = ns.XPHex
+
+-- big XP gains: at least FLASH_SHARE of the level's XP in one step (quest
+-- turn-ins, ...) light up the gained part of the bar and the XP value
+local FLASH_SHARE, FLASH_TIME = 0.03, 2.5
+local seenXP, flash = {}, {}
+local function CheckGain(key, s)
+    if s.noData or s.isMax or (s.max or 0) <= 0 then seenXP[key] = nil return end
+    local old = seenXP[key]
+    seenXP[key] = { level = s.level, cur = s.cur, max = s.max }
+    if not old or ns.db.xp.xpFlash == false then return end
+    local gain, from
+    if s.level == old.level then
+        gain, from = s.cur - old.cur, old.cur / s.max
+    elseif s.level == old.level + 1 then
+        gain, from = (old.max - old.cur) + s.cur, 0
+    else
+        return
+    end
+    if gain <= 0 or gain < old.max * FLASH_SHARE then return end
+    flash[key] = { untl = GetTime() + FLASH_TIME, from = from, to = math.min(1, s.cur / s.max), new = true }
+    C_Timer.After(FLASH_TIME + 0.1, function() if ns.UpdateXPWindow then ns.UpdateXPWindow() end end)
+end
+
+function ns.XPGainFlashing(key)
+    local fl = flash[key]
+    return fl and GetTime() < fl.untl or false
+end
 
 local function ClassColor(class)
     local c = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
@@ -753,6 +804,7 @@ local function Update()
     local rows = {}
     for i, key in ipairs(list) do
         local s = StatusOf(key)
+        CheckGain(key, s)
         local row = Row(i)
         row.name:Hide()   -- (the name is a piece now)
         local broken = x.followCheck and ns.FollowBroken and ns.FollowBroken(key)
@@ -866,6 +918,21 @@ local function Update()
         row.rest:SetShown(x.showBars and not rep and ns.XPPieceOn("rested") and restPct > 0)
         row.rest:SetWidth(math.max(1, barWidth * restPct))
         row.track:SetShown(x.showBars)
+        local fl = flash[key]
+        if fl and fl.new then
+            fl.new = false
+            if x.showBars and not rep and fl.to > fl.from then
+                row.gain:ClearAllPoints()
+                row.gain:SetPoint("TOP"); row.gain:SetPoint("BOTTOM")
+                row.gain:SetPoint("LEFT", row.bar, "LEFT", math.floor(barWidth * fl.from), 0)
+                row.gain:SetWidth(math.max(2, barWidth * (fl.to - fl.from)))
+                row.gain:Show()
+                row.gain.anim:Stop()
+                row.gain.anim:Play()
+            end
+        elseif not fl and row.gain:IsShown() and not row.gain.anim:IsPlaying() then
+            row.gain:Hide()
+        end
         row:Show()
     end
     for i = #list + 1, #f.rows do f.rows[i]:Hide() end

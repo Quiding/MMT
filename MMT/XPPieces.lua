@@ -19,6 +19,7 @@ ns.xpPieceIds = {}    -- registration order
 --         before = id: placed before that piece when first added (else by side),
 --         hidden = function() -> true: the whole column is left out for now (e.g. no
 --         pet out on the team) although it is switched on }
+-- text() may return a second value, true: the piece pulses (e.g. "LvlUp available")
 function ns.RegisterXPPiece(def)
     assert(type(def) == "table" and type(def.id) == "string" and type(def.text) == "function",
         "MMT.RegisterXPPiece{ id = \"...\", title = \"...\", text = function(key, status) ... end }")
@@ -87,6 +88,8 @@ local function FullCoins(copper)
     parts[#parts + 1] = c .. COPPER_ICON
     return table.concat(parts, " ")
 end
+-- (ns.LevelUpShowing: LevelUp.lua)
+local LEVEL_UP = Hex(0.3, 1, 0.3) .. "LvlUp available|r"
 local BAG_ICON = "|TInterface\\Icons\\INV_Misc_Bag_08:0:0:0:0:64:64:6:58:6:58|t"
 local DUR_ICON = "|TInterface\\Icons\\Trade_BlackSmithing:0:0:0:0:64:64:6:58:6:58|t"
 
@@ -116,15 +119,24 @@ ns.RegisterXPPiece{ id = "level", title = "Level", side = "RIGHT", on = true, sa
     text = function(_, s) return Hex(0.75, 0.75, 0.75) .. "L" .. s.level .. "|r" end }
 ns.RegisterXPPiece{ id = "value", title = "Bar value (XP % or reputation)", side = "RIGHT", on = true, sample = "45.0%",
     tip = "What the bar shows (Bar shows): the XP in percent, or the standing with the watched faction.",
-    text = function(_, s)
+    text = function(key, s)
         if ns.db.xp.barMode == "REP" then return RepText(s) end
         if s.isMax or s.max <= 0 then return "max" end
-        return ("%.1f%%"):format(s.cur / s.max * 100)
+        if ns.LevelUpShowing and ns.LevelUpShowing(key, s) then return LEVEL_UP, true end
+        local text = ("%.1f%%"):format(s.cur / s.max * 100)
+        if ns.XPGainFlashing and ns.XPGainFlashing(key) then return Hex(1, 0.85, 0.2) .. text .. "|r", true end
+        return text
     end }
 ns.RegisterXPPiece{ id = "rested", title = "Rested XP (%)", side = "RIGHT", on = true, sample = Hex(0.75, 0.6, 1) .. "R 35%|r",
     tip = "Rested XP in percent of the current level, e.g. R 35%. Also shaded on the bar.",
-    text = function(_, s)
-        if ns.db.xp.barMode == "REP" or s.isMax or s.max <= 0 or s.rested <= 0 then return nil end
+    text = function(key, s)
+        if ns.db.xp.barMode == "REP" or s.isMax or s.max <= 0 then return nil end
+        if ns.LevelUpShowing and ns.LevelUpShowing(key, s) then
+            -- in the value's place when that piece is off
+            if not ns.XPPieceOn("value") then return LEVEL_UP, true end
+            return nil
+        end
+        if s.rested <= 0 then return nil end
         return Hex(0.75, 0.6, 1) .. ("R %d%%"):format(math.floor(s.rested / s.max * 100 + 0.5)) .. "|r"
     end }
 ns.RegisterXPPiece{ id = "rep", title = "Reputation", side = "RIGHT", on = false, sample = "Friendly 40%",
@@ -255,10 +267,10 @@ function ns.XPRowPieces(key, s, arranging)
             if p.id == "name" then
                 out[#out + 1] = { id = "name", def = d, name = true }
             else
-                local ok, text = pcall(d.text, key, s)
-                if not ok or text == "" then text = nil end
+                local ok, text, pulse = pcall(d.text, key, s)
+                if not ok or text == "" then text, pulse = nil, nil end
                 if not text and arranging then text = Hex(0.5, 0.5, 0.5) .. (d.sample or d.title) .. "|r" end
-                if text then out[#out + 1] = { id = p.id, def = d, text = text } end
+                if text then out[#out + 1] = { id = p.id, def = d, text = text, pulse = pulse and not arranging or nil } end
             end
         end
     end

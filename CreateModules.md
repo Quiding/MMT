@@ -243,6 +243,7 @@ MMT.RegisterXPPiece{
 }
 ```
 
+`text` may return a second value, `true`: the piece pulses (like "LvlUp available").
 `text` runs on every redraw of the window: keep it cheap. `MMT.UpdateXPWindow()`
 redraws it when your value changed.
 
@@ -311,6 +312,7 @@ end)
 
 Small values can ride on the heartbeat, which every client sends every 30 seconds and
 on changes, so they cost no extra messages. Values must not contain `:`, `,` or `=`.
+Keys taken: `gc`, `gk`, `pt`, `ml`, `qx` (core), `eq` (Item Compare), `qt` (Quest Tracker).
 
 ```lua
 M:Heartbeat("ex", function() return UnitLevel("player") end)

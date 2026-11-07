@@ -829,7 +829,7 @@ ns.RegisterPage("xp", "Info Window", function(page)
     local TOP = Intro(page, "The Info Window is a central part of MMT that is used to show you lots of information about your team.")
     local PIECE_ROWS, PIECE_H = 9, 20   -- every piece visible without scrolling
     local EXTRA = 2 * PIECE_H           -- every tile two rows taller
-    local TOP_H = 42 + 6 * UI.ROW + (UI.ROW + 2) + 8 + EXTRA
+    local TOP_H = 42 + 6 * UI.ROW + (UI.ROW + 2) + 8 + EXTRA   -- (8 rows now: the extra room holds the two highlight switches)
     local X2 = TILE_W + TILE_GAP
     local Y2 = TOP - TOP_H - 8
     local BOTTOM_H = 42 + 7 * PIECE_H + 6 + 2 * (UI.ROW + 2) + 8 + EXTRA
@@ -845,6 +845,12 @@ ns.RegisterPage("xp", "Info Window", function(page)
     B:Check("Show your own character", Opt("xp", "showSelf"))
     B:Check("Class colors", Opt("xp", "classColors"))
     B:Check("Show bars", Opt("xp", "showBars"))
+    local glu, slu = Opt("xp", "levelUpHint")
+    B:Check("Highlight when I can level up", glu, function(v) slu(v) ns.UpdateXPWindow() end,
+        "When enabled, the Info Window will show a pulsing notification that you can level up, when handing in your \"ready for turn-in\" quests.")
+    local gxf, sxf = Opt("xp", "xpFlash")
+    B:Check("Highlight big XP gains", gxf, sxf,
+        "When enabled, the XP bar and the XP value of the Info Window light up when a character gets at least 3% of the level's XP at once (e.g. from quest turn-ins).")
     local gbm, sbm = Opt("xp", "barMode")
     B:Cycle("Bars show", {
         { value = "XP", text = "Experience" },

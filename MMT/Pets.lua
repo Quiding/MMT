@@ -23,18 +23,39 @@ end
 
 local function IsHunter(class) return class == "HUNTER" end
 
+-- happiness 1-3: GetPetHappiness(), else the pet's happiness power (classic
+-- power type 4, 0 .. 1050000: below a third unhappy, above two thirds happy)
+local HAPPINESS_POWER = (Enum and Enum.PowerType and Enum.PowerType.Happiness) or 4
+local function ReadHappiness()
+    if GetPetHappiness then
+        local h = tonumber((ns.Safe(GetPetHappiness)))
+        if h and h >= 1 and h <= 3 then return h, "GetPetHappiness" end
+    end
+    if UnitPower and UnitPowerMax then
+        local cur = tonumber((ns.Safe(UnitPower, "pet", HAPPINESS_POWER)))
+        local max = tonumber((ns.Safe(UnitPowerMax, "pet", HAPPINESS_POWER)))
+        if cur and max and max > 0 then
+            local r = cur / max
+            return (r >= 2 / 3 and 3) or (r >= 1 / 3 and 2) or 1, "UnitPower"
+        end
+    end
+    return nil, "none"
+end
+
+-- loyalty level: GetPetLoyalty() ("Loyalty Level 3" or a number)
+local function ReadLoyalty()
+    if not GetPetLoyalty then return nil end
+    local text = ns.Safe(GetPetLoyalty)
+    if type(text) == "string" then return tonumber(text:match("(%d+)")) end
+    return tonumber(text)
+end
+
 -- this character's pet: nil (no hunter), false (no pet out) or { h, l }
 local function OwnPet()
     local _, class = UnitClass("player")
     if not IsHunter(class) then return nil end
     if not UnitExists("pet") then return false end
-    local h = GetPetHappiness and tonumber((ns.Safe(GetPetHappiness))) or nil
-    local l
-    if GetPetLoyalty then
-        local text = ns.Safe(GetPetLoyalty)
-        l = type(text) == "string" and tonumber(text:match("(%d+)")) or tonumber(text)
-    end
-    return { h = h, l = l }
+    return { h = (ReadHappiness()), l = ReadLoyalty() }
 end
 
 local function Encode(p)
@@ -94,6 +115,7 @@ ns.RegisterXPPiece{ id = "pet", title = "Pet happiness & loyalty", side = "RIGHT
         if not IsHunter(ClassOf(key, s)) then return ns.XPHex(0.5, 0.5, 0.5) .. "-|r" end
         local p = ns.PetOf(key)
         if not p then return ns.XPHex(0.5, 0.5, 0.5) .. "no pet|r" end
+        if not p.h and not p.l then return ns.XPHex(0.5, 0.5, 0.5) .. "?|r" end
         return HappyIcon(p.h) .. (p.l and (" " .. LOYALTY_ICON .. p.l) or "")
     end }
 
@@ -146,3 +168,26 @@ ns.On("UNIT_HAPPINESS", function(unit) if unit == nil or unit == "pet" then Chan
 ns.On("PET_UI_UPDATE", Changed)
 -- the heartbeat sent it too: that counts as told
 ns.CoreHeartbeat("pt", function() local v = Encode(OwnPet()) lastSent = v return v end)
+
+-- /mmt debug dump: what this client can read about its pet, and what the team sent
+function ns.PetReport(add)
+    local _, class = UnitClass("player")
+    local h, src = ReadHappiness()
+    local raw = GetPetHappiness and { pcall(GetPetHappiness) } or nil
+    local cur = UnitPower and ns.Safe(UnitPower, "pet", HAPPINESS_POWER)
+    local max = UnitPowerMax and ns.Safe(UnitPowerMax, "pet", HAPPINESS_POWER)
+    local ptype = UnitPowerType and { ns.Safe(UnitPowerType, "pet") } or {}
+    add(("-- Pet  class=%s pet=%s name=%s"):format(tostring(class), tostring(UnitExists("pet")), tostring(ns.Safe(UnitName, "pet"))))
+    add(("  API: GetPetHappiness=%s -> %s  GetPetLoyalty=%s -> %s  UnitPower(pet,%s)=%s/%s  pet power type=%s/%s"):format(
+        tostring(GetPetHappiness ~= nil), raw and (tostring(raw[2]) .. "," .. tostring(raw[3]) .. "," .. tostring(raw[4])) or "-",
+        tostring(GetPetLoyalty ~= nil), tostring(GetPetLoyalty and ns.Safe(GetPetLoyalty)),
+        tostring(HAPPINESS_POWER), tostring(cur), tostring(max), tostring(ptype[1]), tostring(ptype[2])))
+    add(("  read: happiness=%s (from %s) loyalty=%s  sent pt=%s"):format(tostring(h), src, tostring(ReadLoyalty()),
+        tostring(Encode(OwnPet()))))
+    for _, key in ipairs(ns.SortedMembers()) do
+        local s = ns.status[key]
+        if not ns.IsSelf(key) and s and IsHunter(s.class) then
+            add(("  %s pt=%s"):format(ns.Repr(key), tostring(s.ext and s.ext.pt)))
+        end
+    end
+end

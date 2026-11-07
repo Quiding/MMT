@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 1.0.24: core addon (MMT) plus optional modules (MMT_*).
+Version 1.1.0: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -91,9 +91,15 @@ Saved data from MMT 0.1.x is converted automatically.
   happiness and loyalty (with the heartbeat, and when the pet is summoned, dismissed
   or its happiness or loyalty changes: only a real change, at most every 10 seconds); shown as icons, "-" for characters that aren't
   hunters. The column hides while no hunter of the team has a pet out and comes back when
-  one is summoned; the row tooltip keeps the last known values. "New mail" (off by
+  one is summoned; the row tooltip keeps the last known values ("?" when the game gives
+  no happiness or loyalty: `/mmt debug dump` shows what the client can read). "New mail" (off by
   default): a letter for characters with unread mail waiting (sent with the heartbeat,
-  and when it changes). The settings page has four tiles: Basics, General
+  and when it changes). "Highlight when I can level up" (Basics, on): every client adds up
+  the XP of its quests that are ready to turn in and sends it with the heartbeat; when that
+  reaches the next level, the row shows a pulsing "LvlUp available" instead of XP % and
+  rested XP, 5 seconds on, 5 seconds off (row tooltip: "Ready quests"). "Highlight big XP
+  gains" (Basics, on): a gain of at least 3% of the level's XP at once lights up the gained
+  part of the bar and the XP value. The settings page has four tiles: Basics, General
   Look & Feel (with a "Fonts, Bars, Scale, Opacity" side window), Column Visibility & Order
   and Miscellaneous (durability and gold format, Layer Hop). Each of
   these is a piece, and so is the name: one order left to right (default: Durability, Free
@@ -244,7 +250,12 @@ Saved data from MMT 0.1.x is converted automatically.
   - Settings tab: what to track (gold, kills and deaths, leveling / zones / instances,
     professions, quests), share with the team, ask about re-entered instances, chat notes about
     instances, money format, scan completed quests, clear this account's statistics,
-    forget other accounts.
+    forget other accounts, live tracker.
+  - Live tracker ("Show live tracker", off): a small window of its own for the character you
+    play: session length (since login or /reload), time on the current level (not at max
+    level), XP % (rested %), and a table of XP, gold and kills in the session and per hour.
+    "Reset session" starts a new session in that window only. Lock, font and font size in
+    the Settings tab; redrawn at most once a second.
   - Export (Settings tab): CSV text to copy into a spreadsheet or a .csv file (addons can't
     write files): gold per day and character, gold per day and account, characters, kills
     and deaths per NPC (with their kind), the kill summary per character, kills by zone and
