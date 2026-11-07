@@ -340,15 +340,22 @@ local function AddMacroExamples(p)
 end
 
 -- example roles, once per profile (new and older ones); deleted ones stay deleted
+-- (since: the example set that brought it; p.roleExamples = the newest one added)
 local EXAMPLE_ROLES = {
-    { name = "Tailor", rules = { { type = "group", group = "cloth" } } },
-    { name = "Enchanter", rules = { { type = "boe" }, { type = "group", group = "enchanting" } } },
+    { name = "Tailor", since = 1, rules = { { type = "group", group = "cloth" } } },
+    { name = "Enchanter", since = 1, rules = { { type = "boe" }, { type = "group", group = "enchanting" } } },
+    { name = "Tanner / Leather", since = 2, rules = { { type = "group", group = "leather" } } },
+    { name = "Smith", since = 2, rules = { { type = "group", group = "metal" } } },
+    { name = "Herbalist", since = 2, rules = { { type = "group", group = "herbs" } } },
 }
+local ROLE_EXAMPLES = 2
 local function AddRoleExamples(p)
-    if p.roleExamples == 1 or type(p.roles) ~= "table" then return end
-    p.roleExamples = 1
+    if type(p.roles) ~= "table" then return end
+    local done = tonumber(p.roleExamples) or 0
+    if done >= ROLE_EXAMPLES then return end
+    p.roleExamples = ROLE_EXAMPLES
     for _, r in ipairs(EXAMPLE_ROLES) do
-        if not p.roles[r.name] then p.roles[r.name] = { rules = Copy(r.rules) } end
+        if r.since > done and not p.roles[r.name] then p.roles[r.name] = { rules = Copy(r.rules) } end
     end
 end
 

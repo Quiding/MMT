@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 1.0.16: core addon (MMT) plus optional modules (MMT_*).
+Version 1.0.17: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -76,9 +76,10 @@ Saved data from MMT 0.1.x is converted automatically.
   after a reload; Cancel leaves it as it was. (The game no longer lets addons reload the UI
   themselves; MMT's "Reload now" buttons are secure macro buttons running /reload.) A profile switch that changes either
   says in chat that a reload is needed; a sync that changes it asks to reload.
-- **Roles** (tiles: Roles, Members of the role, Items for the role): two example roles come with every profile ("Tailor" = item group Cloth,
-  "Enchanter" = all Bind on Equip items + item group Enchanting materials; deleted ones
-  stay deleted); create roles, tick their members, add items (drop one on the slot, or
+- **Roles** (tiles: Roles, Members of the role, Items for the role): example roles come with every profile ("Tailor" = item group Cloth,
+  "Enchanter" = all Bind on Equip items + item group Enchanting materials, "Tanner /
+  Leather" = Leather & hides, "Smith" = Ore, bars & stone, "Herbalist" = Herbs; added
+  once to existing profiles too, deleted ones stay deleted); create roles, tick their members, add items (drop one on the slot, or
   click the field and shift-click an item anywhere; IDs and exact names work too),
   rules (all grey, all Bind on Equip, by quality) and item groups (Cloth, Leather,
   Herbs, Ore/bars/stone, Enchanting, Potions, Food & drink, Reagents, Consumables, ...).
