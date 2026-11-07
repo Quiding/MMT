@@ -287,6 +287,7 @@ local function RowTooltip(row)
         tip:AddDoubleLine(s.rep.name, ("%s  %d / %d"):format(standing, s.rep.cur or 0, s.rep.max or 0),
             1, 1, 1, c and c.r or 1, c and c.g or 1, c and c.b or 1)
     end
+    if ns.PetTooltip and ns.XPPieceOn("pet") then ns.PetTooltip(tip, key) end
     tip:AddDoubleLine("Layer", s.layer and ("#" .. s.layer) or "unknown", 1, 1, 1, 0.7, 0.7, 0.7)
     local phase = ns.PhaseOf(key)
     if phase then tip:AddDoubleLine("Phasing", phase, 1, 1, 1, 1, 0.25, 0.25) end

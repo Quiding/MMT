@@ -15,7 +15,10 @@ ns.xpPieceIds = {}    -- registration order
 --         (modules: off unless set), sample = text while arranging when text() has nothing,
 --         tip = settings tooltip, side = "LEFT": placed before the name when first added
 --         (else after it), fixed = always shown (the name), icon = "START" | "END": where its
---         icon sits in the text (the "Line up the icons" choice aligns the column by it) }
+--         icon sits in the text (the "Line up the icons" choice aligns the column by it),
+--         before = id: placed before that piece when first added (else by side),
+--         hidden = function() -> true: the whole column is left out for now (e.g. no
+--         pet out on the team) although it is switched on }
 function ns.RegisterXPPiece(def)
     assert(type(def) == "table" and type(def.id) == "string" and type(def.text) == "function",
         "MMT.RegisterXPPiece{ id = \"...\", title = \"...\", text = function(key, status) ... end }")
@@ -139,7 +142,7 @@ ns.RegisterXPPiece{ id = "name", title = "Name", side = "RIGHT", on = true, fixe
 -- The saved order
 ---------------------------------------------------------------------------
 -- the default order, left to right
-local DEFAULT_ORDER = { "durability", "bags", "gold", "name", "level", "value", "rested", "rep", "layer" }
+local DEFAULT_ORDER = { "durability", "bags", "gold", "name", "level", "value", "rested", "rep", "pet", "layer" }
 -- old switch of a built-in piece (kept in step for clients without pieces)
 local SWITCH = { gold = "showGold", bags = "showBags", durability = "showDurability", level = "showLevel", rested = "showRested" }
 
@@ -185,8 +188,9 @@ function ns.XPPieceOrder()
         if not have[id] then
             local e = Entry(id)
             local at = #x.pieces + 1
-            if ns.xpPieces[id].side == "LEFT" then
-                for k, p in ipairs(x.pieces) do if p.id == "name" then at = k end end
+            local before = ns.xpPieces[id].before or (ns.xpPieces[id].side == "LEFT" and "name") or nil
+            if before then
+                for k, p in ipairs(x.pieces) do if p.id == before then at = k end end
             end
             table.insert(x.pieces, at, e)
         end
@@ -243,6 +247,10 @@ function ns.XPRowPieces(key, s, arranging)
     local out = {}
     for _, p in ipairs(ns.XPPieceOrder()) do
         local d = (p.on or (ns.xpPieces[p.id] and ns.xpPieces[p.id].fixed)) and ns.xpPieces[p.id]
+        if d and d.hidden and not arranging then
+            local ok, hide = pcall(d.hidden)
+            if ok and hide then d = nil end
+        end
         if d then
             if p.id == "name" then
                 out[#out + 1] = { id = "name", def = d, name = true }

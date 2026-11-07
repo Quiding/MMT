@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 1.0.15: core addon (MMT) plus optional modules (MMT_*).
+Version 1.0.16: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -85,7 +85,12 @@ Saved data from MMT 0.1.x is converted automatically.
   Opening a trade with a team member puts the matching items in (switch on the Trade /
   Mail / Vendor page). You accept yourself.
 - **XP Window**: XP %, rested XP %, gold, free bag slots, durability (lowest item or
-  average), level, reputation and layer. The settings page has four tiles: Basics, General
+  average), level, reputation, hunter pets and layer. "Pet happiness & loyalty" (off by
+  default, before Layer): every hunter's client sends whether a pet is out with its
+  happiness and loyalty (with the heartbeat, and at once when the pet is summoned,
+  dismissed or its happiness changes); shown as icons, "-" for characters that aren't
+  hunters. The column hides while no hunter of the team has a pet out and comes back when
+  one is summoned; the row tooltip keeps the last known values. The settings page has four tiles: Basics, General
   Look & Feel (with a "Fonts, Bars, Scale, Opacity" side window), Column Visibility & Order
   and Miscellaneous (durability and gold format, Layer Hop). Each of
   these is a piece, and so is the name: one order left to right (default: Durability, Free
