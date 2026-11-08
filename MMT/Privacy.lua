@@ -9,7 +9,10 @@
 --     character counts on item tooltips, ...) and any text other addons show
 --     in their own frames (raid
 --     frames of other addons), as far as the game allows: values the game
---     hands out as secrets can't be read and stay as they are. The names the
+--     hands out as secrets can't be read and stay as they are. One exception:
+--     EllesmereUI's damage meter, whose rows get other players' names as
+--     secrets in combat - a row whose class only one team member in the
+--     group has gets that member's name (see "Damage meter rows" below). The names the
 --     game draws above characters in the world (nameplates off) can't be
 --     changed: friendly nameplates are switched on or those names off instead
 --     ("Name above characters").
@@ -375,10 +378,170 @@ local function SetQuietly(fs, text)
     busy = false
 end
 
+---------------------------------------------------------------------------
+-- Damage meter rows (EllesmereUIDamageMeters). In combat the game gives the
+-- meter other players' names as secrets: they can't be read, so the text
+-- replacement can't see them. The row's class can still be seen on the row
+-- itself, painted from the never-secret classFilename before the name: its icon
+-- (the class sheet "UI-CHARACTERCREATE-CLASSES" at that class's CLASS_ICON_TCOORDS)
+-- or else its bar colour (EllesmereUI's class colour). When exactly one member
+-- of the group (not you - your own row is never secret) has that class and it's a
+-- team member, the row gets that member's name. Two of a class (team or not),
+-- or a stranger of that class: left as it is.
+-- A row: label font string (left-aligned; the amount, right-aligned, is secret too and stays) -> text frame -> bar.fill (StatusBar, holds the
+-- icon texture) -> bar.row -> ... -> the window "EllesmereUIDMFrame<n>".
+---------------------------------------------------------------------------
+local meterSet = setmetatable({}, { __mode = "k" })       -- [fontString] = name we put there
+local meterPending = setmetatable({}, { __mode = "k" })
+local meterSaid = setmetatable({}, { __mode = "k" })     -- [fontString] = when the debug line said why
+
+-- the bar (StatusBar) of the EllesmereUI meter row this font string is the name of, else nil
+local function MeterFill(fs)
+    -- only the name: left-aligned (the amount on the right is secret in combat too; the rank isn't)
+    local okJ, justify = pcall(fs.GetJustifyH, fs)
+    if not okJ or justify ~= "LEFT" then return nil end
+    local ok, tf = pcall(fs.GetParent, fs)
+    if not ok or type(tf) ~= "table" or not tf.GetParent then return nil end
+    local ok2, fill = pcall(tf.GetParent, tf)
+    if not ok2 or type(fill) ~= "table" or not fill.GetStatusBarColor then return nil end
+    local f, n = fill, 0
+    while f and n < 12 do
+        n = n + 1
+        local okN, name = pcall(f.GetName, f)
+        if okN and type(name) == "string" and not ns.IsSecret(name) and name:find("^EllesmereUIDMFrame%d+$") then return fill end
+        local okP, parent = pcall(f.GetParent, f)
+        if not okP or parent == UIParent then return nil end
+        f = parent
+    end
+end
+
+-- the class sheet's texture id, as the game reports it for a texture showing it
+local sheetID
+local function SheetID()
+    if sheetID == nil then
+        sheetID = false
+        local t = UIParent and UIParent.CreateTexture and UIParent:CreateTexture()
+        if t then
+            t:SetTexture("Interface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES")
+            sheetID = t:GetTexture() or false
+            t:Hide()
+        end
+    end
+    return sheetID
+end
+
+local function Plain(v) return v ~= nil and not ns.IsSecret(v) end
+local function Near(a, b) return type(a) == "number" and type(b) == "number" and math.abs(a - b) < 0.012 end
+
+-- does this row show that class? its class icon first, else the bar colour
+local function RowShowsClass(fill, class)
+    local coords = CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[class]
+    local sheet = SheetID()
+    local okR, regions = pcall(function() return { fill:GetRegions() } end)
+    local sawIcon = false
+    if okR and coords and sheet then
+        for _, r in ipairs(regions) do
+            if r.GetTexCoord and r.GetTexture and r:IsShown() then
+                local okT, tex = pcall(r.GetTexture, r)
+                if okT and Plain(tex) and tex == sheet then
+                    sawIcon = true
+                    local okC, l, t, _, _, _, _, rr, b = pcall(r.GetTexCoord, r)
+                    if okC and Plain(l) and Plain(rr) and Plain(t) and Plain(b) then
+                        local cx, cy = (l + rr) / 2, (t + b) / 2
+                        if cx > coords[1] and cx < coords[2] and cy > coords[3] and cy < coords[4] then return true end
+                    end
+                end
+            end
+        end
+    end
+    if sawIcon then return false end   -- the icon shows another class
+    local okB, r, g, b = pcall(fill.GetStatusBarColor, fill)
+    if not okB or not (Plain(r) and Plain(g) and Plain(b)) then return false end
+    local cols = {}
+    local EUI = rawget(_G, "EllesmereUI")
+    if EUI and EUI.GetClassColor then
+        local okE, c = pcall(EUI.GetClassColor, class)
+        if okE and type(c) == "table" then cols[#cols + 1] = c end
+    end
+    if RAID_CLASS_COLORS and RAID_CLASS_COLORS[class] then cols[#cols + 1] = RAID_CLASS_COLORS[class] end
+    for _, c in ipairs(cols) do
+        if Near(r, c.r) and Near(g, c.g) and Near(b, c.b) then return true end
+    end
+    return false
+end
+
+-- everyone in the group (not you) by class: { [class] = team key }, false for a class two of them
+-- have - team members or not (a stranger's row must never get a team member's name). Someone
+-- whose class can't be told: no class is sure, nothing is replaced.
+local function GroupedByClass()
+    local by = {}
+    if not ns.db then return by end
+    for _, unit in ipairs(ns.GroupUnits()) do
+        local _, _, full = ns.SplitUnit(unit)
+        local key = full and ns.Resolve(full)
+        local m = key and ns.db.team[key]
+        local ok, _, class = pcall(UnitClass, unit)
+        if not ok or type(class) ~= "string" or ns.IsSecret(class) then class = m and m.class end
+        if type(class) ~= "string" then return {} end
+        if not (key and ns.IsSelf(key)) then
+            local who = m and key or false   -- false: not on the team
+            if by[class] ~= nil and by[class] ~= who then by[class] = false else by[class] = who end
+        end
+    end
+    return by
+end
+
+-- the one team member in the group whose class this row shows, else nil
+local function MemberForRow(fill)
+    local found
+    for class, key in pairs(GroupedByClass()) do
+        if RowShowsClass(fill, class) then
+            if not key or found then return nil end   -- two of that class, or two classes match
+            found = key
+        end
+    end
+    return found
+end
+
+local FixMeterRow
+FixMeterRow = function(fs, later)
+    local fill = MeterFill(fs)
+    if not fill then return false end
+    local key = MemberForRow(fill)
+    if not key and not later then
+        local now = GetTime and GetTime() or 0
+        if now - (meterSaid[fs] or -99) > 10 then   -- why a row keeps its name (/mmt debug)
+            meterSaid[fs] = now
+            local classes = {}
+            for class, k in pairs(GroupedByClass()) do classes[#classes + 1] = class .. (k and "" or "(unsure)") end
+            ns.Debug("privacy: meter row left as it is - team classes in the group: %s", table.concat(classes, ", "))
+        end
+    end
+    if key then
+        local name = ns.ShownName(key)
+        local ok, cur = pcall(fs.GetText, fs)
+        if not (ok and not ns.IsSecret(cur) and cur == name) then SetQuietly(fs, name) end
+        meterSet[fs] = name
+    end
+    if not later and not meterPending[fs] then
+        meterPending[fs] = true
+        C_Timer.After(0, function()
+            meterPending[fs] = nil
+            if not Active() then return end
+            local ok, cur = pcall(fs.GetText, fs)
+            -- still the secret name, or the name we put there: again (the row may have changed)
+            if ok and (ns.IsSecret(cur) or cur == meterSet[fs]) then FixMeterRow(fs, true) end
+        end)
+    end
+    return true
+end
+ns.PrivacyMeter = { MemberForRow = MemberForRow, RowShowsClass = RowShowsClass, FixMeterRow = FixMeterRow }   -- (tests / debug)
+
 AfterSetText = function(fs, text)
     if busy or not Active() then return end
     if text == nil then text = fs:GetText() end
-    if type(text) ~= "string" or ns.IsSecret(text) then return end
+    if ns.IsSecret(text) then FixMeterRow(fs) return end
+    if type(text) ~= "string" then return end
     local new = ns.ReplaceNames(text)
     if new ~= text then
         tracked[fs] = { orig = text, shown = new }
