@@ -4,7 +4,7 @@
 local ADDON, ns = ...
 _G.MMT = ns
 ns.title = "MMT"
-ns.version = "1.1.5"
+ns.version = "1.1.6"
 ns.prefix = "MMT"
 ns.LOGO = "Interface\\AddOns\\MMT\\Media\\Logo"   -- the MMT mark (Media/Logo.tga)
 ns.ICON = "Interface\\AddOns\\MMT\\Media\\Icon"   -- the mark on a dark tile (Media/Icon.tga)
@@ -62,6 +62,43 @@ local PREFIX = "|cff4fb3ffMMT|r: "
 function ns.Print(fmt, ...)
     local msg = select("#", ...) > 0 and fmt:format(...) or tostring(fmt)
     DEFAULT_CHAT_FRAME:AddMessage(PREFIX .. msg)
+end
+
+-- "a", "a and b", "a, b and c"
+function ns.AndList(parts, sep)
+    if #parts <= 1 then return parts[1] or "" end
+    return table.concat(parts, ", ", 1, #parts - 1) .. (sep or " and ") .. parts[#parts]
+end
+
+-- Chat batches: several chat lines of one kind in a short time become one.
+-- local batch = ns.ChatBatch(seconds, function(entries) ... print ... end)
+-- batch.Add(entry): the first entry starts the timer; after `seconds` all
+-- entries collected go to the function together. batch.Remove(fn) drops the
+-- entries fn(entry) is true for; batch.Flush() prints right away.
+function ns.ChatBatch(seconds, flush)
+    local b, list, gen = {}, {}, 0
+    function b.Flush()
+        gen = gen + 1
+        local l = list
+        list = {}
+        if #l > 0 then
+            local ok, err = pcall(flush, l)
+            if not ok then ns.Debug("chat batch failed: %s", tostring(err)) end
+        end
+    end
+    function b.Add(e)
+        list[#list + 1] = e
+        if #list == 1 then
+            local mine = gen
+            C_Timer.After(seconds, function() if gen == mine then b.Flush() end end)
+        end
+    end
+    function b.Remove(fn)
+        for i = #list, 1, -1 do if fn(list[i]) then table.remove(list, i) end end
+        if #list == 0 then gen = gen + 1 end   -- the running timer is void
+    end
+    function b.Size() return #list end
+    return b
 end
 
 -- Debug lines go into a log (/mmt debug dump) and, optionally, to chat.

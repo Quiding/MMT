@@ -702,6 +702,14 @@ local function FlushSummary()
                 MMT.Print("%s %s %s%s", Yellow(g.label .. ":"), Yellow("Given"), GivenText(receivers),
                     rule and (" " .. Yellow("(Rule: " .. rule .. ")")) or "")
             end
+        elseif g.kind == "left" then
+            -- stays for manual assignment: Left in the loot window: [A], [B] (no room)
+            local items = {}
+            for _, e in ipairs(g.entries) do items[#items + 1] = e.link end
+            MMT.Print("%s %s %s", Yellow("Left in the loot window:"), ItemList(items), Yellow("(" .. g.label .. ")"))
+        elseif g.kind == "failed" then
+            MMT.Print("%s %s%s", Yellow("Not received (too far away or bags full?):"), (GivenText(receivers):gsub(" to ", " for ")),
+                Yellow(". Loot the corpse again: it goes to the next one, or to them again if nobody else can take it."))
         else   -- "norole" / "full": round robin or the master looter
             local what = g.kind == "full" and "role members full" or "no Role"
             MMT.Print("%s %s %s", Yellow("Given"), GivenText(receivers),
@@ -711,9 +719,9 @@ local function FlushSummary()
 end
 
 -- one hand-out for the summary; p = the plan entry
-local function AddToSummary(p)
+local function AddToSummary(p, always)
     local cfg = M.db
-    local wanted = (p.kind == "norole" or p.kind == "full") and (cfg.rrNotice or cfg.report) or cfg.report
+    local wanted = always or ((p.kind == "norole" or p.kind == "full") and (cfg.rrNotice or cfg.report) or cfg.report)
     if not wanted then return end
     summary[#summary + 1] = { kind = p.kind, label = p.label, rule = p.rule, link = p.link, key = p.key, slot = p.slot }
     if not summaryTimer then
@@ -747,7 +755,7 @@ local function CheckFailed()
         blocked[id][p.key] = GetTime()
         M:Debug("give failed: %s to %s (blocked for %d s)", p.link, MMT.Repr(p.key), BLOCK_TIME)
         RemoveFromSummary(p.link, p.key)
-        MMT.Print("%s couldn't receive %s (too far away or bags full?). Loot the corpse again: it goes to the next one, or to them again if nobody else can take it.", MMT.FullDisplay(p.key), p.link)
+        AddToSummary({ kind = "failed", link = p.link, key = p.key, slot = slot }, true)
         closing[slot] = nil
     end
 end
@@ -947,10 +955,10 @@ local function Plan(needOf)
                     if not MMT.IsSelf(key) then NoteGiven(key) end
                 else
                     M:Debug("left %s in the loot window (%s)", link, tostring(role))
-                    if cfg.report and role == "no space" then
-                        MMT.Print("%s |cffffd100stays in the loot window: the members of its role have no room.|r", link)
-                    elseif cfg.report and role == "no rule, nobody with room" then
-                        MMT.Print("%s |cffffd100stays in the loot window: no team member has room for it.|r", link)
+                    if role == "no space" then
+                        AddToSummary({ kind = "left", label = "its role's members have no room", link = link, slot = slot })
+                    elseif role == "no rule, nobody with room" then
+                        AddToSummary({ kind = "left", label = "no team member has room", link = link, slot = slot })
                     end
                 end
             end
@@ -1043,6 +1051,17 @@ function mod.KeepsRolls()
     return UnitIsGroupLeader("player") and true or false
 end
 
+-- "Passed on [A], [B]." for the rolls of 3 seconds
+local passed = MMT.ChatBatch(3, function(list)
+    local order, count = {}, {}
+    for _, link in ipairs(list) do
+        if not count[link] then order[#order + 1] = link count[link] = 0 end
+        count[link] = count[link] + 1
+    end
+    for i, link in ipairs(order) do if count[link] > 1 then order[i] = link .. "x" .. count[link] end end
+    MMT.Print("Passed on %s.", table.concat(order, ", "))
+end)
+
 M:On("START_LOOT_ROLL", function(rollID)
     local cfg = M.db
     if not (M.enabled and cfg.autoPass) or not rollID then return end
@@ -1054,7 +1073,7 @@ M:On("START_LOOT_ROLL", function(rollID)
         if not roll then return end
         local ok, err = pcall(roll, rollID, ROLL_PASS)
         M:Debug("pass on roll %s %s -> %s %s", tostring(rollID), tostring(link), tostring(ok), tostring(err or ""))
-        if ok and cfg.report and link then MMT.Print("Passed on %s.", link) end
+        if ok and cfg.report and link then passed.Add(link) end
     end)
 end)
 M:On("LOOT_CLOSED", function()

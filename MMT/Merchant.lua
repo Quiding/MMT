@@ -59,13 +59,61 @@ local function Tell(msg)
     if ns.db.merchant.tellLeader and ns.TellLeader then ns.TellLeader(msg) end
 end
 
+---------------------------------------------------------------------------
+-- Chat: one line per character and vendor visit
+--   Vendor: John sold 12 items for 1g 20s and repaired for 3g 10s
+-- r = { sold = { count, value }, repair = { cost, how = "o"|"g"|"x" },
+--       bought = { "20 x Water", ... }, short = { "20 x Water", ... } }
+---------------------------------------------------------------------------
+local RED = "|cffff6666"
+local function VisitLine(who, r, reportOn)
+    local parts = {}
+    if r.sold and reportOn then
+        local n = r.sold[1]
+        parts[#parts + 1] = ("sold %d %s for %s"):format(n, n == 1 and "item" or "items", ns.FormatMoney(r.sold[2]))
+    end
+    if r.repair then
+        if r.repair.how == "x" then
+            parts[#parts + 1] = RED .. ("couldn't repair (%s needed)"):format(ns.FormatMoney(r.repair.cost)) .. "|r"
+        elseif reportOn then
+            parts[#parts + 1] = ("repaired for %s%s"):format(ns.FormatMoney(r.repair.cost), r.repair.how == "g" and " (guild bank)" or "")
+        end
+    end
+    if r.bought and #r.bought > 0 and reportOn then parts[#parts + 1] = "bought " .. table.concat(r.bought, ", ") end
+    if r.short and #r.short > 0 then
+        parts[#parts + 1] = RED .. "not enough money to buy " .. table.concat(r.short, ", ") .. "|r"
+    end
+    if #parts == 0 then return end
+    ns.Print("Vendor: %s %s", who, ns.AndList(parts))
+end
+
+-- this character: collected while selling / repairing / buying, printed when all is done
+local own, ownGen = nil, 0
+local function OwnVisit()
+    own = own or {}
+    return own
+end
+local ownTicker   -- the sell ticker (below) still running: wait
+local function OwnFlush()
+    ownGen = ownGen + 1
+    local mine = ownGen
+    C_Timer.After(1, function()
+        if mine ~= ownGen or not own then return end
+        if ownTicker and ownTicker() then OwnFlush() return end   -- still selling
+        local r = own
+        own = nil
+        VisitLine(ns.ShownName(ns.PlayerFull()), r, ns.db.merchant.report)
+    end)
+end
+
 local function Report(count, value)
     if count == 0 then return end
-    if ns.db.merchant.report then
-        ns.Print("%d %s sold, %s made.", count, count == 1 and "item" or "items", ns.FormatMoney(value))
-    end
+    OwnVisit().sold = { count, value }
+    OwnFlush()
     Tell(("NOTE:SELL:%d:%d"):format(count, value))
 end
+
+ownTicker = function() return ticker ~= nil end
 
 local function SellGrey()
     if ticker then return end
@@ -102,19 +150,19 @@ local function Repair()
         local limit = GetGuildBankWithdrawMoney and GetGuildBankWithdrawMoney() or 0
         if limit == -1 or limit >= cost then
             RepairAllItems(true)
-            if m.report then ns.Print("Repaired for %s (guild bank).", ns.FormatMoney(cost)) end
+            OwnVisit().repair = { cost = cost, how = "g" } OwnFlush()
             Tell(("NOTE:REPAIR:%d:g"):format(cost))
             return
         end
     end
 
     if GetMoney() < cost then
-        ns.Print("Not enough money to repair (%s needed).", ns.FormatMoney(cost))
+        OwnVisit().repair = { cost = cost, how = "x" } OwnFlush()
         Tell(("NOTE:REPAIR:%d:x"):format(cost))
         return
     end
     RepairAllItems()
-    if m.report then ns.Print("Repaired for %s.", ns.FormatMoney(cost)) end
+    OwnVisit().repair = { cost = cost, how = "o" } OwnFlush()
     Tell(("NOTE:REPAIR:%d:o"):format(cost))
 end
 
@@ -173,7 +221,9 @@ local function BuyList()
                     if available and available >= 0 then need = math.min(need, available * stack) end
                     local cost = math.ceil(need / stack) * (price or 0)
                     if cost > GetMoney() then
-                        ns.Print("Not enough money to buy %d x %s.", need, name or ("item " .. id))
+                        local v = OwnVisit()
+                        v.short = v.short or {}
+                        v.short[#v.short + 1] = ("%d x %s"):format(need, name or ("item " .. id))
                         break
                     end
                     -- the game sells at most one max stack per call
@@ -190,7 +240,8 @@ local function BuyList()
             end
         end
     end
-    if #bought > 0 and m.report then ns.Print("Bought %s.", table.concat(bought, ", ")) end
+    if #bought > 0 then OwnVisit().bought = bought end
+    if own then OwnFlush() end
 end
 
 ns.On("MERCHANT_SHOW", function()
@@ -205,17 +256,27 @@ ns.On("MERCHANT_CLOSED", function()
     merchantOpen = false
 end)
 
--- the leader's client: notes from the team
+-- the leader's client: notes from the team (NOTE:SELL and NOTE:REPAIR), one line
+-- per character: when both arrived, else 4 seconds after the first
+local visits = {}   -- [key] = { r, gen }
+local function TeamFlush(key)
+    local v = visits[key]
+    visits[key] = nil
+    if v then VisitLine(ns.ShownName(key), v.r, true) end
+end
 ns.Listen("TEAM_MESSAGE", function(key, sender, text, _, channel)
     local kind, a, b = text:match("^NOTE:(%u+):(%d+):?(%w*)")
-    if not kind or not ns.AcceptNotice(channel) then return end
-    local who = ns.ShownName(key)
-    if kind == "SELL" then
-        local count = tonumber(a)
-        ns.Print("%s sold %d grey %s for %s.", who, count, count == 1 and "item" or "items", ns.FormatMoney(tonumber(b) or 0))
-    elseif kind == "REPAIR" then
-        local cost = ns.FormatMoney(tonumber(a))
-        if b == "x" then ns.Print("|cffff6666%s doesn't have enough money to repair (%s needed).|r", who, cost)
-        else ns.Print("%s repaired for %s%s.", who, cost, b == "g" and " (guild bank)" or "") end
+    if not (kind == "SELL" or kind == "REPAIR") or not ns.AcceptNotice(channel) then return end
+    local v = visits[key]
+    if not v then
+        v = { r = {} }
+        visits[key] = v
+        C_Timer.After(4, function() if visits[key] == v then TeamFlush(key) end end)
     end
+    if kind == "SELL" then
+        v.r.sold = { tonumber(a) or 0, tonumber(b) or 0 }
+    else
+        v.r.repair = { cost = tonumber(a) or 0, how = (b == "x" or b == "g") and b or "o" }
+    end
+    if v.r.sold and v.r.repair then TeamFlush(key) end
 end)

@@ -78,17 +78,35 @@ local function Take(name, fromKey)
     if ok then Tell(true, name) end
 end
 
--- the leader's client: notes from the team
+-- the leader's client: notes from the team, collected for 3 seconds:
+--   Taxi: John and Monika fly to Ironforge too.
+--   Taxi: Apple can't fly to Ironforge: that flight path isn't known there.
+local taxiNotes = ns.ChatBatch(3, function(list)
+    local groups, at = {}, {}
+    for _, e in ipairs(list) do
+        local id = e.why .. "\1" .. e.name
+        local g = at[id]
+        if not g then g = { why = e.why, name = e.name, who = {} } groups[#groups + 1] = g at[id] = g end
+        g.who[#g.who + 1] = e.who
+    end
+    for _, g in ipairs(groups) do
+        if g.why == "ok" then
+            ns.Print("Taxi: %s %s to %s too.", ns.AndList(g.who), #g.who == 1 and "flies" or "fly", g.name)
+        else
+            ns.Print("|cffff6666Taxi: %s can't fly to %s: %s.|r", ns.AndList(g.who), g.name,
+                g.why == "u" and "it can't be reached from there" or "that flight path isn't known there")
+        end
+    end
+end)
 ns.Listen("TEAM_MESSAGE", function(key, sender, text, _, channel)
     local okFlag, rest = text:match("^NOTE:TAXI:([01]):(.+)$")
     if not okFlag or not ns.AcceptNotice(channel) then return end
     local who = ns.ShownName(key)
     if okFlag == "1" then
-        ns.Print("%s flies to %s too.", who, rest)
+        taxiNotes.Add({ why = "ok", name = rest, who = who })
     else
         local why, name = rest:match("^(%a):(.+)$")
-        ns.Print("|cffff6666%s can't fly to %s: %s.|r", who, name or rest,
-            why == "u" and "it can't be reached from there" or "that flight path isn't known there")
+        taxiNotes.Add({ why = why == "u" and "u" or "k", name = name or rest, who = who })
     end
 end)
 

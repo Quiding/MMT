@@ -128,9 +128,23 @@ function ns.MailSkip(id, off) skip[id] = off or nil end   -- for tests / the win
 
 local Redraw   -- the window (below)
 
+-- what was sent, one chat line at the end: "Mail to team: 3 items to John, 2g to Monika."
+local sent = {}
+local function SentText()
+    local parts = {}
+    for _, m in ipairs(sent) do parts[#parts + 1] = m.what .. " to " .. m.who end
+    sent = {}
+    return ns.AndList(parts)
+end
+
 local function SendNext()
     if not mailOpen or not queue or #queue == 0 then
-        if queue and #queue == 0 then ns.Print("Mail to team: done.") end
+        if queue and #queue == 0 then
+            local text = SentText()
+            ns.Print("Mail to team: %s.", text ~= "" and ("sent " .. text) or "done")
+        elseif #sent > 0 then
+            ns.Print("Mail to team: stopped (mailbox closed); sent %s.", SentText())
+        end
         queue, sending = nil, false
         if Redraw then Redraw() end
         return
@@ -155,7 +169,7 @@ local function SendNext()
     ns.Debug("mail: %s -> %s (%d items, %s copper) postage %s (estimate %d) %s %s", subject, ns.Repr(mail.to), n,
         tostring(mail.money or 0), tostring(price), Postage(mail), tostring(ok), tostring(err or ""))
     if ok then
-        ns.Print("Mailing %s to %s.", mail.money and ns.FormatMoney(mail.money) or (n .. (n == 1 and " item" or " items")), ns.ShownName(mail.key))
+        sent[#sent + 1] = { what = mail.money and ns.FormatMoney(mail.money) or (n .. (n == 1 and " item" or " items")), who = ns.ShownName(mail.key) }
     else
         sending = false
     end
@@ -166,7 +180,8 @@ ns.On("MAIL_SEND_SUCCESS", function() if sending then sending = false C_Timer.Af
 ns.On("MAIL_FAILED", function()
     if sending then
         sending = false
-        ns.Print("|cffff6666A mail could not be sent; stopped.|r")
+        local text = #sent > 0 and SentText() or nil
+        ns.Print("|cffff6666Mail to team: a mail could not be sent; stopped.|r%s", text and (" Sent before: " .. text .. ".") or "")
         queue = nil
         ClearSendMail()
         if Redraw then Redraw() end
@@ -391,6 +406,7 @@ local function DepositAll()
     end
     if SetCurrentGuildBankTab then pcall(SetCurrentGuildBankTab, cfg.tab or 1) end
     local i = 0
+    local deposited = {}
     local function Next()
         i = i + 1
         local it = items[i]
@@ -399,10 +415,11 @@ local function DepositAll()
                 local spare = GetMoney() - (cfg.keepGold or 0) * 10000
                 if spare > 0 then
                     pcall(DepositGuildBankMoney, spare)
-                    ns.Print("Deposited %s into the guild bank.", ns.FormatMoney(spare))
+                    deposited[#deposited + 1] = ns.FormatMoney(spare)
                 end
             end
-            if #items > 0 then ns.Print("Deposited %d %s into guild bank tab %d.", #items, #items == 1 and "item" or "items", cfg.tab or 1) end
+            if #items > 0 then deposited[#deposited + 1] = ("%d %s into tab %d"):format(#items, #items == 1 and "item" or "items", cfg.tab or 1) end
+            if #deposited > 0 then ns.Print("Guild bank: deposited %s.", ns.AndList(deposited)) end
             return
         end
         local info = C_Container.GetContainerItemInfo(it.bag, it.slot)

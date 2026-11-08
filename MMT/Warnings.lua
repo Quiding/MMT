@@ -7,7 +7,8 @@
 --   NOTE:WARN:QLOG:<quests>:<maximum>
 -- Each warns once when it crosses the limit, and once more when it is
 -- completely full; it warns again only after there was room again.
--- On the leader's client: a chat line, optionally a raid warning and sound.
+-- On the leader's client: a chat line, optionally a raid warning and sound;
+-- warnings arriving within 2 seconds share one line.
 
 local _, ns = ...
 
@@ -18,36 +19,47 @@ local function Cfg() return ns.db and ns.db.warn end
 ---------------------------------------------------------------------------
 local RAID_WARNING_SOUND = (SOUNDKIT and SOUNDKIT.RAID_WARNING) or 8959
 
-local function Show(text)
-    if not ns.AlertAllowed("warn", text) then return end
+-- warnings arriving within 2 seconds become one line (and one raid warning / sound):
+--   Bags: John full, Monika 2 free.  Quest log: Apple full (25/25).
+local function Show(list)
     local cfg = Cfg()
+    local bags, quests = {}, {}
+    for _, w in ipairs(list) do
+        if w.kind == "BAGS" then
+            bags[#bags + 1] = w.who .. " " .. (w.a == 0 and "full" or (w.a .. " free"))
+        else
+            quests[#quests + 1] = ("%s %s (%d/%d)"):format(w.who, w.a >= w.b and "full" or "almost full", w.a, w.b)
+        end
+    end
+    local lines = {}
+    if #bags > 0 then lines[#lines + 1] = "Bags: " .. ns.AndList(bags) .. "." end
+    if #quests > 0 then lines[#lines + 1] = "Quest log: " .. ns.AndList(quests) .. "." end
+    if #lines == 0 then return end
+    local text = table.concat(lines, "  ")
     ns.Print("|cffffa020%s|r", text)
     if cfg.raidWarning and RaidNotice_AddMessage and RaidWarningFrame then
         pcall(RaidNotice_AddMessage, RaidWarningFrame, text, { r = 1, g = 0.63, b = 0.13 })
     end
     if cfg.sound then pcall(PlaySound, RAID_WARNING_SOUND, "Master") end
 end
+local warnings = ns.ChatBatch(2, Show)
 
-local function Text(key, kind, a, b)
-    local who = ns.ShownName(key)
-    if kind == "BAGS" then
-        if a == 0 then return ("%s's bags are full."):format(who) end
-        return ("%s has only %d free bag %s."):format(who, a, a == 1 and "slot" or "slots")
-    end
-    if a >= b then return ("%s's quest log is full (%d/%d)."):format(who, a, b) end
-    return ("%s's quest log is almost full (%d/%d)."):format(who, a, b)
+local function Add(key, kind, a, b)
+    -- the same warning about the same character at most once every few seconds
+    if not ns.AlertAllowed("warn", ("%s:%s:%s:%s"):format(key, kind, a, tostring(b))) then return end
+    warnings.Add({ who = ns.ShownName(key), kind = kind, a = a, b = b or 0 })
 end
 
 ns.Listen("TEAM_MESSAGE", function(key, sender, text, _, channel)
     local kind, a, b = text:match("^NOTE:WARN:(%u+):(%d+):?(%d*)$")
     if not kind or not ns.AcceptNotice(channel) then return end
-    Show(Text(key, kind, tonumber(a), tonumber(b)))
+    Add(key, kind, tonumber(a), tonumber(b))
 end)
 
 local function Report(kind, a, b)
     local msg = ("NOTE:WARN:%s:%d%s"):format(kind, a, b and (":" .. b) or "")
     local result = ns.TellLeader and ns.TellLeader(msg)
-    if result == "self" then Show(Text(ns.PlayerFull(), kind, a, b)) end
+    if result == "self" then Add(ns.PlayerFull(), kind, a, b) end
 end
 
 ---------------------------------------------------------------------------

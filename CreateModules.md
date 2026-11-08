@@ -121,6 +121,12 @@ A new or changed `Bindings.xml` is only read at a full game restart.
 | `M.OnSyncReceived(m, from)` | After team settings arrived (with `sync = true`) |
 | `M:SyncToTeam()`, `M:SyncButton(frame)` | Send the settings, or add the button to a frame of your own |
 
+Chat output: `MMT.Print(fmt, ...)` writes a line with the MMT prefix. Several lines of one
+kind in a short time should become one: `local b = MMT.ChatBatch(seconds, function(list) ... end)`,
+then `b.Add(entry)` for each; the first entry starts the timer, and after `seconds` the function
+gets every entry collected (`b.Flush()` prints right away, `b.Remove(fn)` drops entries).
+`MMT.AndList({ "a", "b", "c" })` gives "a, b and c".
+
 With `sync = true`, the core adds a "Sync to team" button to `M.Page` and the command
 `/mmt sync <name>`. Only `M.db` is sent, never `M.store`.
 

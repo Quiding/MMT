@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 1.1.4: core addon (MMT) plus optional modules (MMT_*).
+Version 1.1.6: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -413,7 +413,8 @@ Saved data from MMT 0.1.x is converted automatically.
   - "Take flight paths with the team": when a team member picks a destination at a
     flight master, every team member talking to a flight master too (flight map open, or
     opened within 5 seconds) flies to the same destination (as in EMA). "Tell the
-    leader": the leader's chat shows who took the flight too or couldn't.
+    leader": the leader's chat shows who took the flight too or couldn't (one line for
+    everybody within 3 seconds: "Taxi: John and Monika fly to Ironforge too.").
   - "Mount up / Dismount with the leader": when the leader mounts, the team mounts the
     same mount (or one of the same kind, or a random favourite); when it dismounts, the
     team dismounts (never in the air). Hold Shift to ride alone.
@@ -426,7 +427,8 @@ Saved data from MMT 0.1.x is converted automatically.
   The leader is the FTL leader; without one online, the group leader if in the team, else the first online team member (team order).
 - **Trade / Mail / Vendor** (tiles: Vendor: Buy & Sell, Trading, Bank & Mailing):
   - Vendor: repair (optionally with guild funds), sell grey items, print results, tell
-    the leader (sales and repairs of the other characters), money format.
+    the leader (sales and repairs of the other characters), money format. One chat line
+    per character and visit: "Vendor: John sold 12 items for 1g 20s and repaired for 3g".
   - Sell list / never-sell list: roles from the Roles page (items and rules: item,
     quality, Bind on Equip, item group). Items of the sell list are sold too; the
     never-sell list wins, greys included.

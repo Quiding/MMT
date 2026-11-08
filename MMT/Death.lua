@@ -117,14 +117,23 @@ ns.Listen("TEAM_MESSAGE", function(key, sender, text)
     elseif text == "REVIVE" and cfg.revive then ReviveHere() end
 end)
 
--- the leader's chat: who can't (yet)
+-- the leader's chat: who can't (yet), collected for 2 seconds:
+--   Can't release during a boss fight: John and Monika.
+--   Revive (corpse delay): John in 12 s and Monika in 15 s.
+local deathNotes = ns.ChatBatch(2, function(list)
+    local by = { e = {}, a = {}, w = {} }
+    for _, n in ipairs(list) do
+        local t = by[n.why]
+        if t then t[#t + 1] = n.why == "w" and (n.who .. " in " .. n.seconds .. " s") or n.who end
+    end
+    if #by.e > 0 then ns.Print("|cffff6666Can't release during a boss fight: %s.|r", ns.AndList(by.e)) end
+    if #by.a > 0 then ns.Print("|cffff6666Not at the corpse: %s.|r", ns.AndList(by.a)) end
+    if #by.w > 0 then ns.Print("Revive (corpse delay): %s.", ns.AndList(by.w)) end
+end)
 ns.Listen("TEAM_MESSAGE", function(key, sender, text, _, channel)
     local seconds, why = text:match("^NOTE:DEATH:(%d+):(%a)$")
     if not why or not ns.AcceptNotice(channel) then return end
-    local who = ns.ShownName(key)
-    if why == "e" then ns.Print("|cffff6666%s can't release during a boss fight.|r", who)
-    elseif why == "a" then ns.Print("|cffff6666%s isn't at the corpse.|r", who)
-    elseif why == "w" then ns.Print("%s revives in %s seconds (corpse delay).", who, seconds) end
+    deathNotes.Add({ why = why, who = ns.ShownName(key), seconds = seconds })
 end)
 
 local function ReleaseTeam()

@@ -119,8 +119,35 @@ local function Progress()
     if ns.UI and ns.UI.UpdateSyncButtons then ns.UI.UpdateSyncButtons() end
 end
 
+-- answers of the recipients, collected for 3 seconds: one line per answer
+--   John, Monika and Apple received the core settings completely.
+local ACK_TEXT = {
+    RECV    = function(l) return OK .. "received|r the " .. l .. " completely." end,
+    ACCEPT  = function(l) return OK .. "accepted|r the " .. l .. "." end,
+    DECLINE = function(l) return BAD .. "declined|r the " .. l .. "." end,
+    NOMOD   = function(l) return BAD .. "can't use|r the " .. l .. ": that module isn't loaded there." end,
+    FAIL    = function(l, d) return BAD .. "received only " .. (d ~= "" and d or "some") .. " parts|r of the " .. l .. ". Send it again." end,
+    BAD     = function(l) return BAD .. "could not read|r the " .. l .. "." end,
+}
+local acks = ns.ChatBatch(3, function(list)
+    local groups, at = {}, {}
+    for _, e in ipairs(list) do
+        local id = e.base .. "\1" .. e.detail .. "\1" .. e.label
+        local g = at[id]
+        if not g then g = { base = e.base, detail = e.detail, label = e.label, who = {} } groups[#groups + 1] = g at[id] = g end
+        g.who[#g.who + 1] = e.who
+    end
+    for _, g in ipairs(groups) do
+        ns.Print("%s %s", ns.AndList(g.who), ACK_TEXT[g.base](g.label, g.detail))
+    end
+end)
+local function Ack(base, who, label, detail)
+    acks.Add({ base = base, who = who, label = label, detail = base == "FAIL" and (detail or "") or "" })
+end
+
 local function ReportMissing(s)
     if s.reported then return end
+    acks.Flush()   -- the answers first, then the summary
     s.reported = true
     local missing = {}
     for _, nk in ipairs(s.order) do
@@ -321,10 +348,10 @@ local function OnAck(key, sender, id, status)
     local base, detail = status:match("^(%u+):?(.*)$")
     if base == "RECV" then
         s.answers[nk] = s.answers[nk] or "RECV"
-        ns.Print("%s %sreceived|r the %s completely.", who, OK, s.label)
+        Ack("RECV", who, s.label)
     elseif base == "ACCEPT" then
         s.answers[nk] = "ACCEPT"
-        ns.Print("%s %saccepted|r the %s.", who, OK, s.label)
+        Ack("ACCEPT", who, s.label)
         if detail == "R" then
             s.reload = s.reload or {}
             if not s.reloadSeen then s.reloadSeen = {} end
@@ -347,16 +374,16 @@ local function OnAck(key, sender, id, status)
         end
     elseif base == "DECLINE" then
         s.answers[nk] = "DECLINE"
-        ns.Print("%s %sdeclined|r the %s.", who, BAD, s.label)
+        Ack("DECLINE", who, s.label)
     elseif base == "NOMOD" then
         s.answers[nk] = "NOMOD"
-        ns.Print("%s %scan't use|r the %s: that module isn't loaded there.", who, BAD, s.label)
+        Ack("NOMOD", who, s.label)
     elseif base == "FAIL" then
         s.answers[nk] = "FAIL"
-        ns.Print("%s %sreceived only %s parts|r of the %s. Send it again.", who, BAD, detail ~= "" and detail or "some", s.label)
+        Ack("FAIL", who, s.label, detail)
     elseif base == "BAD" then
         s.answers[nk] = "BAD"
-        ns.Print("%s %scould not read|r the %s.", who, BAD, s.label)
+        Ack("BAD", who, s.label)
     else
         return
     end
