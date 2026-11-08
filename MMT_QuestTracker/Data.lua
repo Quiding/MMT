@@ -449,6 +449,8 @@ local function FlaggedCompleted(id)
     return ok and done == true
 end
 
+mod.FlaggedCompleted = FlaggedCompleted
+
 -- this character's completed quests among the team's open ones
 local function OwnDone()
     local me = MMT.PlayerFull()

@@ -454,15 +454,28 @@ local function RowTooltip(row)
     if e.kind == "quest" then
         GameTooltip:SetText(("[%s] %s"):format(tostring(e.level or "?"), e.title), 1, 0.82, 0)
         GameTooltip:AddLine(e.zone, 0.7, 0.7, 0.7)
-        if not e.mine then GameTooltip:AddLine("You don't have this quest.", 1, 0.5, 0.5) end
+        -- done: this character from its own quest flags, the others from what they sent (QTC)
+        local function Done(key)
+            if MMT.IsSelf(key) then return mod.FlaggedCompleted and mod.FlaggedCompleted(e.questID) end
+            return mod.CompletedBy(key, e.questID)
+        end
+        if not e.mine then
+            if Done(MMT.PlayerFull()) then GameTooltip:AddLine("You already completed this quest.", 0.5, 1, 0.5)
+            else GameTooltip:AddLine("You don't have this quest.", 1, 0.5, 0.5) end
+        end
         local data = mod.AllData()
-        local have, total = 0, 0
+        local have, total, done, missing = 0, 0, {}, {}
         for _, key in ipairs(Members()) do
             total = total + 1
             local q = data[key] and data[key].quests[e.questID]
-            if q then have = have + 1 end
+            if q then have = have + 1
+            elseif MMT.IsSelf(key) then   -- said above
+            elseif Done(key) then done[#done + 1] = MMT.ShownName(key)
+            else missing[#missing + 1] = MMT.ShownName(key) end
         end
         GameTooltip:AddLine(("%d of %d shown team members are on it."):format(have, total), 1, 1, 1)
+        if #done > 0 then GameTooltip:AddLine("Already completed: " .. MMT.AndList(done), 0.5, 1, 0.5, true) end
+        if #missing > 0 then GameTooltip:AddLine("Missing: " .. MMT.AndList(missing), 1, 0.5, 0.5, true) end
         GameTooltip:AddLine(" ")
         if e.mine then
             GameTooltip:AddLine("Click: open in the quest log", 0.5, 0.5, 0.5)
