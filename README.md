@@ -312,8 +312,12 @@ Saved data from MMT 0.1.x is converted automatically.
   Items are recognised as quest items by the loot window or by their item class.
   "No role wants it": leave for manual assignment, give to the master looter, or
   "Round robin to the team" (in turns, keeping the reserve; not for quest items or
-  Bind on Pickup). "Say so in chat" prints "[Item] is not part of any role or rule,
-  so it was given round robin to <Name>." (only for you).
+  Bind on Pickup). Chat report (only for you): items given are collected for 5 seconds
+  and printed together, one line per group: "Given [A], [B] to <Name> (Role)"; several
+  members of a role: "Role: Given [A] to <Name1> and [B] to <Name2> (Rule: RR)"; quest
+  items: "Quest Item: [A] to <Name1>x2 and <Name2>x1"; no role: "Given [A] to <Name1>
+  and [B] to <Name2> (no Role; Rule: RR)" ("Say so in chat"). RR = round robin, Fill Up
+  = by team order, ML prio = master looter first, ML = given to the master looter.
   "Automatically pass on loot rolls" (off by default): with Group Loot or Need before
   Greed every character passes on its rolls, except the group leader or, if chosen, the
   FTL leader (the character you play), who rolls as usual.

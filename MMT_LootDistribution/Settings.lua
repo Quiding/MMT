@@ -112,9 +112,9 @@ M.Page = function(_, page)
     }, gu, su)
     local grr, srr = Opt("rrNotice")
     masterOnly[#masterOnly + 1] = R:Check("Say so in chat (round robin)", grr, srr,
-        "Prints \"[Item] is not part of any role or rule, so it was given round robin to <Name>.\" (only for you). Round robin keeps the free bag slots above; quest items are never part of it.")
+        "Prints the items no role wants and where they went (only for you), e.g. \"Given [Item1], [Item2] to <Name1> and [Item3] to <Name2> (no Role; Rule: RR)\". Round robin keeps the free bag slots above; quest items are never part of it.")
     local grep, srep = Opt("report")
-    masterOnly[#masterOnly + 1] = R:Check("Report in chat", grep, srep, "Prints each item given and the loot settings that were applied (only for you).")
+    masterOnly[#masterOnly + 1] = R:Check("Report in chat", grep, srep, "Prints the items given and the loot settings that were applied (only for you). Items are collected for 5 seconds and printed together, one line per role (\"Given [Item1], [Item2] to <Name> (Role)\"), per quest item (\"Quest Item: [Item] to <Name1>x2 and <Name2>x1\") and for items without a role. RR = round robin, Fill Up = by team order, ML prio = master looter first.")
     masterOnly[#masterOnly + 1] = R:Note("Bind on Pickup items are never given out or looted: they are posted in group chat, and the master looter assigns them by hand. Items without loaded item data are left alone, too.")
     local hint = R:Note("")
 

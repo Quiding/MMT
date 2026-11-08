@@ -620,12 +620,133 @@ M:On("LOOT_SLOT_CLEARED", function(slot)
     C_Timer.After(0, CloseAssignWindow)
 end)
 
+---------------------------------------------------------------------------
+-- Chat summary of hand-outs: the first item given starts a 5 second window;
+-- everything given in it is printed together, grouped:
+--   one member of a role:   Given [A], [B] to Name (Role)
+--   several of a role:      Role: Given [A] to Name1 and [B] to Name2 (Rule: Fill Up)
+--   quest items:            Quest Item: [A] to Name1x2 and Name2x1
+--   no role (round robin):  Given [A] to Name1 and [B] to Name2 (no Role; Rule: RR)
+-- A hand-out the game refuses (CheckFailed) is taken out again.
+---------------------------------------------------------------------------
+local SUMMARY_DELAY = 5
+local RULE_TEXT = { FILL = "Fill Up", RR = "RR", ML = "ML prio", SELF = "ML" }
+local summary, summaryTimer = {}, false
+
+local function Yellow(text) return "|cffffd100" .. text .. "|r" end
+
+-- [A], [B]x2 for one receiver (repeats of an item counted)
+local function ItemList(items)
+    local order, count = {}, {}
+    for _, link in ipairs(items) do
+        if not count[link] then order[#order + 1] = link count[link] = 0 end
+        count[link] = count[link] + 1
+    end
+    for i, link in ipairs(order) do
+        if count[link] > 1 then order[i] = link .. "x" .. count[link] end
+    end
+    return table.concat(order, ", ")
+end
+
+-- "x and y", "x, y and z"
+local function AndList(parts)
+    if #parts <= 1 then return parts[1] or "" end
+    return table.concat(parts, ", ", 1, #parts - 1) .. Yellow(" and ") .. parts[#parts]
+end
+
+-- entries -> receivers in order of first appearance: { { key, items = { link, ... } }, ... }
+local function ByReceiver(entries)
+    local list, at = {}, {}
+    for _, e in ipairs(entries) do
+        local r = at[e.key]
+        if not r then r = { key = e.key, items = {} } list[#list + 1] = r at[e.key] = r end
+        r.items[#r.items + 1] = e.link
+    end
+    return list
+end
+
+-- "[A], [B] to Name1 and [C] to Name2"
+local function GivenText(receivers)
+    local parts = {}
+    for _, r in ipairs(receivers) do
+        parts[#parts + 1] = ItemList(r.items) .. Yellow(" to ") .. MMT.FullDisplay(r.key)
+    end
+    return AndList(parts)
+end
+
+local function FlushSummary()
+    summaryTimer = false
+    local entries = summary
+    summary = {}
+    if #entries == 0 then return end
+    -- groups in order of first appearance: one per role / reason / rule / quest item
+    local groups, at = {}, {}
+    for _, e in ipairs(entries) do
+        local id = e.kind .. "\1" .. (e.label or "") .. "\1" .. (e.rule or "")
+        local g = at[id]
+        if not g then g = { kind = e.kind, label = e.label, rule = e.rule, entries = {} } groups[#groups + 1] = g at[id] = g end
+        g.entries[#g.entries + 1] = e
+    end
+    for _, g in ipairs(groups) do
+        local receivers = ByReceiver(g.entries)
+        if g.kind == "quest" then
+            -- per quest item: Quest Item: [A] to Name1x2 and Name2x1
+            local parts = {}
+            for _, r in ipairs(receivers) do parts[#parts + 1] = MMT.FullDisplay(r.key) .. "x" .. #r.items end
+            MMT.Print("%s %s%s %s", Yellow("Quest Item:"), g.label, Yellow(" to"), AndList(parts))
+        elseif g.kind == "role" or g.kind == "chooser" then
+            if #receivers == 1 then
+                MMT.Print("%s %s %s", Yellow("Given"), GivenText(receivers), Yellow("(" .. g.label .. ")"))
+            else
+                local rule = g.kind == "role" and RULE_TEXT[M.db.multiRole] or nil
+                MMT.Print("%s %s %s%s", Yellow(g.label .. ":"), Yellow("Given"), GivenText(receivers),
+                    rule and (" " .. Yellow("(Rule: " .. rule .. ")")) or "")
+            end
+        else   -- "norole" / "full": round robin or the master looter
+            local what = g.kind == "full" and "role members full" or "no Role"
+            MMT.Print("%s %s %s", Yellow("Given"), GivenText(receivers),
+                Yellow(("(%s; Rule: %s)"):format(what, RULE_TEXT[g.rule] or g.rule or "?")))
+        end
+    end
+end
+
+-- one hand-out for the summary; p = the plan entry
+local function AddToSummary(p)
+    local cfg = M.db
+    local wanted = (p.kind == "norole" or p.kind == "full") and (cfg.rrNotice or cfg.report) or cfg.report
+    if not wanted then return end
+    summary[#summary + 1] = { kind = p.kind, label = p.label, rule = p.rule, link = p.link, key = p.key, slot = p.slot }
+    if not summaryTimer then
+        summaryTimer = true
+        C_Timer.After(SUMMARY_DELAY, FlushSummary)
+    end
+end
+
+-- the game refused it: not part of the summary
+local function RemoveFromSummary(link, key)
+    for i = #summary, 1, -1 do
+        local e = summary[i]
+        if e.link == link and e.key == key then table.remove(summary, i) return end
+    end
+end
+
+-- what a plan entry is, for the summary: kind, label, rule
+local function Classify(role, rr, fromHook)
+    if fromHook then return "chooser", role or "loot chooser" end
+    if rr then return "norole", nil, "RR" end
+    if role == nil then return "norole", nil, "SELF" end
+    if role == "role members full, round robin" then return "full", nil, "RR" end
+    if role == "role members full" then return "full", nil, "SELF" end
+    return "role", role
+end
+
 local function CheckFailed()
     for slot, p in pairs(closing) do
         local id = ItemID(p.link)
         blocked[id] = blocked[id] or {}
         blocked[id][p.key] = GetTime()
         M:Debug("give failed: %s to %s (blocked for %d s)", p.link, MMT.Repr(p.key), BLOCK_TIME)
+        RemoveFromSummary(p.link, p.key)
         MMT.Print("%s couldn't receive %s (too far away or bags full?). Loot the corpse again: it goes to the next one, or to them again if nobody else can take it.", MMT.FullDisplay(p.key), p.link)
         closing[slot] = nil
     end
@@ -801,7 +922,8 @@ local function Plan(needOf)
         elseif slotType == ITEM_SLOT and link and not locked and isQuestItem and cfg.questRR and bind ~= BOP then
             local key, index = NextQuestReceiver(slot, link, planned, needOf)
             if key then
-                plan[#plan + 1] = { slot = slot, link = link, key = key, index = index, role = "quest, round robin" }
+                plan[#plan + 1] = { slot = slot, link = link, key = key, index = index, role = "quest, round robin",
+                    kind = "quest", label = link }
                 planned[key] = (planned[key] or 0) + 1
                 if not MMT.IsSelf(key) then NoteGiven(key) end
             else
@@ -815,9 +937,12 @@ local function Plan(needOf)
                 M:Debug("left %s: item data not loaded yet, can't rule out Bind on Pickup", link)
             else
                 local key, index, role, rr = ChooseByHook(slot, link, planned, isQuestItem)
+                local fromHook = key ~= nil
                 if not key then key, index, role, rr = Choose(slot, link, planned, isQuestItem) end
                 if key then
-                    plan[#plan + 1] = { slot = slot, link = link, key = key, index = index, role = role, rr = rr }
+                    local kind, label, rule = Classify(role, rr, fromHook)
+                    plan[#plan + 1] = { slot = slot, link = link, key = key, index = index, role = role, rr = rr,
+                        kind = kind, label = label, rule = rule }
                     planned[key] = (planned[key] or 0) + 1
                     if not MMT.IsSelf(key) then NoteGiven(key) end
                 else
@@ -840,12 +965,7 @@ local function Plan(needOf)
                 GiveMasterLoot(p.slot, p.index)
                 C_Timer.After(0.2, CloseAssignWindow)
                 M:Debug("GiveMasterLoot(%d, %d) %s -> %s", p.slot, p.index, p.link, MMT.Repr(p.key))
-                if p.rr and cfg.rrNotice then
-                    MMT.Print("%s |cffffd100is not part of any role or rule, so it was given round robin to|r %s|cffffd100.|r",
-                        p.link, MMT.FullDisplay(p.key))
-                elseif cfg.report then
-                    MMT.Print("Gave %s to %s%s.", p.link, MMT.FullDisplay(p.key), p.role and (" (" .. p.role .. ")") or "")
-                end
+                AddToSummary(p)   -- printed together after 5 seconds
             end
             if i == #plan then busy = false end
         end)
