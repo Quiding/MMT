@@ -16,7 +16,7 @@ local M = mod.M
 -- The XP of a member (the piece and the bars)
 ---------------------------------------------------------------------------
 function mod.QuestXPOf(key, s)
-    if not M.enabled or not M.db.questXP then return 0 end
+    if not M.enabled then return 0 end   -- on / off: the piece itself (Info Window page)
     if not s or s.isMax or (s.max or 0) <= 0 then return 0 end
     return MMT.TurnInXP and tonumber(MMT.TurnInXP(key, s)) or 0
 end
@@ -43,8 +43,8 @@ end
 MMT.RegisterXPPiece{
     id = "questxp", title = "Completed quest XP (%)", side = "RIGHT", on = true, before = "rep",
     sample = Hex(1, 0.8, 0.4) .. "Q 20%|r",
-    tip = "XP of the quests ready to turn in, in percent of the current level, e.g. Q 20% (over 100%: enough for the next level). Also shaded on the bar after the XP, in its own colour (cogwheel, or Quest Tracker > Quest XP).",
-    -- the cogwheel in "Column Visibility & Order": the same settings as the Quest XP tab
+    tip = "XP of the quests ready to turn in, in percent of the current level, e.g. Q 20% (over 100%: enough for the next level). Also shaded on the bar after the XP, in its own colour (cogwheel). Switching the column off also removes the shade. The XP is added up by MMT on every character (needs MMT 1.1.0 or newer on teammates).",
+    -- the cogwheel in "Column Visibility & Order": the only place for these settings
     options = {
         { "Color", "Colour on the bar",
             function() local r, g, b = Colour() return { r = r, g = g, b = b } end,
@@ -52,7 +52,7 @@ MMT.RegisterXPPiece{
         { "Slider", "Opacity on the bar", 0.1, 1, 0.05,
             function() return M.db.questXPAlpha or 0.55 end,
             function(v) M.db.questXPAlpha = v Refresh() end, "%.2f" },
-        { "Note", "The Q % text uses a lighter shade of the same colour. Also in Quest Tracker > Quest XP." },
+        { "Note", "The Q % text uses a lighter shade of the same colour." },
     },
     text = function(key, s)
         if MMT.db.xp.barMode == "REP" then return nil end
@@ -79,6 +79,6 @@ function mod.OnDisableQuestXP()
 end
 
 function mod.QuestXPReport()
-    return ("quest XP: on=%s turn-in XP=%s (core; per quest: \"-- Level up\" in /mmt debug dump)"):format(
-        tostring(M.db.questXP), tostring(MMT.TurnInXP and MMT.TurnInXP(MMT.PlayerFull() or "") or "no MMT.TurnInXP"))
+    return ("quest XP: piece on=%s turn-in XP=%s (core; per quest: \"-- Level up\" in /mmt debug dump)"):format(
+        tostring(MMT.XPPieceOn and MMT.XPPieceOn("questxp")), tostring(MMT.TurnInXP and MMT.TurnInXP(MMT.PlayerFull() or "") or "no MMT.TurnInXP"))
 end

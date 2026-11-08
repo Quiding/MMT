@@ -37,8 +37,7 @@ local M = MMT.NewModule({
         announceStarter = true,   -- "Looted [Item] - it starts a quest!" in party chat
         markRewards     = true,   -- coin on the best-selling reward, arrow on upgrades
 
-        -- completed quest XP (QuestXP.lua)
-        questXP         = true,   -- show it (Info window piece "Completed quest XP")
+        -- completed quest XP (QuestXP.lua; shown while its Info window piece is on)
         questXPColour   = { r = 1, g = 0.72, b = 0.15 },
         questXPAlpha    = 0.55,
 

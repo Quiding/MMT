@@ -393,10 +393,10 @@ Saved data from MMT 0.1.x is converted automatically.
   [Item] - it starts a quest!", on by default), and abandon a quest on the whole team (asks first:
   "Do you want to abort this quest on your entire team?"). The quest settings of
   Core > Automations are copied over once.
-  Completed quest XP (Quest XP tab, on by default): the XP of the quests ready to turn
-  in, shaded like rested XP but in its own colour (default gold; colour and opacity can
-  be set here or with the piece's cogwheel on the Info Window page) right after the XP, on every member's bar in the Info window (piece "Completed
-  quest XP", "Q 20%"). The game's own XP bar is left alone. The XP is the core's turn-in XP (the
+  Completed quest XP (Info window piece "Completed quest XP", "Q 20%", on by default;
+  switched on and off on the Info Window page): the XP of the quests ready to turn in,
+  shaded like rested XP but in its own colour (default gold; colour and opacity in the
+  piece's cogwheel) right after the XP, on every member's bar in the Info window. The game's own XP bar is left alone. The XP is the core's turn-in XP (the
   same value as "LvlUp available"; needs MMT 1.1.0 or newer). When turning in would reach the next level the shade stops
   at the end of the bar with a bright edge, and the piece shows over 100%.
 - **Automations** (tiles: NPC Interactions, Socializing, Group-wide Interactions; camera
