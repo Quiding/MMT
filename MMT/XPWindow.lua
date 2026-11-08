@@ -273,7 +273,8 @@ local function RowTooltip(row)
     else
         tip:AddDoubleLine("Level " .. s.level, ("%d / %d XP (%.1f%%)"):format(s.cur, s.max, s.cur / s.max * 100), 1, 1, 1, 1, 1, 1)
         if s.rested > 0 then
-            tip:AddDoubleLine("Rested", ("%d XP (%d%%)"):format(s.rested, math.floor(s.rested / s.max * 100 + 0.5)), 0.75, 0.6, 1, 0.75, 0.6, 1)
+            local rr, rg, rb = ns.XPRestedTextColour()
+            tip:AddDoubleLine("Rested", ("%d XP (%d%%)"):format(s.rested, math.floor(s.rested / s.max * 100 + 0.5)), rr, rg, rb, rr, rg, rb)
         end
         if ns.LevelUpTooltip then ns.LevelUpTooltip(tip, key, s) end
         for _, sh in ipairs(ns.XPBarPieces(key, s)) do
@@ -569,7 +570,7 @@ local function Row(i)
     row.fill = row.bar:CreateTexture(nil, "BORDER")
     row.fill:SetPoint("TOPLEFT"); row.fill:SetPoint("BOTTOMLEFT")
     row.rest = row.bar:CreateTexture(nil, "BORDER")
-    row.rest:SetColorTexture(0.65, 0.45, 1.0, 0.30)
+    row.rest:SetColorTexture(1, 1, 1, 1)   -- coloured in Update (rested colour setting)
     -- a big XP gain: the gained part of the bar lights up (CheckGain)
     row.gain = row.bar:CreateTexture(nil, "ARTWORK")
     row.gain:SetPoint("TOP"); row.gain:SetPoint("BOTTOM")
@@ -908,7 +909,8 @@ local function Update()
         -- the bar behind the whole row
         row.bar:SetPoint("LEFT", 0, 0)
         local barWidth = rowWidth
-        local r, g, b = e.useClass and e.cr or A[1], e.useClass and e.cg or A[2], e.useClass and e.cb or A[3]
+        local br, bg, bb = ns.XPBarColour()
+        local r, g, b = e.useClass and e.cr or br, e.useClass and e.cg or bg, e.useClass and e.cb or bb
         local pct, restPct
         if rep then
             local rp = s.rep
@@ -954,6 +956,7 @@ local function Update()
         end
         for i = nShades + 1, #row.shades do row.shades[i]:Hide(); row.shades[i].edge:Hide() end
         restPct = math.min(restPct, math.max(0, 1 - at))
+        row.rest:SetColorTexture(ns.XPRestedColour())
         row.rest:ClearAllPoints()
         row.rest:SetPoint("TOPLEFT", row.bar, "TOPLEFT", barWidth * at, 0)
         row.rest:SetPoint("BOTTOMLEFT", row.bar, "BOTTOMLEFT", barWidth * at, 0)

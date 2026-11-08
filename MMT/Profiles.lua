@@ -32,6 +32,16 @@ ns.defaults = {
         followIgnoreInstance = false, -- breaks inside a dungeon / raid never count
         followCombatDelay  = 5,    -- ... this many seconds after combat
         showBars    = true,
+        restedColour = { r = 0.65, g = 0.45, b = 1.0 },   -- rested XP on the bar (cogwheel of the piece "Rested XP")
+        restedAlpha  = 0.30,
+        barColour   = { r = 0.31, g = 0.70, b = 1.00 },   -- XP fill without class colours (cogwheel of "Bar value")
+        valueDecimals = 1,       -- decimals of the XP % (cogwheel of "Bar value")
+        levelPrefix = true,      -- "L60" or "60" (cogwheel of "Level")
+        bagWarn     = 4,         -- free bag slots: yellow at or below (cogwheel of "Free bag slots")
+        bagBad      = 0,         -- ... red at or below
+        durWarn     = 60,        -- durability %: yellow below (cogwheel of "Durability")
+        durBad      = 25,        -- ... red below
+        layerMark   = false,     -- layer shown in orange when not yours (cogwheel of "Layer")
         levelUpHint = true,      -- pulsing "LvlUp available" when the ready quests reach the next level (LevelUp.lua)
         xpFlash     = true,      -- big XP gains (3 % of the level or more) light up the bar and the XP value
         classColors = true,

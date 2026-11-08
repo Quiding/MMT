@@ -845,12 +845,7 @@ ns.RegisterPage("xp", "Info Window", function(page)
     B:Check("Show your own character", Opt("xp", "showSelf"))
     B:Check("Class colors", Opt("xp", "classColors"))
     B:Check("Show bars", Opt("xp", "showBars"))
-    local glu, slu = Opt("xp", "levelUpHint")
-    B:Check("Highlight when I can level up", glu, function(v) slu(v) ns.UpdateXPWindow() end,
-        "When enabled, the Info Window will show a pulsing notification that you can level up, when handing in your \"ready for turn-in\" quests.")
-    local gxf, sxf = Opt("xp", "xpFlash")
-    B:Check("Highlight big XP gains", gxf, sxf,
-        "When enabled, the XP bar and the XP value of the Info Window light up when a character gets at least 3% of the level's XP at once (e.g. from quest turn-ins).")
+    -- (the level-up and XP-gain highlights: the cogwheel of the piece "Bar value")
     local gbm, sbm = Opt("xp", "barMode")
     B:Cycle("Bars show", {
         { value = "XP", text = "Experience" },
@@ -890,6 +885,63 @@ ns.RegisterPage("xp", "Info Window", function(page)
     G:Button("Reset window position", function() ns.ResetXPPosition() end)
 
     -- Column Visibility & Order (left to right in the window) -----------------
+    -- a piece with options (XPPieces.lua, def.options) gets a cogwheel in its row: a small
+    -- popup of its settings next to the row (one at a time; Esc, x or the cogwheel close it)
+    local optionPopups = {}
+    local function HidePieceOptions(except)
+        for id, p in pairs(optionPopups) do if id ~= except then p:Hide() end end
+    end
+    local function PieceOptions(owner, def)
+        HidePieceOptions(def.id)
+        local p = optionPopups[def.id]
+        if p and p:IsShown() then p:Hide() return end
+        if not p then
+            p = CreateFrame("Frame", nil, UIParent)
+            p:SetFrameStrata("FULLSCREEN_DIALOG")
+            p:SetClampedToScreen(true)
+            p:EnableMouse(true)
+            p:SetWidth(240)
+            p.widgets = {}   -- the widgets below register here (Refresh on every open)
+            UI.Fill(p, 0.06, 0.06, 0.07, 0.97)
+            UI.Border(p, A[1], A[2], A[3], 0.6)
+            local title = UI.Label(p, def.title, "GameFontNormal")
+            title:SetPoint("TOPLEFT", 10, -8)
+            title:SetPoint("RIGHT", -26, 0)
+            title:SetJustifyH("LEFT")
+            title:SetWordWrap(false)
+            local close = UI.TextButton(p, "x", function() p:Hide() end, 18)
+            close:SetPoint("TOPRIGHT", -4, -4)
+            local col = UI.Column(p, 10, -30, 220)
+            for _, o in ipairs(def.options) do
+                local fn = col[o[1]]
+                if type(fn) == "function" then
+                    local w = fn(col, select(2, unpack(o)))
+                    -- a drop-down list or colour palette opened from here goes above this
+                    -- popup (all of them are FULLSCREEN_DIALOG)
+                    if type(w) == "table" and w.HasScript and w:HasScript("OnClick") then
+                        w:HookScript("OnClick", function()
+                            for _, name in ipairs({ "MMTDropdownList", "MMTColorPopup" }) do
+                                local f = rawget(_G, name)
+                                if f and f:IsShown() then f:SetFrameLevel(p:GetFrameLevel() + 10) end
+                            end
+                        end)
+                    end
+                end
+            end
+            p:SetHeight(-col.y + 8)
+            UI.CloseOnEscape(p)
+            optionPopups[def.id] = p
+        end
+        local parent, own = UIParent:GetEffectiveScale(), owner:GetEffectiveScale()
+        p:SetScale((parent > 0) and own / parent or 1)
+        p:SetFrameLevel(owner:GetFrameLevel() + 20)
+        p:ClearAllPoints()
+        p:SetPoint("TOPLEFT", owner, "TOPRIGHT", 8, 0)
+        for _, w in ipairs(p.widgets) do if w.Refresh then w.Refresh() end end
+        p:Show()
+    end
+    page:HookScript("OnHide", function() HidePieceOptions() end)
+
     -- pieces of a row (XPPieces.lua), the name among them: drag the dots to move one, "on" / "off" shows it
     local ctile, V = Tile(page, 0, Y2, TILE_W, BOTTOM_H, "Column Visibility & Order", "Interface\\Icons\\INV_Misc_Note_01")
     local pieces
@@ -916,9 +968,26 @@ ns.RegisterPage("xp", "Info Window", function(page)
         end, 40)
         row.toggle:SetPoint("RIGHT", -2, 0)
         UI.Tooltip(row.toggle, "On / off", "Switched-off pieces stay in the list but aren't shown. The name is always shown.")
+        -- cogwheel: the piece's own settings (only pieces with options)
+        row.gear = CreateFrame("Button", nil, row)
+        row.gear:SetSize(14, 14)
+        row.gear:SetPoint("RIGHT", row.toggle, "LEFT", -4, 0)
+        row.gear.icon = row.gear:CreateTexture(nil, "ARTWORK")
+        row.gear.icon:SetAllPoints()
+        row.gear.icon:SetTexture("Interface\\Icons\\INV_Misc_Gear_01")
+        row.gear.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+        row.gear.icon:SetDesaturated(true)
+        row.gear.icon:SetAlpha(0.75)
+        row.gear:SetScript("OnClick", function(self)
+            local d = row.entry and ns.xpPieces[row.entry.id]
+            if d and d.options then PieceOptions(row, d) end
+        end)
+        UI.Tooltip(row.gear, "Settings", "Settings of this piece, e.g. its colour on the bar.")
+        row.gear:HookScript("OnEnter", function(self) self.icon:SetDesaturated(false) self.icon:SetAlpha(1) end)
+        row.gear:HookScript("OnLeave", function(self) self.icon:SetDesaturated(true) self.icon:SetAlpha(0.75) end)
         row.text = UI.Label(row, "")
         row.text:SetPoint("LEFT", row.grip, "RIGHT", 6, 0)
-        row.text:SetPoint("RIGHT", row.toggle, "LEFT", -4, 0)
+        row.text:SetPoint("RIGHT", row.gear, "LEFT", -4, 0)
         row.text:SetJustifyH("LEFT")
         row.text:SetWordWrap(false)
         row:EnableMouse(true)
@@ -946,6 +1015,7 @@ ns.RegisterPage("xp", "Info Window", function(page)
         local c = e.id == "name" and ns.XP_NAME_COLOUR or ns.XP_PIECE_COLOUR
         row.strip:SetColorTexture(c[1], c[2], c[3], on and 0.9 or 0.4)
         row.tint:SetColorTexture(c[1], c[2], c[3], e.id == "name" and 0.12 or 0.05)
+        row.gear:SetShown(d and d.options and true or false)
         row.toggle.label:SetText((d and d.fixed) and "|cff999999always|r" or (on and "|cff55ff55on|r" or "|cff777777off|r"))
     end)
     V:Add(pieces, PIECE_ROWS * PIECE_H + 6)
@@ -977,17 +1047,7 @@ ns.RegisterPage("xp", "Info Window", function(page)
 
     -- Miscellaneous ---------------------------------------------------------
     local mtile, M = Tile(page, X2, Y2, TILE_W, BOTTOM_H, "Miscellaneous", "Interface\\Icons\\INV_Misc_Bag_08")
-    local function Now(set) return function(v) set(v); if ns.UpdateXPWindow then ns.UpdateXPWindow() end end end
-    local gdm, sdm = Opt("xp", "durability")
-    M:Cycle("Durability show as:", {
-        { value = "LOWEST", text = "Lowest item" },
-        { value = "AVERAGE", text = "Average of all items" },
-    }, gdm, Now(sdm))
-    local ggf, sgf = Opt("xp", "goldFormat")
-    M:Cycle("Gold show as:", {
-        { value = "GOLD", text = "Gold only" },
-        { value = "FULL", text = "Gold, silver, copper" },
-    }, ggf, Now(sgf))
+    -- (durability and gold format: the cogwheels of those pieces)
     M:Header("Layer hop")
     local gn, sn = Opt("xp", "layerHopNotify")
     M:Check("Notify when layer/phase switch is pending", gn, sn,

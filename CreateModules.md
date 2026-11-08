@@ -260,6 +260,23 @@ and stops at the end of the bar, with a bright edge there when it would go past 
 With `barTitle` the row's tooltip gets a line with the XP and percent. The Quest
 Tracker's "Completed quest XP" leaves it out: the core's "Ready quests" line shows that XP.
 
+A piece can have settings of its own. With `options`, its row in "Column Visibility &
+Order" gets a cogwheel that opens a small popup with them. Each entry is a `UI.Column`
+method and its usual arguments:
+
+```lua
+    options = {
+        { "Color", "Colour on the bar", function() return { r = 1, g = 0.72, b = 0.15 } end,
+            function(c) M.db.colour = c MMT.UpdateXPWindow() end },
+        { "Slider", "Opacity on the bar", 0.1, 1, 0.05,
+            function() return M.db.alpha end, function(v) M.db.alpha = v MMT.UpdateXPWindow() end, "%.2f" },
+        { "Note", "Shown below the settings." },
+    },
+```
+
+Kinds: `Color`, `Slider`, `Check`, `Cycle`, `Note`, `Space`. The popup is built once,
+the first time it opens; every open refreshes the values.
+
 ### Core callbacks (`M:Listen`)
 
 | Callback | Arguments | When |
