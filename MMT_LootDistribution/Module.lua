@@ -57,6 +57,7 @@ local M = MMT.NewModule({
         worthOn      = false,      -- never-loot items worth at least worthMin are handed out anyway
         worthMin     = 10000,      -- copper (sell price x the slot's count)
         worthStack   = false,      -- stackable items: a full stack's price instead
+        skipTip      = true,       -- item tooltips say when the team never loots the item
         report       = true,
         -- sparkles on the node / corpse / object in front of you (Sparkles.lua)
         sparkles       = false,        -- off by default
@@ -662,18 +663,103 @@ function mod.Worth(link, count, fullStack)
     return price * count
 end
 
--- why the team never loots this item (count = how many are in the slot), else nil
-function mod.SkipReason(link, count)
+-- reason (nil: looted as usual), worth (copper; nil: "loot anyway" off or no
+-- price), anyway (true: worth enough, looted after all)
+function mod.SkipInfo(link, count)
     if not link then return nil end
     local reason = Reason(link)
-    if reason and M.db.worthOn then
-        local worth = mod.Worth(link, count, M.db.worthStack)
-        if worth and worth >= (M.db.worthMin or 0) then
-            M:Debug("%s x%s is worth %s (%s): looted anyway", link, tostring(count or 1), MMT.FormatMoney(worth), reason)
-            return nil
-        end
+    if not reason then return nil end
+    local worth = M.db.worthOn and mod.Worth(link, count, M.db.worthStack) or nil
+    return reason, worth, worth ~= nil and worth >= (M.db.worthMin or 0)
+end
+
+-- why the team never loots this item (count = how many are in the slot), else nil
+function mod.SkipReason(link, count)
+    local reason, worth, anyway = mod.SkipInfo(link, count)
+    if anyway then
+        M:Debug("%s x%s is worth %s (%s): looted anyway", link, tostring(count or 1), MMT.FormatMoney(worth), reason)
+        return nil
     end
     return reason
+end
+
+-- Item tooltips (skipTip): "Never looted (reason)", or "Looted anyway" when
+-- "Loot anyway when worth at least" lets it through. The count is the loot
+-- slot's or the bag slot's stack when the tooltip is for one, else 1.
+local function LinkID(link) return type(link) == "string" and tonumber(link:match("item:(%d+)")) or nil end
+
+local function TipCount(tip, link)
+    local owner = tip.GetOwner and tip:GetOwner()
+    if type(owner) ~= "table" then return 1 end
+    local id = LinkID(link)
+    local lf = _G.LootFrame
+    if lf and lf:IsShown() and type(rawget(owner, "slot")) == "number" then
+        local ok, _, _, qty = pcall(GetLootSlotInfo, owner.slot)
+        if ok and type(qty) == "number" and qty > 0 and LinkID(GetLootSlotLink(owner.slot)) == id then return qty end
+    end
+    if C_Container and C_Container.GetContainerItemInfo and owner.GetID and owner.GetParent then
+        local ok, bag, slot = pcall(function() return owner:GetParent():GetID(), owner:GetID() end)
+        if ok and type(bag) == "number" and type(slot) == "number" then
+            local okI, info = pcall(C_Container.GetContainerItemInfo, bag, slot)
+            if okI and type(info) == "table" and info.itemID == id and type(info.stackCount) == "number" then
+                return info.stackCount
+            end
+        end
+    end
+    return 1
+end
+
+function mod.AddSkipTip(tip, link)
+    if not (M.enabled and M.db.skipTip) or type(link) ~= "string" or MMT.IsSecret(link) then return end
+    local count = TipCount(tip, link)
+    local reason, worth, anyway = mod.SkipInfo(link, count)
+    if not reason then return end
+    local valued = ""
+    if worth then
+        local stack = M.db.worthStack and select(8, MMT.ItemInfo(link))
+        local what = (type(stack) == "number" and stack > count) and (" (a full stack of " .. stack .. ")")
+            or (count > 1 and (" (" .. count .. ")")) or ""
+        valued = MMT.FormatMoney(worth) .. what
+    end
+    if anyway then
+        tip:AddLine("MMT: looted anyway, worth " .. valued .. " (at least " .. MMT.FormatMoney(M.db.worthMin or 0) .. ")", 0.4, 1, 0.4, true)
+        tip:AddLine("  else never looted: " .. reason, 0.6, 0.6, 0.6, true)
+    else
+        tip:AddLine("MMT: never looted (" .. reason .. ")", 1, 0.5, 0.25, true)
+        if worth then
+            tip:AddLine("  worth " .. valued .. ", looted from " .. MMT.FormatMoney(M.db.worthMin or 0), 0.6, 0.6, 0.6, true)
+        end
+    end
+    tip:Show()
+end
+
+local function InstallTip()
+    if mod.tipHooked then return end
+    mod.tipHooked = true
+    local function Valid(tip) return tip == GameTooltip or tip == ItemRefTooltip end
+    if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
+        TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tip)
+            if not Valid(tip) then return end
+            local link
+            if TooltipUtil and TooltipUtil.GetDisplayedItem then link = select(2, TooltipUtil.GetDisplayedItem(tip)) end
+            if not link and tip.GetItem then link = select(2, tip:GetItem()) end
+            local ok, err = pcall(mod.AddSkipTip, tip, link)
+            if not ok then M:Debug("never loot tooltip: %s", tostring(err)) end
+        end)
+    else
+        for _, tip in ipairs({ GameTooltip, ItemRefTooltip }) do
+            if tip and tip.HookScript then
+                tip:HookScript("OnTooltipSetItem", function(self) pcall(mod.AddSkipTip, self, select(2, self:GetItem())) end)
+            end
+        end
+    end
+end
+if IsLoggedIn and IsLoggedIn() then
+    InstallTip()
+else
+    local f = CreateFrame("Frame")
+    f:RegisterEvent("PLAYER_LOGIN")
+    f:SetScript("OnEvent", function(self) self:UnregisterAllEvents() InstallTip() end)
 end
 
 ---------------------------------------------------------------------------
