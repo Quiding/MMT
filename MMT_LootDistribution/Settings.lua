@@ -165,6 +165,9 @@ function mod.NeverLootTab(panel, PANEL_H, root)
         MMT.OpenExclusionList(root:GetParent(), "loot")
     end)
     N:Note("Drop items on the list (or shift-click them in). It is part of MMT's Exclusion List: \"Show Trade / Mail too\" in the window shows its trade and mail ticks as well.")
+    local tipCheck = N:Check("Show it on item tooltips", function() return M.db.skipTip end,
+        function(v) M.db.skipTip = v end,
+        "Item tooltips say when the team never loots the item, and why (the list or an option below). With \"Loot anyway when worth at least\" they show its worth too, or \"looted anyway\" when it is worth enough (the stack in the bag or loot slot counts, or a full stack with \"Count a full stack\").")
     local opts = {}   -- { check, usable }
     for _, s in ipairs(mod.skips) do
         -- an option can hide itself (e.g. its addon isn't installed); no options left: no header
@@ -236,6 +239,7 @@ function mod.NeverLootTab(panel, PANEL_H, root)
         end
         worthCheck.Refresh()
         stackCheck.Refresh()
+        tipCheck.Refresh()
         UI.SetActive(money, M.db.worthOn and true or false)
         UI.SetActive(stackCheck, M.db.worthOn and true or false)
         local n = 0

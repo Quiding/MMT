@@ -309,7 +309,9 @@ Saved data from MMT 0.1.x is converted automatically.
   window shows every item with its trade, mail and loot ticks. "Loot anyway when worth at
   least" (gold / silver / copper, off by default): a never-loot item whose vendor price
   times the count in the loot slot reaches the amount is handed out as usual; "Count a
-  full stack for stackable items" uses a full stack's price instead. Other addons can add their own rules and options to
+  full stack for stackable items" uses a full stack's price instead. Item tooltips say
+  "never looted (reason)" or "looted anyway" with the item's worth ("Show it on item
+  tooltips", on by default). Other addons can add their own rules and options to
   that tab (MMT.RegisterLootSkip, see Module.lua). Only master loot is covered (every
   item with the threshold Poor); it adds no loot time.
   Other addons can pick the receiver of an item first with `MMT.RegisterLootChooser`
