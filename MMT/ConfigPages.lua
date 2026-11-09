@@ -1700,11 +1700,19 @@ end
 -- Exclusion List: items MMT never trades or mails, whatever role wants them
 -- (ns.db.exclusions; ns.ExcludedItem in Team.lua). A side window like the buy
 -- editor: drop an item, then tick "in Trade" / "in Mail" per item.
+-- The same list holds the items the team never loots (entry.loot: Loot
+-- Distribution leaves them on the corpse), shown in their own view:
+--   view "trade" (Trade / Mail / Vendor page): in Trade, in Mail; items that
+--     are only "never loot" are not listed
+--   view "loot" (Loot Distribution's Never Loot tab): the never-loot items,
+--     added as loot only; "Show Trade / Mail too" (ns.db.exclusionAllColumns)
+--     lists every item with all three ticks
+-- The x takes the item off that view only (gone when nothing is left ticked).
 local exclusionWin
-function ns.OpenExclusionList(window)
+function ns.OpenExclusionList(window, view)
     local f = exclusionWin
-    local W, ROWS, ROW_H = 400, 12, 22
-    local COL_TRADE, COL_MAIL = W - 128, W - 64
+    local W, ROWS, ROW_H = 460, 12, 22
+    local COL_TRADE, COL_MAIL, COL_LOOT = W - 192, W - 128, W - 64
     if not f then
         f = CreateFrame("Frame", "MMTExclusionListFrame", window)   -- scales and hides with the settings window
         f:SetFrameStrata(window:GetFrameStrata())
@@ -1713,28 +1721,51 @@ function ns.OpenExclusionList(window)
         f:SetClampedToScreen(true)
         UI.Fill(f, 0.05, 0.05, 0.06, 0.96)
         UI.Border(f, 0.22, 0.22, 0.24, 1)
-        local title = UI.Label(f, "Exclusion List", "GameFontNormalLarge")
-        title:SetPoint("TOPLEFT", 16, -12)
-        title:SetTextColor(A[1], A[2], A[3])
+        f.title = UI.Label(f, "Exclusion List", "GameFontNormalLarge")
+        f.title:SetPoint("TOPLEFT", 16, -12)
+        f.title:SetTextColor(A[1], A[2], A[3])
         local close = UI.TextButton(f, "x", function() f:Hide() end, 20)
         close:SetPoint("TOPRIGHT", -8, -8)
         local C = UI.Column(f, 16, -40, W)
-        local intro = UI.Label(f, "Here you can add items and set them to be never traded or mailed, regardless if they are included in a role.")
-        intro:SetWidth(W) intro:SetJustifyH("LEFT") intro:SetTextColor(0.8, 0.8, 0.8)
-        C:Add(intro, 32)
+        f.intro = UI.Label(f, "")
+        f.intro:SetWidth(W) f.intro:SetJustifyH("LEFT") f.intro:SetTextColor(0.8, 0.8, 0.8)
+        C:Add(f.intro, 32)
         f.status = StatusLine(f)
         f.status:SetWidth(W)
         local function List() ns.db.exclusions = ns.db.exclusions or {} return ns.db.exclusions end
+        local function LootView() return f.view == "loot" end
+        local function AllColumns() return LootView() and ns.db.exclusionAllColumns and true or false end
+        -- the ticks this view adds / takes away
+        local function Mine() return LootView() and { loot = true } or { trade = true, mail = true } end
+        local function Listed(e)
+            if LootView() then return AllColumns() or e.loot == true end
+            return not (e.loot and not e.trade and not e.mail)
+        end
+        local function Shown()
+            local t = {}
+            for _, e in ipairs(List()) do if Listed(e) then t[#t + 1] = e end end
+            return t
+        end
+        f.Shown = Shown
         local function AddItem(id, name)
             if not id then return end
+            local text = name or ns.ItemInfo(id) or ("item " .. id)
             for _, e in ipairs(List()) do
-                if e.itemID == id then f.status.Show_((name or ns.ItemInfo(id) or ("item " .. id)) .. " is on the list already.") return end
+                if e.itemID == id then
+                    if Listed(e) then f.status.Show_(text .. " is on the list already.") return end
+                    for k in pairs(Mine()) do e[k] = true end   -- listed for the other view: ticked for this one too
+                    f.status.Show_("") f.Layout() ns.Refresh()
+                    return
+                end
             end
-            table.insert(List(), { itemID = id, name = name or ns.ItemInfo(id) or ("item " .. id), trade = true, mail = true })
+            local entry = { itemID = id, name = text }
+            for k in pairs(Mine()) do entry[k] = true end
+            table.insert(List(), entry)
             f.status.Show_("")
-            f.offset = math.max(0, #List() - ROWS)
-            f.Layout()
+            f.offset = math.max(0, #Shown() - ROWS)
+            f.Layout() ns.Refresh()
         end
+        f.AddItem = AddItem
         local drop = UI.Button(f, W, "Drop an item from your bags here", function()
             local kind, id, link = GetCursorInfo()
             if kind == "item" then AddItem(id, link and link:match("%[(.-)%]")) ClearCursor() end
@@ -1762,14 +1793,21 @@ function ns.OpenExclusionList(window)
             h:SetPoint("LEFT", x, 0)
             if w then h:SetWidth(w) h:SetJustifyH("CENTER") end
             h:SetTextColor(0.7, 0.7, 0.7)
+            return h
         end
-        Head("Excluded Item", 6) Head("in Trade", COL_TRADE, 60) Head("in Mail", COL_MAIL, 60)
+        f.headItem = Head("Excluded Item", 6)
+        f.heads = { trade = Head("in Trade", COL_TRADE, 60), mail = Head("in Mail", COL_MAIL, 60), loot = Head("in Loot", COL_LOOT, 60) }
         local list = CreateFrame("Frame", nil, f)
         list:SetSize(W, ROWS * ROW_H)
         C:Add(list, ROWS * ROW_H + 4)
         f.empty = UI.Label(list, "No items yet: drop one on the button above.", "GameFontDisableSmall")
         f.empty:SetPoint("TOPLEFT", 6, -4)
         f.rows = {}
+        local TIPS = {
+            trade = { "in Trade", "Ticked: MMT never puts this item into a trade (role rules and sharing)." },
+            mail = { "in Mail", "Ticked: \"Mail to team\" never mails this item." },
+            loot = { "in Loot", "Ticked: the team never loots this item. As master looter, Loot Distribution leaves it on the corpse instead of handing it out." },
+        }
         local function Box(row, x, what)
             local cb = CreateFrame("Button", nil, row)
             cb:SetSize(16, 16)
@@ -1783,9 +1821,7 @@ function ns.OpenExclusionList(window)
                 local e = row.entry
                 if e then e[what] = not e[what] or nil cb.mark:SetShown(e[what] == true) ns.Refresh() end
             end)
-            UI.Tooltip(cb, what == "trade" and "in Trade" or "in Mail", what == "trade"
-                and "Ticked: MMT never puts this item into a trade (role rules and sharing)."
-                or "Ticked: \"Mail to team\" never mails this item.")
+            UI.Tooltip(cb, TIPS[what][1], TIPS[what][2])
             return cb
         end
         for i = 1, ROWS do
@@ -1797,17 +1833,25 @@ function ns.OpenExclusionList(window)
             row.icon = row:CreateTexture(nil, "ARTWORK")
             row.icon:SetSize(16, 16) row.icon:SetPoint("LEFT", 6, 0)
             row.name = UI.Label(row, "", "GameFontHighlightSmall")
-            row.name:SetPoint("LEFT", 28, 0) row.name:SetWidth(COL_TRADE - 34)
+            row.name:SetPoint("LEFT", 28, 0)
             row.name:SetJustifyH("LEFT") row.name:SetWordWrap(false)
-            row.trade = Box(row, COL_TRADE, "trade")
-            row.mail = Box(row, COL_MAIL, "mail")
-            local del = UI.TextButton(row, "x", function()
-                local l = List()
-                for j, e in ipairs(l) do if e == row.entry then table.remove(l, j) break end end
+            row.boxes = { trade = Box(row, COL_TRADE, "trade"), mail = Box(row, COL_MAIL, "mail"), loot = Box(row, COL_LOOT, "loot") }
+            row.Remove = function()
+                local e = row.entry
+                if not e then return end
+                if AllColumns() then
+                    e.trade, e.mail, e.loot = nil, nil, nil
+                else
+                    for k in pairs(Mine()) do e[k] = nil end
+                end
+                if not (e.trade or e.mail or e.loot) then
+                    local l = List()
+                    for j, x in ipairs(l) do if x == e then table.remove(l, j) break end end
+                end
                 f.Layout() ns.Refresh()
-            end, 18)
-            del:SetPoint("RIGHT", -2, 0)
-            UI.Tooltip(del, "Remove", "Takes the item off the Exclusion List.")
+            end
+            row.del = UI.TextButton(row, "x", row.Remove, 18)
+            row.del:SetPoint("RIGHT", -2, 0)
             row:SetScript("OnEnter", function(self)
                 if not self.entry then return end
                 GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
@@ -1820,16 +1864,62 @@ function ns.OpenExclusionList(window)
         end
         list:EnableMouseWheel(true)
         list:SetScript("OnMouseWheel", function(_, d)
-            f.offset = math.max(0, math.min(#List() - ROWS, (f.offset or 0) - d))
+            f.offset = math.max(0, math.min(#Shown() - ROWS, (f.offset or 0) - d))
             f.Layout()
         end)
-        C:Add(f.status, UI.ROW)
         f.more = UI.Label(f, "", "GameFontDisableSmall")
         f.more:SetPoint("TOPRIGHT", list, "BOTTOMRIGHT", -4, -2)
+        f.allCheck = UI.Check(f, 220, "Show Trade / Mail too", function() return ns.db.exclusionAllColumns end,
+            function(v) ns.db.exclusionAllColumns = v or nil f.offset = 0 f.Layout() end,
+            "Lists every item of the Exclusion List here, with its \"in Trade\" and \"in Mail\" ticks next to \"in Loot\" (the same list as on the Trade / Mail / Vendor page). Off: only the items the team never loots.")
+        C:Add(f.allCheck, UI.ROW)
+        -- bulk: every listed item gets all three ticks / the list emptied (this view's part of it)
+        f.tickAll = UI.Button(f, 110, "Tick all", function()
+            for _, e in ipairs(Shown()) do e.trade, e.mail, e.loot = true, true, true end
+            f.status.Show_("Every item: never traded, mailed or looted.")
+            f.Layout() ns.Refresh()
+        end)
+        UI.Tooltip(f.tickAll, "Tick all", "Ticks \"in Trade\", \"in Mail\" and \"in Loot\" on every item of the list.")
+        C:Add(f.tickAll, 0)
+        f.clear = ConfirmButton(f, 110, "Clear list", function()
+            local l = List()
+            if AllColumns() then
+                wipe(l)
+            else
+                for i = #l, 1, -1 do
+                    local e = l[i]
+                    e.loot = nil
+                    if not (e.trade or e.mail) then table.remove(l, i) end
+                end
+            end
+            f.offset = 0
+            f.status.Show_("List cleared.")
+            f.Layout() ns.Refresh()
+        end)
+        f.clear:SetPoint("LEFT", f.tickAll, "RIGHT", 6, 0)
+        C:Space(UI.ROW + 4)
+        C:Add(f.status, UI.ROW)
         f:SetSize(W + 32, -C.y + 10)
 
         f.Layout = function()
-            local l = List()
+            local loot, all = LootView(), AllColumns()
+            f.title:SetText(loot and "Never Loot List" or "Exclusion List")
+            f.intro:SetText(loot and "Items on this list are never looted by the team: as master looter, Loot Distribution leaves them on the corpse."
+                or "Here you can add items and set them to be never traded or mailed, regardless if they are included in a role.")
+            f.headItem:SetText(loot and not all and "Never Looted Item" or "Excluded Item")
+            local cols = { trade = not loot or all, mail = not loot or all, loot = all }
+            for k, h in pairs(f.heads) do h:SetShown(cols[k]) end
+            local left = cols.trade and COL_TRADE or (W - 24)
+            f.allCheck:SetShown(loot)
+            f.allCheck.Refresh()
+            f.tickAll:SetShown(all)
+            f.clear:SetShown(loot)
+            f.clear:ClearAllPoints()
+            if all then f.clear:SetPoint("LEFT", f.tickAll, "RIGHT", 6, 0) else f.clear:SetPoint("TOPLEFT", f.tickAll, "TOPLEFT") end
+            UI.Tooltip(f.clear, "Clear list", (all and "Takes every item off the Exclusion List: trade, mail and loot."
+                or "Takes every item off the Never Loot List (items that are also never traded or mailed stay for that).")
+                .. " Click twice.")
+            local l = Shown()
             f.offset = math.max(0, math.min(f.offset or 0, #l - ROWS))
             for i, row in ipairs(f.rows) do
                 local e = l[(f.offset or 0) + i]
@@ -1838,10 +1928,15 @@ function ns.OpenExclusionList(window)
                     local name, _, q, _, _, _, _, _, _, tex = ns.ItemInfo(e.itemID)
                     e.name = name or e.name
                     local c = q and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
+                    row.name:SetWidth(left - 34)
                     row.name:SetText((c and c.hex or "|cffffffff") .. (e.name or ("item " .. e.itemID)) .. "|r")
                     row.icon:SetTexture(tex or (C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(e.itemID)) or 134400)
-                    row.trade.mark:SetShown(e.trade == true)
-                    row.mail.mark:SetShown(e.mail == true)
+                    for k, bx in pairs(row.boxes) do
+                        bx:SetShown(cols[k])
+                        bx.mark:SetShown(e[k] == true)
+                    end
+                    UI.Tooltip(row.del, "Remove", all and "Takes the item off the Exclusion List (trade, mail and loot)."
+                        or loot and "The team loots this item again." or "Takes the item off the Exclusion List.")
                     row:Show()
                 else
                     row:Hide()
@@ -1853,11 +1948,14 @@ function ns.OpenExclusionList(window)
         UI.CloseOnEscape(f)
         exclusionWin = f
     end
+    if f.view ~= view then f.offset = 0 end
+    f.view = view
     f.status.Show_("")
     f.Layout()
     f:ClearAllPoints()
     f:SetPoint("TOPLEFT", window, "TOPRIGHT", 6, 0)
     f:Show()
+    return f
 end
 
 ns.RegisterPage("trade", "Trade / Mail / Vendor", function(page)

@@ -21,6 +21,7 @@ M.Page = function(_, page)
     local panels, _, PANEL_H = H.TabStrip(page, INTRO, {
         { "loot", "Loot", "INV_Misc_Bag_10" },
         { "sparkles", "Sparkles", "INV_Misc_Herb_10" },
+        { "never", "Never Loot", "INV_Misc_Bone_HumanSkull_01" },
     }, H.SYNC_RESERVE)
     local SparklesTab = mod.SparklesTab
     page = panels.loot
@@ -124,9 +125,11 @@ M.Page = function(_, page)
         "As master looter, quest items go to the team members in turns, in team order. Only characters the game offers for the item (on the quest and able to receive it) get a turn. Turns are kept per item, so drops spread evenly. The free bag slots setting doesn't apply: quest items are given even into the last slot.")
 
     local sparklesRefresh = SparklesTab(panels.sparkles, PANEL_H)
+    local neverRefresh = mod.NeverLootTab(panels.never, PANEL_H, root)
     page = root
     page.OnRefresh = function()
         sparklesRefresh()
+        neverRefresh()
         local method, partyIndex = mod.GetMethod()
         local text = IsInGroup() and ("Current: " .. (mod.METHOD_TEXT[method] or tostring(method)))
             or "Not in a group."
@@ -148,6 +151,108 @@ M.Page = function(_, page)
             or "")
     end
     M:On("PARTY_LOOT_METHOD_CHANGED", function() if page:IsVisible() then page.OnRefresh() end end)
+end
+
+-- Never Loot tab: the Exclusion List's "in Loot" items, then the options of
+-- the loot skips other addons registered (MMT.RegisterLootSkip)
+function mod.NeverLootTab(panel, PANEL_H, root)
+    local Tile, TILE_W = H.Tile, H.TILE_W
+    local nt, N = Tile(panel, 0, 0, TILE_W, PANEL_H, "Never Loot", "Interface\\Icons\\INV_Misc_Bone_HumanSkull_01")
+    N:Note("As master looter, these items are left on the corpse: not handed out and not looted. It costs no loot time: each item is only looked up once while the loot window is gone through anyway.")
+    N:Space(4)
+    local count = N:Note("")
+    N:Button("Never Loot List", function()
+        MMT.OpenExclusionList(root:GetParent(), "loot")
+    end)
+    N:Note("Drop items on the list (or shift-click them in). It is part of MMT's Exclusion List: \"Show Trade / Mail too\" in the window shows its trade and mail ticks as well.")
+    local opts = {}   -- { check, usable }
+    for _, s in ipairs(mod.skips) do
+        -- an option can hide itself (e.g. its addon isn't installed); no options left: no header
+        local shown = {}
+        for _, o in ipairs(type(s.options) == "table" and s.options or {}) do
+            local ok, show = true, true
+            if o.shown then ok, show = pcall(o.shown) end
+            if ok and show then shown[#shown + 1] = o end
+        end
+        if #shown > 0 then
+            N:Header(s.title or s.name)
+            for _, o in ipairs(shown) do
+                local cb = N:Check(o.text or "?", function() return o.get and o.get() end,
+                    function(v)
+                        if o.usable and not o.usable() then return end
+                        if o.set then o.set(v) end
+                    end, o.tip)
+                opts[#opts + 1] = { check = cb, usable = o.usable, text = o.text, tip = o.tip }
+            end
+        end
+    end
+    N:Header("Valuable items")
+    local worthCheck = N:Check("Loot anyway when worth at least", function() return M.db.worthOn end,
+        function(v) M.db.worthOn = v end,
+        "An item that the rules above would leave on the corpse (the Never Loot List and every option above) is handed out as usual when its vendor sell price, times how many are in the loot slot, reaches this amount.\nItems whose data the game hasn't loaded yet have no price: they stay on the corpse.")
+    -- gold / silver / copper boxes
+    local money = CreateFrame("Frame", nil, nt)
+    money:SetSize(TILE_W - 16, UI.ROW)
+    local boxes = {}
+    local function Save()
+        local g = tonumber(boxes[1]:GetText()) or 0
+        local s = math.min(99, tonumber(boxes[2]:GetText()) or 0)
+        local c = math.min(99, tonumber(boxes[3]:GetText()) or 0)
+        M.db.worthMin = g * 10000 + s * 100 + c
+    end
+    local x = 22
+    for i, u in ipairs({ { 5, 56, "Interface\\MoneyFrame\\UI-GoldIcon" }, { 2, 34, "Interface\\MoneyFrame\\UI-SilverIcon" },
+            { 2, 34, "Interface\\MoneyFrame\\UI-CopperIcon" } }) do
+        local e = UI.EditBox(money, u[2], "0")
+        e:SetNumeric(true)
+        e:SetMaxLetters(u[1])
+        e:SetPoint("LEFT", x, 0)
+        e:SetScript("OnTextChanged", function(self, byUser)
+            self.UpdatePlaceholder()
+            if byUser then Save() end
+        end)
+        e:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+        e:SetScript("OnEditFocusLost", function(self) self.UpdatePlaceholder() Save() end)
+        local icon = money:CreateTexture(nil, "ARTWORK")
+        icon:SetSize(13, 13)
+        icon:SetTexture(u[3])
+        icon:SetPoint("LEFT", e, "RIGHT", 3, 0)
+        UI.Tooltip(e, "Worth at least", "Vendor sell price times the count in the loot slot. Enter the amount in gold, silver and copper.")
+        boxes[i] = e
+        x = x + u[2] + 22
+    end
+    N:Add(money, UI.ROW + 4)
+    local stackCheck = N:Check("Count a full stack for stackable items", function() return M.db.worthStack end,
+        function(v) M.db.worthStack = v end,
+        "For items that stack (cloth, herbs, potions, ...), the price of a full stack counts instead of how many dropped: 1 Linen Cloth that sells for 10 copper counts as a stack of 20, 2 silver.")
+    N:Space(6)
+    N:Note("Only items Loot Distribution hands out are covered: with the threshold Poor that is every item. Items below the threshold are picked up by the game's auto loot before any addon sees them, and gathering is never master loot.")
+
+    return function()
+        local v = M.db.worthMin or 0
+        local parts = { math.floor(v / 10000), math.floor(v / 100) % 100, v % 100 }
+        for i, e in ipairs(boxes) do
+            if not e:HasFocus() then e:SetText(parts[i] > 0 and tostring(parts[i]) or "") e.UpdatePlaceholder() end
+        end
+        worthCheck.Refresh()
+        stackCheck.Refresh()
+        UI.SetActive(money, M.db.worthOn and true or false)
+        UI.SetActive(stackCheck, M.db.worthOn and true or false)
+        local n = 0
+        for _, e in ipairs(MMT.db.exclusions or {}) do if e.loot then n = n + 1 end end
+        count:SetText(n == 0 and "|cff999999No items on the list yet.|r"
+            or ("|cffffffff%d|r item%s on the list."):format(n, n == 1 and "" or "s"))
+        for _, o in ipairs(opts) do
+            local ok, why = true, nil
+            if o.usable then
+                local okCall, a, b = pcall(o.usable)
+                ok, why = okCall and a and true or false, okCall and b or nil
+            end
+            UI.SetActive(o.check, ok)
+            if o.text then UI.Tooltip(o.check, o.text, ok and o.tip or ((o.tip and (o.tip .. "\n\n") or "") .. "|cffff8040" .. tostring(why or "Not available.") .. "|r")) end
+            o.check.Refresh()
+        end
+    end
 end
 
 -- Sparkles tab: what sparkles (left), how it looks (right)
@@ -238,6 +343,12 @@ function M.Report(_, add)
         tostring(M.db.multiRole), tostring(M.db.noRoom), tostring(M.db.autoPass), tostring(M.db.optOut),
         tostring(GetOptOutOfLoot and GetOptOutOfLoot()), tostring(M.db.passExcept)))
     add("quest round robin=" .. tostring(M.db.questRR))
+    local never = {}
+    for _, e in ipairs(MMT.db.exclusions or {}) do if e.loot then never[#never + 1] = tostring(e.itemID) end end
+    local others = {}
+    for _, sk in ipairs(mod.skips) do others[#others + 1] = sk.name end
+    add(("never loot: list=[%s] loot skips=[%s] worth=%s min=%s stack=%s"):format(table.concat(never, ","), table.concat(others, ","),
+        tostring(M.db.worthOn), tostring(M.db.worthMin), tostring(M.db.worthStack)))
     if mod.Sparkles then mod.Sparkles.Report(add) end
     for _, c in ipairs(mod.choosers) do
         local on = true

@@ -298,6 +298,14 @@ Saved data from MMT 0.1.x is converted automatically.
   member with room (round robin, the default), or to the master looter. "No role wants
   it" defaults to round robin to the team. Bind on Pickup
   items are never given out: they are posted in group chat for manual assignment.
+  "Never Loot" tab: items on the Never Loot List are left on the corpse (not handed out,
+  not looted). The list is part of the Exclusion List; "Show Trade / Mail too" in its
+  window shows every item with its trade, mail and loot ticks. "Loot anyway when worth at
+  least" (gold / silver / copper, off by default): a never-loot item whose vendor price
+  times the count in the loot slot reaches the amount is handed out as usual; "Count a
+  full stack for stackable items" uses a full stack's price instead. Other addons can add their own rules and options to
+  that tab (MMT.RegisterLootSkip, see Module.lua). Only master loot is covered (every
+  item with the threshold Poor); it adds no loot time.
   Other addons can pick the receiver of an item first with `MMT.RegisterLootChooser`
   (see CreateModules.md); what they leave goes by the roles as above.
   "Auto-Round Robin quest items": quest items go to the team in turns (team order).
@@ -446,7 +454,8 @@ Saved data from MMT 0.1.x is converted automatically.
   - Exclusion List (button in the Trading tile's headline): a side window to drop items
     on (or shift-click them in); each listed item has "in Trade" and "in Mail" ticks:
     ticked, MMT never puts it into a trade (role rules and sharing) or mails it ("Mail
-    to team"), whatever role includes it. Saved in the profile.
+    to team"), whatever role includes it. Saved in the profile. Loot Distribution's
+    Never Loot List is kept in the same list (items only on that one aren't shown here).
     Example: members 1, 2 and 4 carry 50, 0 and 40 water: 30 each; 1 trading with 2
     gives 20, 1 with 4 gives nothing, 4 with 2 gives 10. An item in several shared roles
     is shared by the first of them (alphabetical).
