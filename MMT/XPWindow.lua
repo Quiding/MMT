@@ -277,6 +277,7 @@ local function RowTooltip(row)
             tip:AddDoubleLine("Rested", ("%d XP (%d%%)"):format(s.rested, math.floor(s.rested / s.max * 100 + 0.5)), rr, rg, rb, rr, rg, rb)
         end
         if ns.LevelUpTooltip then ns.LevelUpTooltip(tip, key, s) end
+        if ns.FlightTooltip then ns.FlightTooltip(tip, key, s) end
         for _, sh in ipairs(ns.XPBarPieces(key, s)) do
             if sh.def.barTitle then   -- a tooltip line only when the piece names one
                 local r, g, b = 0.4 + sh.r * 0.6, 0.4 + sh.g * 0.6, 0.4 + sh.b * 0.6   -- readable on the dark tooltip

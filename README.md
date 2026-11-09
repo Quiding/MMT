@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 1.1.6: core addon (MMT) plus optional modules (MMT_*).
+Version 1.1.8: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -101,7 +101,11 @@ Saved data from MMT 0.1.x is converted automatically.
   reaches the next level, the row shows a pulsing "LvlUp available" instead of XP % and
   rested XP, 5 seconds on, 5 seconds off (row tooltip: "Ready quests"). "Highlight big XP
   gains" (Basics, on): a gain of at least 3% of the level's XP at once lights up the gained
-  part of the bar and the XP value. The settings page has four tiles: Basics, General
+  part of the bar and the XP value. "Show flights" (Bar value cogwheel, on): while a character is on a
+  flight path its row shows "Fly to X, mm:ss" instead of the XP, and "arrived X" for 5
+  seconds after landing; with "LvlUp available" at the same time the two take turns every
+  5 seconds. Flight times are learned per route on this account (the game doesn't tell
+  addons): the first flight on a route shows no time. The settings page has four tiles: Basics, General
   Look & Feel (with a "Fonts, Bars, Scale, Opacity" side window), Column Visibility & Order
   and Miscellaneous (Layer Hop). Each of
   these is a piece, and so is the name: one order left to right (default: Durability, Free

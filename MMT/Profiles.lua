@@ -43,6 +43,7 @@ ns.defaults = {
         durBad      = 25,        -- ... red below
         layerMark   = false,     -- layer shown in orange when not yours (cogwheel of "Layer")
         levelUpHint = true,      -- pulsing "LvlUp available" when the ready quests reach the next level (LevelUp.lua)
+        flightHint  = true,      -- "Fly to X, mm:ss" / "arrived X" in place of the XP (Flight.lua)
         xpFlash     = true,      -- big XP gains (3 % of the level or more) light up the bar and the XP value
         classColors = true,
         showGold    = true,

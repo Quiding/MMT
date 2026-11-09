@@ -121,8 +121,7 @@ local function FullCoins(copper)
     parts[#parts + 1] = c .. COPPER_ICON
     return table.concat(parts, " ")
 end
--- (ns.LevelUpShowing: LevelUp.lua)
-local LEVEL_UP = Hex(0.3, 1, 0.3) .. "LvlUp available|r"
+-- (ns.RowNotice: Flight.lua - "LvlUp available", "Fly to X, mm:ss", "arrived X")
 local BAG_ICON = "|TInterface\\Icons\\INV_Misc_Bag_08:0:0:0:0:64:64:6:58:6:58|t"
 local DUR_ICON = "|TInterface\\Icons\\Trade_BlackSmithing:0:0:0:0:64:64:6:58:6:58|t"
 
@@ -176,14 +175,18 @@ ns.RegisterXPPiece{ id = "value", title = "Bar value (XP % or reputation)", side
         O("Color", "Bar colour without class colors", XColour("barColour", 0.31, 0.70, 1.00)),
         OCheck("Highlight when I can level up", "levelUpHint", true,
             "A pulsing \"LvlUp available\" in place of the XP when turning in the quests that are ready would reach the next level."),
+        OCheck("Show flights", "flightHint", true,
+            "\"Fly to X, mm:ss\" in place of the XP while a character is on a flight path, and \"arrived X\" for 5 seconds after landing. Flight times are learned: the first flight on a route shows no time. Takes turns with \"LvlUp available\" every 5 seconds."),
         OCheck("Highlight big XP gains", "xpFlash", true,
             "The XP bar and the XP value light up when a character gets at least 3% of the level's XP at once (e.g. from quest turn-ins)."),
         { "Note", "Class colors and what the bars show (XP or reputation): Basics." },
     },
     text = function(key, s)
+        local notice, pulse
+        if ns.RowNotice then notice, pulse = ns.RowNotice(key, s) end
+        if notice then return notice, pulse end
         if ns.db.xp.barMode == "REP" then return RepText(s) end
         if s.isMax or s.max <= 0 then return "max" end
-        if ns.LevelUpShowing and ns.LevelUpShowing(key, s) then return LEVEL_UP, true end
         local text = ("%." .. (tonumber(ns.db.xp.valueDecimals) or 1) .. "f%%"):format(s.cur / s.max * 100)
         if ns.XPGainFlashing and ns.XPGainFlashing(key) then return Hex(1, 0.85, 0.2) .. text .. "|r", true end
         return text
@@ -213,12 +216,14 @@ ns.RegisterXPPiece{ id = "rested", title = "Rested XP (%)", side = "RIGHT", on =
     tip = "Rested XP in percent of the current level, e.g. R 35%. Also shaded on the bar.",
     options = RestedOptions(),
     text = function(key, s)
-        if ns.db.xp.barMode == "REP" or s.isMax or s.max <= 0 then return nil end
-        if ns.LevelUpShowing and ns.LevelUpShowing(key, s) then
+        local notice, pulse
+        if ns.RowNotice then notice, pulse = ns.RowNotice(key, s) end
+        if notice then
             -- in the value's place when that piece is off
-            if not ns.XPPieceOn("value") then return LEVEL_UP, true end
+            if not ns.XPPieceOn("value") then return notice, pulse end
             return nil
         end
+        if ns.db.xp.barMode == "REP" or s.isMax or s.max <= 0 then return nil end
         if s.rested <= 0 then return nil end
         return Hex(ns.XPRestedTextColour()) .. ("R %d%%"):format(math.floor(s.rested / s.max * 100 + 0.5)) .. "|r"
     end }
