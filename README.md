@@ -270,7 +270,8 @@ Saved data from MMT 0.1.x is converted automatically.
     play: session length (since login or /reload), time on the current level (not at max
     level), XP % (rested %, and "Q %" for the XP of quests ready to turn in), and a table of XP, gold and kills in the session and per hour.
     "Reset session" starts a new session in that window only. Lock, font and font size in
-    the Settings tab; redrawn at most once a second.
+    the Settings tab; redrawn at most once a second. "Sync to team" sends it along: on or
+    off, position, lock, font and size.
   - Export (Settings tab): CSV text to copy into a spreadsheet or a .csv file (addons can't
     write files): gold per day and character, gold per day and account, characters, kills
     and deaths per NPC (with their kind), the kill summary per character, kills by zone and
