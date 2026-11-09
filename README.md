@@ -240,7 +240,7 @@ Saved data from MMT 0.1.x is converted automatically.
     only the highest level can be "(current)".
   - Zones (a character or the account): favourite zone by time and by kills; per main zone
     (a town counts for its zone) time (hh:mm:ss), NPC kills, quests and XP gain; per
-    instance visit Lvl In / Lvl Out, time, kills, quests, XP gain (incl. quest rewards),
+    instance visit Lvl In / Lvl Out, time, kills, quests, XP gain (incl. quest rewards), XP % (of the XP the entry level needed, also when leveling up inside),
     XP/hr, profession skill-ups (Prof.) and money (tooltip: each profession's skill-ups, zone of the entrance, dates, per-hour values, visits in the
     last 60 minutes). The instance ID is hidden from addons on WoW: Forever, so every
     entry is a new row, numbered #1, #2; re-entering an instance left within 3 hours

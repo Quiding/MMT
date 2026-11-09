@@ -126,7 +126,9 @@ local function UpdateZone()
                 M:Debug("instance: back in %s after a reload: same instance", tostring(name))
                 mod.InstanceNote(("Back in %s after a reload: same instance (%s)."):format(tostring(name), mod.RunLabel(run)))
             else
-                run = { map = map, n = name, enter = time(), t = 0, k = 0, d = 0, q = 0, xp = 0, lvIn = Level(), zn = lastLand }
+                local need = tonumber(Plain(Safe(UnitXPMax, "player"))) or 0
+                run = { map = map, n = name, enter = time(), t = 0, k = 0, d = 0, q = 0, xp = 0, lvIn = Level(), zn = lastLand,
+                        need = need > 0 and need or nil }   -- XP the entry level needed (for XP %)
                 table.insert(c.runs, run)
                 while #c.runs > MAX_RUNS do table.remove(c.runs, 1) end
                 M:Debug("instance entered: %s (%d)", tostring(name), map)
@@ -334,8 +336,26 @@ local function ReadXP()
     return Level(), tonumber(Plain(Safe(UnitXP, "player"))) or 0, tonumber(Plain(Safe(UnitXPMax, "player"))) or 0
 end
 
+-- the XP each level needs, as seen on this account: Store().xpNeed[L]
+-- (older runs without their own "need" use it)
+local function RememberNeed(L, max)
+    if not L or L < 1 or not max or max <= 0 then return end
+    local st = mod.Store()
+    st.xpNeed = st.xpNeed or {}
+    st.xpNeed[L] = max
+end
+
+-- the XP of a run in % of what its entry level needed (nil when unknown)
+function mod.RunXPShare(r)
+    if not r or not r.lvIn then return nil end
+    local need = r.need or (mod.Store().xpNeed or {})[r.lvIn]
+    if not need or need <= 0 then return nil end
+    return (r.xp or 0) / need * 100
+end
+
 local function OnXP()
     local L, cur, max = ReadXP()
+    RememberNeed(L, max)
     local gained = 0
     if xpLevel then
         if L == xpLevel then gained = cur - xpCur
@@ -470,6 +490,7 @@ local function Start()
     if started then return end
     started = true
     xpLevel, xpCur, xpMax = ReadXP()
+    RememberNeed(xpLevel, xpMax)
     lastMoney = tonumber(Plain(Safe(GetMoney)))
     UpdateZone()
     lastTick = GetTime()

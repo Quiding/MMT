@@ -227,7 +227,7 @@ function mod.ExportCSV(kind, scope, sep)
         end
     elseif kind == "INSTANCES" then
         Row("Account", "Character", "Instance", "Zone", "Instance ID / visit", "Entered", "Exit", "Lvl In", "Lvl Out",
-            "Time spent", "Seconds", "Kills", "Deaths", "Quests completed", "XP gain", "XP/hr", "Copper", "Copper/hr",
+            "Time spent", "Seconds", "Kills", "Deaths", "Quests completed", "XP gain", "XP % of level", "XP/hr", "Copper", "Copper/hr",
             "Entered again")
         local function When(t) return t and date("%Y-%m-%d %H:%M", t) or "" end
         local function Rate(v, t) if (t or 0) < 60 then return "" end return math.floor((v or 0) / (t / 3600) + 0.5) end
@@ -241,7 +241,9 @@ function mod.ExportCSV(kind, scope, sep)
                         nr[r.map or 0] = (nr[r.map or 0] or 0) + 1
                         Row(mod.AccountLabel(id), name, r.n or "", r.zn or "", r.uid or ("#" .. nr[r.map or 0]),
                             When(r.enter), When(r.leave), r.lvIn or "", r.lvOut or "", mod.Clock(r.t or 0), math.floor(r.t or 0),
-                            r.k or 0, r.d or 0, r.q or 0, r.xp or 0, Rate(r.xp, r.t), r.cp or 0, Rate(r.cp, r.t), r.again or 0)
+                            r.k or 0, r.d or 0, r.q or 0, r.xp or 0,
+                            mod.RunXPShare(r) and ("%.1f"):format(mod.RunXPShare(r)) or "",
+                            Rate(r.xp, r.t), r.cp or 0, Rate(r.cp, r.t), r.again or 0)
                     end
                 end
             end

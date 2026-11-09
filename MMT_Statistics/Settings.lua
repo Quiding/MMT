@@ -720,6 +720,7 @@ M.Page = function(_, page)
                     }
                 else
                 local pf, plist = mod.ProfessionSum(r.pr)
+                local share = mod.RunXPShare(r)
                 rows[#rows + 1] = {
                     cells = { tostring(r.L), mod.Duration(r.t) .. ((r.partial or r.current or r.estimated) and " *" or ""),
                         r.done and ((r.estimated and "~ " or "") .. date("%Y-%m-%d %H:%M", r.done))
@@ -798,13 +799,14 @@ M.Page = function(_, page)
         { "ID", right = 168, w = 38 },
         { "Lvl In", right = 214, w = 42 },
         { "Lvl Out", right = 264, w = 46 },
-        { "Time Spent", right = 338, w = 70 },
-        { "Kills", right = 380, w = 38 },
-        { "Quests", right = 430, w = 46 },
-        { "XP Gain", right = 494, w = 60 },
-        { "XP/hr", right = 548, w = 50 },
-        { "Prof.", right = 592, w = 40 },
-        { "Money", right = PAGE_W - 8, w = 92 },
+        { "Time Spent", right = 330, w = 62 },
+        { "Kills", right = 372, w = 38 },
+        { "Quests", right = 418, w = 44 },
+        { "XP Gain", right = 476, w = 56 },
+        { "XP %", right = 520, w = 42 },
+        { "XP/hr", right = 568, w = 46 },
+        { "Prof.", right = 606, w = 36 },
+        { "Money", right = PAGE_W - 8, w = 82 },
     }, ZONE_ROWS)
     instGrid:SetPoint("TOPLEFT", 0, zy)
     local zoneNote = UI.Label(zp, "")
@@ -862,7 +864,8 @@ M.Page = function(_, page)
                         (r.lvOut and not (r.leave == nil and e.key == me)) and tostring(r.lvOut)
                             or ((r.leave == nil and e.key == me) and (mod.LevelNow() .. "*") or ""),
                         mod.Clock(r.t),
-                        Num(r.k), Num(r.q or 0), Num(r.xp), perHour and Num(perHour) or "-", Num(pf), mod.Money(r.cp or 0) },
+                        Num(r.k), Num(r.q or 0), Num(r.xp), share and ("%d%%"):format(math.floor(share + 0.5)) or "-",
+                        perHour and Num(perHour) or "-", Num(pf), mod.Money(r.cp or 0) },
                     tip = function(t)
                         t:SetText((r.n or "Instance") .. (r.zn and (" (" .. r.zn .. ")") or ""), 1, 1, 1)
                         local lvOut = r.lvOut
@@ -874,6 +877,9 @@ M.Page = function(_, page)
                         local function PerHour(v) return hours > 0 and v / hours or nil end
                         local xpH, cpH = PerHour(r.xp or 0), PerHour(r.cp or 0)
                         t:AddDoubleLine("XP gained:", Num(r.xp or 0) .. (xpH and ("  (%s / hr)"):format(Num(xpH)) or ""), 0.7, 0.7, 0.7, 1, 1, 1)
+                        if share then
+                            t:AddDoubleLine("XP of a level:", ("%.1f%% of level %d"):format(share, r.lvIn), 0.7, 0.7, 0.7, 1, 1, 1)
+                        end
                         t:AddDoubleLine("Money gained:", mod.Money(r.cp or 0) .. (cpH and ("  (%s / hr)"):format(mod.Money(cpH)) or ""), 0.7, 0.7, 0.7, 1, 1, 1)
                         t:AddDoubleLine("Kills:", Num(r.k or 0), 0.7, 0.7, 0.7, 1, 1, 1)
                         t:AddDoubleLine("Quests completed:", Num(r.q or 0), 0.7, 0.7, 0.7, 1, 1, 1)
@@ -899,7 +905,7 @@ M.Page = function(_, page)
                 }
             end
             instGrid:Show_(rows, "No instance visits recorded yet.")
-            zoneNote:SetText(("One row per visit; re-entering an instance asks whether it is the same one. XP includes quest rewards. %s"):format(mod.HourText()))
+            zoneNote:SetText(("One row per visit; re-entering an instance asks whether it is the same one. XP includes quest rewards; XP %% = of the XP the entry level needed. %s"):format(mod.HourText()))
         else
             local list = {}
             for _, z in pairs(zones) do if not z.inst then list[#list + 1] = z end end
