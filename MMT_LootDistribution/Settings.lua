@@ -167,9 +167,16 @@ function mod.NeverLootTab(panel, PANEL_H, root)
     N:Note("Drop items on the list (or shift-click them in). It is part of MMT's Exclusion List: \"Show Trade / Mail too\" in the window shows its trade and mail ticks as well.")
     local opts = {}   -- { check, usable }
     for _, s in ipairs(mod.skips) do
-        if type(s.options) == "table" and #s.options > 0 then
+        -- an option can hide itself (e.g. its addon isn't installed); no options left: no header
+        local shown = {}
+        for _, o in ipairs(type(s.options) == "table" and s.options or {}) do
+            local ok, show = true, true
+            if o.shown then ok, show = pcall(o.shown) end
+            if ok and show then shown[#shown + 1] = o end
+        end
+        if #shown > 0 then
             N:Header(s.title or s.name)
-            for _, o in ipairs(s.options) do
+            for _, o in ipairs(shown) do
                 local cb = N:Check(o.text or "?", function() return o.get and o.get() end,
                     function(v)
                         if o.usable and not o.usable() then return end

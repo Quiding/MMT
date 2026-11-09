@@ -613,7 +613,9 @@ end
 --            skip = function(link) ... end,    -- a reason (text) to leave the item, else nil
 --            options = {                       -- optional: checkboxes on the Never Loot tab
 --                { text = "...", tip = "...", get = function() end, set = function(v) end,
---                  usable = function() return ok, whyNot end },   -- greyed out when not ok
+--                  usable = function() return ok, whyNot end,     -- greyed out when not ok
+--                  shown = function() return bool end },          -- false: not on the tab at all
+--                                                                  -- (asked when the tab is built)
 --            },
 --        })
 --      Asked for every master loot item (not gathering), in the order registered.
