@@ -211,12 +211,46 @@ local function Hex(r, g, b)
 end
 local GREEN, RED, GREY = Hex(0.35, 1, 0.35), Hex(1, 0.35, 0.35), Hex(0.5, 0.5, 0.5)
 
-local function LevelColour(level)
-    if M.db.levelColors and GetQuestDifficultyColor and level and level > 0 then
-        local ok, c = pcall(GetQuestDifficultyColor, level)
-        if ok and type(c) == "table" and c.r then return Hex(c.r, c.g, c.b) end
+-- [level] colour like the game's quest log. On Forever the generic
+-- GetQuestDifficultyColor(level) uses other thresholds than the quest log (a
+-- green quest came out grey), so the game's difficulty of this quest for you
+-- comes first (C_PlayerInfo.GetContentDifficultyQuestForPlayer, as the quest log
+-- and EllesmereUI's tracker); for a quest it can't tell (e.g. only a team
+-- member has it) the level against yours: 5+ above red, 3+ orange, -2..+2
+-- yellow, within the green range green, else grey.
+local DIFF = {   -- the game's quest difficulty colours
+    impossible = { 1, 0.1, 0.1 }, verydifficult = { 1, 0.5, 0.25 }, difficult = { 1, 0.82, 0 },
+    standard = { 0.25, 0.75, 0.25 }, trivial = { 0.5, 0.5, 0.5 },
+}
+local function Named(name)
+    local c = QuestDifficultyColors and QuestDifficultyColors[name]
+    if type(c) == "table" and c.r then return c.r, c.g, c.b end
+    return unpack(DIFF[name])
+end
+
+function mod.LevelRGB(level, questID)
+    if questID and C_PlayerInfo and C_PlayerInfo.GetContentDifficultyQuestForPlayer and GetDifficultyColor then
+        local ok, d = pcall(C_PlayerInfo.GetContentDifficultyQuestForPlayer, questID)
+        if ok and d ~= nil and not MMT.IsSecret(d) then
+            local ok2, c = pcall(GetDifficultyColor, d)
+            if ok2 and type(c) == "table" and c.r then return c.r, c.g, c.b end
+        end
     end
-    return nil
+    if not (level and level > 0) then return nil end
+    local diff = level - (UnitLevel("player") or level)
+    local green = GetQuestGreenRange and select(2, pcall(GetQuestGreenRange)) or 8
+    if type(green) ~= "number" then green = 8 end
+    if diff >= 5 then return Named("impossible")
+    elseif diff >= 3 then return Named("verydifficult")
+    elseif diff >= -2 then return Named("difficult")
+    elseif -diff <= green then return Named("standard") end
+    return Named("trivial")
+end
+
+local function LevelColour(level, questID)
+    if not M.db.levelColors then return nil end
+    local r, g, b = mod.LevelRGB(level, questID)
+    return r and Hex(r, g, b) or nil
 end
 
 local function ClassHex(key)
@@ -371,7 +405,7 @@ function mod.BuildEntries()
                 if ready then suffix = "  " .. GREEN .. "(Ready)|r"
                 elseif ownQ and ownQ.state == 1 then suffix = "  " .. GREEN .. "(Ready for you)|r"
                 elseif ownQ and ownQ.state == -1 then suffix = "  " .. RED .. "(Failed)|r" end
-                local lc = LevelColour(q.level)
+                local lc = LevelColour(q.level, id)
                 local tag = "[" .. (q.level or "?") .. "]"
                 local text = (lc and (lc .. tag .. "|r") or tag) .. " " .. q.title .. suffix
                 Add({ kind = "quest", key = qkey, text = text, indent = 1, collapsible = not ready,
