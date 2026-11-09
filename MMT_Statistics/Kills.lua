@@ -33,6 +33,23 @@ local function IsNPCGuid(guid)
     return kind == "Creature" or kind == "Vehicle"
 end
 
+-- Hidden names in instances: the same death comes as a named kill (the
+-- experience line "Ghoul dies, ...") and as an unknown one (nameplate / target
+-- whose name the game hides). Within PAIR seconds one of each is one kill:
+-- an unknown after a named kill is dropped, a named kill after an unknown one
+-- takes its place (the unknown is renamed).
+local PAIR = 3
+local namedLog, unknownLog = {}, {}   -- { t, used, name } of the last few seconds
+local function OldestUnused(log, now)
+    local found
+    for i = #log, 1, -1 do
+        local e = log[i]
+        if now - e.t > PAIR then table.remove(log, i)
+        elseif not e.used then found = e end
+    end
+    return found
+end
+
 local function Count(name, guid, source)
     name = Plain(name)
     if type(name) ~= "string" or name == "" or not M.db.trackKills then return end
@@ -40,9 +57,34 @@ local function Count(name, guid, source)
     local now = GetTime()
     local r = recent[name]
     if name ~= mod.UNKNOWN_NPC and r and now - r.t < 3 and (not guid or not r.guid or guid == r.guid) then return false end
-    recent[name] = { t = now, guid = guid }
     local c = mod.Char()
     if not c then return end
+    if name == mod.UNKNOWN_NPC then
+        local named = OldestUnused(namedLog, now)
+        if named then
+            named.used = true
+            M:Debug("kill (unknown NPC) (%s): the same as %s (already counted)", source, named.name)
+            return false
+        end
+    else
+        recent[name] = { t = now, guid = guid }
+        local unknown = OldestUnused(unknownLog, now)
+        if unknown and (c.kills[mod.UNKNOWN_NPC] or 0) > 0 then
+            -- that unknown kill was this one: rename it (counts stay the same)
+            unknown.used = true
+            c.kills[mod.UNKNOWN_NPC] = c.kills[mod.UNKNOWN_NPC] - 1
+            if c.kills[mod.UNKNOWN_NPC] <= 0 then c.kills[mod.UNKNOWN_NPC] = nil end
+            c.kills[name] = (c.kills[name] or 0) + 1
+            if mod.RenameKill then mod.RenameKill(mod.UNKNOWN_NPC, name) end   -- level / zone lists (Leveling.lua)
+            if mod.OnEncounterKill then mod.OnEncounterKill(name) end
+            sources[source] = sources[source] + 1
+            M:Debug("kill %s (%s): was counted as an unknown NPC a moment ago, renamed", name, source)
+            if mod.Redraw then mod.Redraw() end
+            return true
+        end
+        namedLog[#namedLog + 1] = { t = now, name = name }
+    end
+    if name == mod.UNKNOWN_NPC then unknownLog[#unknownLog + 1] = { t = now } end
     c.kills[name] = (c.kills[name] or 0) + 1
     c.killTotal = (c.killTotal or 0) + 1
     if mod.OnKill then mod.OnKill(name) end   -- level / zone / instance (Leveling.lua)

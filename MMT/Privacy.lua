@@ -580,14 +580,19 @@ end
 ---------------------------------------------------------------------------
 -- Unit tooltips
 ---------------------------------------------------------------------------
+-- every line, both sides: the name lines on top, and lines further down such as
+-- "Master Looter: <name>" and "Loot: <name>" on NPC tooltips
 local function FixTooltip(tt)
     if not Active() or not tt or not tt.NumLines or not tt.GetName or not tt:GetName() then return end
-    for i = 1, math.min(3, tt:NumLines() or 0) do
-        local fs = _G[tt:GetName() .. "TextLeft" .. i]
-        local text = fs and fs:GetText()
-        if type(text) == "string" and not ns.IsSecret(text) then
-            local new = ns.ReplaceNames(text)
-            if new ~= text then fs:SetText(new) end
+    local name = tt:GetName()
+    for i = 1, tt:NumLines() or 0 do
+        for _, side in ipairs({ "TextLeft", "TextRight" }) do
+            local fs = _G[name .. side .. i]
+            local text = fs and fs:GetText()
+            if type(text) == "string" and not ns.IsSecret(text) then
+                local new = ns.ReplaceNames(text)
+                if new ~= text then fs:SetText(new) end
+            end
         end
     end
 end

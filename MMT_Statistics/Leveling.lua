@@ -394,6 +394,20 @@ function mod.OnKill(name)
     if run then run.k = (run.k or 0) + 1 end
 end
 
+-- an unknown kill turned out to be <name> (Kills.lua): move one detail count over
+function mod.RenameKill(old, name)
+    local c = mod.Char()
+    if not c or not c.killDetail then return end
+    local d = c.killDetail[old]
+    local k = Level() .. "|" .. (zoneKey or "?")
+    if d and d[k] then
+        d[k] = d[k] - 1
+        if d[k] <= 0 then d[k] = nil end
+        if next(d) == nil then c.killDetail[old] = nil end
+    end
+    Detail(c, "killDetail", name)
+end
+
 -- killer: NPC name or nil (fell, drowned, a player, unknown)
 function mod.OnDeath(killer)
     local c = mod.Char()
