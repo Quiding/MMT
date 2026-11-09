@@ -527,6 +527,8 @@ SlashCmdList.MMT = function(msg)
         ns.ToggleConfig()
     elseif cmd == "info" or cmd == "xp" then   -- the Info window ("xp": its old name)
         if arg:lower() == "arrange" then ns.ToggleXPArrange() else ns.ToggleXPWindow() end
+    elseif cmd == "flights" then
+        ns.ExportFlightTimes()
     elseif cmd == "trade" then
         ns.FillTrade(true)
     elseif cmd == "sync" then
@@ -578,6 +580,7 @@ SlashCmdList.MMT = function(msg)
     else
         ns.Print("/mmt - open settings")
         ns.Print("/mmt info (or /mmt xp) - show/hide the Info window, /mmt info arrange - drag its pieces and rows into place")
+        ns.Print("/mmt flights - the learned flight times, to copy (for the times that come with MMT)")
         ns.Print("/mmt trade - (re)fill the open trade window for the partner's roles")
         ns.Print("/mmt sync - send the core settings of the active profile to your team (no module settings)")
         local names = {}

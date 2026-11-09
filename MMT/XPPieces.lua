@@ -177,6 +177,7 @@ ns.RegisterXPPiece{ id = "value", title = "Bar value (XP % or reputation)", side
             "A pulsing \"LvlUp available\" in place of the XP when turning in the quests that are ready would reach the next level."),
         OCheck("Show flights", "flightHint", true,
             "\"Fly to X, mm:ss\" in place of the XP while a character is on a flight path, and \"arrived X\" for 5 seconds after landing. Flight times are learned: the first flight on a route shows no time. Takes turns with \"LvlUp available\" every 5 seconds."),
+        { "Button", "Export flight times", function() ns.ExportFlightTimes() end },
         OCheck("Highlight big XP gains", "xpFlash", true,
             "The XP bar and the XP value light up when a character gets at least 3% of the level's XP at once (e.g. from quest turn-ins)."),
         { "Note", "Class colors and what the bars show (XP or reputation): Basics." },

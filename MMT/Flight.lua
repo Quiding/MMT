@@ -7,7 +7,10 @@
 --
 -- Flight times are learned: the game doesn't tell addons how long a flight
 -- takes, so each landing stores the time of the route (from -> to) in MMTDB
--- (this account, all characters). The first flight on a route shows no time.
+-- (this account, all characters). Each landing checks the stored time again: a
+-- difference of up to 2 seconds is averaged (lag), a bigger one replaces it.
+-- Routes not flown yet use the times that come with MMT (FlightTimes.lua); the
+-- rest show no time on their first flight. "/mmt flights" exports them all.
 
 local _, ns = ...
 
@@ -26,6 +29,12 @@ local function Clean(name)   -- "Ironforge, Dun Morogh" -> "Ironforge"; nothing 
     return name ~= "" and name or nil
 end
 local function Route(from, to) return (from or "?") .. ">" .. (to or "?") end
+
+-- seconds of a route: this account's own time, else the one that comes with MMT
+function ns.FlightTime(from, to)
+    local key = Route(from, to)
+    return Times()[key] or (ns.DEFAULT_FLIGHT_TIMES or {})[key]
+end
 
 ---------------------------------------------------------------------------
 -- This character
@@ -75,7 +84,7 @@ local function TakeOff()
     local t = (take and GetTime() - take.at < TAKE_GRACE) and take or {}
     take = nil
     flight = { from = t.from, to = t.to, start = GetTime() }
-    if t.from and t.to then flight.expect = Times()[Route(t.from, t.to)] end
+    if t.from and t.to then flight.expect = ns.FlightTime(t.from, t.to) end
     ns.Debug("flight: took off %s -> %s, known time %s", tostring(flight.from), tostring(flight.to), tostring(flight.expect))
     Push()
 end
@@ -87,10 +96,12 @@ local function Land()
         local took = GetTime() - f.start
         if took > 5 then
             local key = Route(f.from, f.to)
-            local old = Times()[key]
-            -- a route always takes about the same time: the average smooths lag
-            Times()[key] = math.floor(((old and (old + took) / 2) or took) + 0.5)
-            ns.Debug("flight: %s took %d s (stored %d s)", key, took, Times()[key])
+            local old = Times()[key] or (ns.DEFAULT_FLIGHT_TIMES or {})[key]
+            -- checked on every landing: up to 2 s off is lag (averaged), more replaces it
+            local new
+            if old and math.abs(took - old) <= 2 then new = (old + took) / 2 else new = took end
+            Times()[key] = math.floor(new + 0.5)
+            ns.Debug("flight: %s took %d s (known %s s, stored %d s)", key, took, tostring(old), Times()[key])
         end
     end
     arrivedOwn = { to = f.to or "?", untl = GetTime() + ARRIVED_SHOW }
@@ -209,6 +220,23 @@ ns.OnLogin(function()
         if busy then ns.UpdateXPWindow() end
     end)
 end)
+
+-- "/mmt flights": every known route as Lua lines for FlightTimes.lua
+function ns.ExportFlightTimes()
+    local all = {}
+    for k, v in pairs(ns.DEFAULT_FLIGHT_TIMES or {}) do all[k] = v end
+    local own = 0
+    for k, v in pairs(Times()) do all[k] = v own = own + 1 end
+    local keys = {}
+    for k in pairs(all) do if not k:find("?", 1, true) then keys[#keys + 1] = k end end
+    table.sort(keys)
+    local lines = { ("-- MMT flight times: %d routes (%d flown on this account), faction %s"):format(
+        #keys, own, tostring(UnitFactionGroup and UnitFactionGroup("player"))) }
+    for _, k in ipairs(keys) do
+        lines[#lines + 1] = ("    [%q] = %d,"):format(k, all[k])
+    end
+    ns.ShowText("MMT flight times", table.concat(lines, "\n"))
+end
 
 -- /mmt debug dump
 function ns.FlightReport(add)
