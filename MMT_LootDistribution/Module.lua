@@ -25,6 +25,9 @@
 --    the game's "Pass on Loot" while in a group, with the same exception.
 -- 6. Sparkles (Sparkles.lua): sparkles or a beam of light on the herb, ore
 --    vein, skinnable corpse or other object in front of you.
+-- 7. Never loot: items ticked "in Loot" on MMT's Exclusion List, and what
+--    other addons ask for (MMT.RegisterLootSkip), are left on the corpse (not
+--    handed out, not looted).
 
 local _, mod = ...
 local MMT = MMT
@@ -51,6 +54,9 @@ local M = MMT.NewModule({
         optOut       = false,      -- "Pass on Loot" (SetOptOutOfLoot) while in a group ...
         passExcept   = "GROUP",    -- ... both except on the GROUP leader or the FTL leader
         questRR      = true,       -- quest items round robin across the team
+        worthOn      = false,      -- never-loot items worth at least worthMin are handed out anyway
+        worthMin     = 10000,      -- copper (sell price x the slot's count)
+        worthStack   = false,      -- stackable items: a full stack's price instead
         report       = true,
         -- sparkles on the node / corpse / object in front of you (Sparkles.lua)
         sparkles       = false,        -- off by default
@@ -597,6 +603,78 @@ local function AskQuestNeed(names, done)
 end
 
 ---------------------------------------------------------------------------
+-- 7. Never loot: items left on the corpse. One lookup per item, done while the
+--    window is gone through anyway (no extra loot time).
+--    - MMT's Exclusion List: items ticked "in Loot".
+--    - Loot skips other addons register (MMT.RegisterLootSkip):
+--        MMT.RegisterLootSkip({
+--            name = "MyAddon",                 -- unique; registering it again replaces it
+--            title = "My Addon",               -- header of its options on the Never Loot tab
+--            skip = function(link) ... end,    -- a reason (text) to leave the item, else nil
+--            options = {                       -- optional: checkboxes on the Never Loot tab
+--                { text = "...", tip = "...", get = function() end, set = function(v) end,
+--                  usable = function() return ok, whyNot end },   -- greyed out when not ok
+--            },
+--        })
+--      Asked for every master loot item (not gathering), in the order registered.
+--    - "Loot anyway when worth at least" (worthOn / worthMin): an item one of
+--      these would leave is handed out as usual when its vendor sell price
+--      times the count in the loot slot reaches the amount (worthStack: a
+--      full stack's price for stackable items). Item data not loaded yet (no
+--      price): left.
+---------------------------------------------------------------------------
+local skips = {}
+mod.skips = skips
+
+function MMT.RegisterLootSkip(s)
+    if type(s) ~= "table" or type(s.name) ~= "string" or type(s.skip) ~= "function" then
+        error("MMT.RegisterLootSkip: needs { name = string, skip = function }", 2)
+    end
+    for i, c in ipairs(skips) do
+        if c.name == s.name then skips[i] = s return end
+    end
+    skips[#skips + 1] = s
+end
+
+local function Reason(link)
+    if MMT.ExcludedItem and MMT.ExcludedItem(link, "loot") then return "Exclusion List" end
+    for _, s in ipairs(skips) do
+        local ok, reason = pcall(s.skip, link)
+        if not ok then
+            M:Debug("loot skip %s failed: %s", s.name, tostring(reason))
+        elseif reason then
+            return type(reason) == "string" and reason or s.title or s.name
+        end
+    end
+    return nil
+end
+
+-- vendor value of count of the item (copper), nil while its data isn't loaded;
+-- fullStack: a full stack of a stackable item instead
+function mod.Worth(link, count, fullStack)
+    local info = { MMT.ItemInfo(link) }
+    local price, stack = info[11], info[8]
+    if type(price) ~= "number" then return nil end
+    count = math.max(1, tonumber(count) or 1)
+    if fullStack and type(stack) == "number" and stack > count then count = stack end
+    return price * count
+end
+
+-- why the team never loots this item (count = how many are in the slot), else nil
+function mod.SkipReason(link, count)
+    if not link then return nil end
+    local reason = Reason(link)
+    if reason and M.db.worthOn then
+        local worth = mod.Worth(link, count, M.db.worthStack)
+        if worth and worth >= (M.db.worthMin or 0) then
+            M:Debug("%s x%s is worth %s (%s): looted anyway", link, tostring(count or 1), MMT.FormatMoney(worth), reason)
+            return nil
+        end
+    end
+    return reason
+end
+
+---------------------------------------------------------------------------
 -- Failed hand-outs: if the game refuses an item (the loot window closes
 -- before the slot empties), that member is skipped for that item for a while.
 -- Mostly a passing reason (too far away from the corpse), so only for a minute,
@@ -658,9 +736,11 @@ end
 local function ByReceiver(entries)
     local list, at = {}, {}
     for _, e in ipairs(entries) do
-        local r = at[e.key]
-        if not r then r = { key = e.key, items = {} } list[#list + 1] = r at[e.key] = r end
-        r.items[#r.items + 1] = e.link
+        if e.key then   -- "left" entries have no receiver
+            local r = at[e.key]
+            if not r then r = { key = e.key, items = {} } list[#list + 1] = r at[e.key] = r end
+            r.items[#r.items + 1] = e.link
+        end
     end
     return list
 end
@@ -900,6 +980,7 @@ end
 
 local busy = false
 local handedOut = {}   -- [slot] = true: MMT gave this slot away in the open loot window
+local skipped = {}     -- [slot] = true: never looted (Exclusion List / loot skips)
 
 -- Blizzard's master loot assignment window (opened by Auto Loot or a click):
 -- closed when its item was handed out by MMT or is gone; left open for
@@ -908,7 +989,7 @@ CloseAssignWindow = function()
     local f = _G.MasterLooterFrame
     if not (f and f:IsShown()) then return end
     local slot = f.slot or (_G.LootFrame and _G.LootFrame.selectedSlot)
-    if slot == nil or handedOut[slot] or not GetLootSlotLink(slot) then
+    if slot == nil or handedOut[slot] or skipped[slot] or not GetLootSlotLink(slot) then
         f:Hide()
         M:Debug("closed the master loot window (slot %s)", tostring(slot))
     end
@@ -921,12 +1002,16 @@ local function Plan(needOf)
     for slot = 1, GetNumLootItems() do
         local slotType = GetLootSlotType and GetLootSlotType(slot) or ITEM_SLOT
         local link = GetLootSlotLink(slot)
-        local _, _, _, _, quality, locked = GetLootSlotInfo(slot)
+        local _, _, count, _, quality, locked = GetLootSlotInfo(slot)
         local isQuestItem = link and IsQuestLoot(slot, link)
         local bind = link and select(14, MMT.ItemInfo(link))
+        local skip = slotType == ITEM_SLOT and link and mod.SkipReason(link, count)
         if slotType == ITEM_SLOT and link and not MasterLootSlot(slot) then
             -- gathering, a container, ...: only yours, the game loots it as usual
             M:Debug("%s is not master loot (gathering or your own loot): left to the game", link)
+        elseif skip then
+            skipped[slot] = true
+            M:Debug("never loot %s (%s): left on the corpse", link, skip)
         elseif slotType == ITEM_SLOT and link and not locked and isQuestItem and cfg.questRR and bind ~= BOP then
             local key, index = NextQuestReceiver(slot, link, planned, needOf)
             if key then
@@ -964,6 +1049,7 @@ local function Plan(needOf)
             end
         end
     end
+    if next(skipped) then C_Timer.After(0.2, CloseAssignWindow) end
     if #plan == 0 then busy = false return end
     for i, p in ipairs(plan) do
         C_Timer.After((i - 1) * 0.25, function()
@@ -1035,6 +1121,7 @@ M:On("LOOT_OPENED", function(autoLoot)
     M:Debug("loot window opened: items=%d autoLoot=%s", GetNumLootItems() or 0, tostring(autoLoot))
     wipe(pending)
     wipe(handedOut)
+    wipe(skipped)
     C_Timer.After(0.1, Distribute)
 end)
 

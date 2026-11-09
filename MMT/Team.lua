@@ -427,7 +427,8 @@ function ns.RoleWantsItem(roleName, item)
 end
 
 -- The Exclusion List (Trade / Mail / Vendor): true when the item must never be
--- auto-traded (what = "trade") or auto-mailed (what = "mail").
+-- auto-traded (what = "trade"), auto-mailed (what = "mail") or looted by the
+-- team (what = "loot": Loot Distribution's Never Loot List, left on the corpse).
 function ns.ExcludedItem(item, what)
     local list = ns.db and ns.db.exclusions
     if not list or #list == 0 or not item then return false end
