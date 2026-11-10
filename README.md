@@ -329,7 +329,10 @@ Saved data from MMT 0.1.x is converted automatically.
   Items are recognised as quest items by the loot window or by their item class.
   "No role wants it": leave for manual assignment, give to the master looter, or
   "Round robin to the team" (in turns, keeping the reserve; not for quest items or
-  Bind on Pickup). Chat report (only for you): items given are collected for 5 seconds
+  Bind on Pickup). Only members the game offers as receivers count (in the group, online
+  and in range): an offline member (e.g. a bank character that only gets mail) is left out
+  of roles, quest items and round robin; when no member of a role is here, the item goes
+  by the rule for items without a role. Chat report (only for you): items given are collected for 5 seconds
   and printed together, one line per group: "Given [A], [B] to <Name> (Role)"; several
   members of a role: "Role: Given [A] to <Name1> and [B] to <Name2> (Rule: RR)"; quest
   items: "Quest Item: [A] to <Name1>x2 and <Name2>x1"; no role: "Given [A] to <Name1>

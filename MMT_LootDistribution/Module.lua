@@ -328,6 +328,17 @@ local function CandidateIndex(slot, key)
     return nil
 end
 
+-- only the members the game offers for this slot: in the group, online and in
+-- range. Everybody else (offline, a bank character that never logs in, too far
+-- away) is left out of roles, quest items and round robin alike.
+local function HereOnly(slot, keys)
+    local out = {}
+    for _, key in ipairs(keys) do
+        if CandidateIndex(slot, key) then out[#out + 1] = key end
+    end
+    return out
+end
+
 local announced = {}
 local function AnnounceBoP(link)
     local now = GetTime()
@@ -448,7 +459,13 @@ local function Choose(slot, link, planned, isQuest)
     local cfg = M.db
     -- quest items only need one free slot, whatever the reserve
     local reserve = isQuest and 0 or cfg.reserve
-    local keys, roles = MMT.MembersForItem(link)
+    local all, roles = MMT.MembersForItem(link)
+    -- role members who aren't here (offline, out of range) don't count: with none
+    -- of them here, the item is treated like one no role wants
+    local keys = HereOnly(slot, all)
+    if #keys < #all then
+        M:Debug("%s: role members not here left out (%d of %d here)", link, #keys, #all)
+    end
     -- "give by roles" off: items a role wants stay for manual assignment
     if not cfg.byRoles and #keys > 0 then return nil, nil, "roles off" end
     -- several members want it: in team order (fill up), in turns from the
@@ -939,7 +956,7 @@ local function NextQuestReceiver(slot, link, planned, needOf)
     M.store.questRR = M.store.questRR or {}
     local itemID = ItemID(link)
     local name = ItemName(link)
-    local order = MMT.SortedMembers()
+    local order = HereOnly(slot, MMT.SortedMembers())
     if #order == 0 then return nil end
     local start = 1
     local last = M.store.questRR[itemID]
@@ -976,7 +993,7 @@ end
 -- Items no role or rule wants: round robin across the team (keeps the reserve)
 ---------------------------------------------------------------------------
 NextRoundRobin = function(slot, link, planned)
-    local order = MMT.SortedMembers()
+    local order = HereOnly(slot, MMT.SortedMembers())
     if #order == 0 then return nil end
     local start = 1
     for i, key in ipairs(order) do if key == M.store.lootRR then start = i + 1 end end
