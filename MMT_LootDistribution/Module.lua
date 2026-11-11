@@ -1086,6 +1086,7 @@ local function ChooseByHook(slot, link, planned, isQuest)
 end
 
 local busy = false
+local loggedFrames = false   -- the frame / addon details are logged once per loot window
 local handedOut = {}   -- [slot] = true: MMT gave this slot away in the open loot window
 local skipped = {}     -- [slot] = true: never looted (Exclusion List / loot skips)
 
@@ -1244,6 +1245,7 @@ local function Distribute()
 end
 
 M:On("LOOT_OPENED", function(autoLoot)
+    loggedFrames = false
     M:Debug("loot window opened: items=%d autoLoot=%s", GetNumLootItems() or 0, tostring(autoLoot))
     wipe(pending)
     wipe(handedOut)
@@ -1303,13 +1305,52 @@ local function Candidates(slot)
     end
     return table.concat(names, " ")
 end
+-- numbers and frames a frame carries (to find where this client keeps the slot)
+local function FrameInfo(f)
+    if type(f) ~= "table" then return "none" end
+    local parts = {}
+    for k, v in pairs(f) do
+        if type(k) == "string" and (type(v) == "number" or type(v) == "boolean" or type(v) == "string") and #parts < 12 then
+            parts[#parts + 1] = k .. "=" .. tostring(v)
+        end
+    end
+    table.sort(parts)
+    local name = f.GetName and f:GetName() or "?"
+    return ("%s shown=%s {%s}"):format(tostring(name), tostring(f.IsShown and f:IsShown()), table.concat(parts, " "))
+end
 for _, e in ipairs({ "OPEN_MASTER_LOOT_LIST", "UPDATE_MASTER_LOOT_LIST" }) do
     M:On(e, function()
         local f = _G.MasterLooterFrame
         local slot = (f and f.slot) or (_G.LootFrame and _G.LootFrame.selectedSlot)
         M:Debug("%s: slot=%s item=%s frame=%s candidates: %s", e, tostring(slot),
             tostring(slot and GetLootSlotLink(slot)), tostring(f and f:IsShown()), slot and Candidates(slot) or "-")
+        if not slot then
+            -- slot not known here: the candidates of every item in the window
+            for i = 1, GetNumLootItems() do
+                local link = GetLootSlotLink(i)
+                if link then M:Debug("  slot %d %s candidates: %s", i, link, Candidates(i) ~= "" and Candidates(i) or "none") end
+            end
+        end
+        if not loggedFrames then
+            loggedFrames = true
+            M:Debug("  MasterLooterFrame: %s", FrameInfo(f))
+            M:Debug("  LootFrame: %s", FrameInfo(_G.LootFrame))
+            local addons = {}
+            local n = (C_AddOns and C_AddOns.GetNumAddOns or GetNumAddOns)()
+            for i = 1, n do
+                local name = (C_AddOns and C_AddOns.GetAddOnInfo or GetAddOnInfo)(i)
+                local loaded = (C_AddOns and C_AddOns.IsAddOnLoaded or IsAddOnLoaded)(i)
+                if loaded and type(name) == "string" and (name:lower():find("loot") or name:find("ElvUI") or name:find("Ellesmere")) then
+                    addons[#addons + 1] = name
+                end
+            end
+            M:Debug("  loot related addons: %s", #addons > 0 and table.concat(addons, ", ") or "none")
+        end
     end)
+end
+-- blocked actions (taint) are logged whenever they happen
+for _, e in ipairs({ "ADDON_ACTION_BLOCKED", "ADDON_ACTION_FORBIDDEN" }) do
+    M:On(e, function(addon, fn) M:Debug("%s: %s %s", e, tostring(addon), tostring(fn)) end)
 end
 if hooksecurefunc and GiveMasterLoot then
     hooksecurefunc("GiveMasterLoot", function(slot, index)
