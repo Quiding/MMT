@@ -345,7 +345,8 @@ local function AnnounceBoP(link)
     if announced[link] and now - announced[link] < 60 then return end
     announced[link] = now
     local channel = IsInRaid() and "RAID" or "PARTY"
-    local msg = ("MMT: %s is Bind on Pickup and was not given out. Master looter, please assign it."):format(link)
+    local msg = ("MMT: %s is BOP. Master Looter > please assign"):format(link)
+    M:Debug("BOP %s: left for the master looter to assign by hand", link)
     local ok, err = pcall(SendChatMessage, msg, channel)
     if not ok then MMT.Print(msg) M:Debug("SendChatMessage failed: %s", tostring(err)) end
 end
@@ -799,6 +800,7 @@ local function IsBlocked(link, key)
 end
 
 M:On("LOOT_SLOT_CLEARED", function(slot)
+    M:Debug("loot slot %s cleared", tostring(slot))
     pending[slot] = nil; closing[slot] = nil
     C_Timer.After(0, CloseAssignWindow)
 end)
@@ -1090,13 +1092,29 @@ local skipped = {}     -- [slot] = true: never looted (Exclusion List / loot ski
 -- Blizzard's master loot assignment window (opened by Auto Loot or a click):
 -- closed when its item was handed out by MMT or is gone; left open for
 -- items that stay manual (e.g. Bind on Pickup)
+-- Which slot the window is for isn't always known (f.slot / LootFrame.selectedSlot):
+-- then it is closed only when every item left is one MMT handed out or skips, so a
+-- window the master looter opened for a BOP item stays.
+local function AllHandled()
+    for slot = 1, GetNumLootItems() do
+        if GetLootSlotLink(slot) and not (handedOut[slot] or skipped[slot]) then return false end
+    end
+    return true
+end
 CloseAssignWindow = function()
     local f = _G.MasterLooterFrame
     if not (f and f:IsShown()) then return end
     local slot = f.slot or (_G.LootFrame and _G.LootFrame.selectedSlot)
-    if slot == nil or handedOut[slot] or skipped[slot] or not GetLootSlotLink(slot) then
+    local why
+    if slot == nil then why = AllHandled() and "slot not known, nothing manual left" or nil
+    elseif handedOut[slot] then why = "handed out by MMT"
+    elseif skipped[slot] then why = "never loot"
+    elseif not GetLootSlotLink(slot) then why = "item gone" end
+    if why then
         f:Hide()
-        M:Debug("closed the master loot window (slot %s)", tostring(slot))
+        M:Debug("closed the master loot window (slot %s: %s)", tostring(slot), why)
+    else
+        M:Debug("master loot window left open (slot %s)", tostring(slot))
     end
 end
 
@@ -1161,7 +1179,9 @@ local function Plan(needOf)
             if busy and GetLootSlotLink(p.slot) == p.link then
                 pending[p.slot] = { link = p.link, key = p.key }
                 handedOut[p.slot] = true
-                GiveMasterLoot(p.slot, p.index)
+                mmtGiving = true
+                pcall(GiveMasterLoot, p.slot, p.index)
+                mmtGiving = false
                 C_Timer.After(0.2, CloseAssignWindow)
                 M:Debug("GiveMasterLoot(%d, %d) %s -> %s", p.slot, p.index, p.link, MMT.Repr(p.key))
                 AddToSummary(p)   -- printed together after 5 seconds
@@ -1188,9 +1208,10 @@ local function Distribute()
         local link = GetLootSlotLink(slot)
         local _, name, qty, _, quality, locked, isQuestItem = GetLootSlotInfo(slot)
         local classID = link and select(6, ((C_Item and C_Item.GetItemInfoInstant) or GetItemInfoInstant)(link))
-        M:Debug("loot slot %d: %s x%s quality=%s locked=%s questFlag=%s class=%s type=%s", slot, tostring(link or name),
+        local bind = link and select(14, MMT.ItemInfo(link))
+        M:Debug("loot slot %d: %s x%s quality=%s locked=%s questFlag=%s class=%s type=%s bind=%s master=%s", slot, tostring(link or name),
             tostring(qty), tostring(quality), tostring(locked), tostring(isQuestItem), tostring(classID),
-            tostring(GetLootSlotType and GetLootSlotType(slot)))
+            tostring(GetLootSlotType and GetLootSlotType(slot)), tostring(bind), tostring(link and MasterLootSlot(slot)))
     end
     -- quest items in this corpse? ask the team first who still needs them
     local names, seen = {}, {}
@@ -1268,6 +1289,47 @@ M:On("START_LOOT_ROLL", function(rollID)
         if ok and cfg.report and link then passed.Add(link) end
     end)
 end)
+---------------------------------------------------------------------------
+-- Debug log of the manual side (for "can't assign BOP items" reports): the
+-- master loot list opening, every GiveMasterLoot (MMT's and the player's),
+-- the game's confirm popups and its error messages while the loot window is open
+---------------------------------------------------------------------------
+local mmtGiving = false
+local function Candidates(slot)
+    local names = {}
+    for i = 1, 40 do
+        local ok, name = pcall(GetMasterLootCandidate, slot, i)
+        if ok and name and not MMT.IsSecret(name) then names[#names + 1] = i .. "=" .. MMT.Repr(MMT.Resolve(name) or name) end
+    end
+    return table.concat(names, " ")
+end
+for _, e in ipairs({ "OPEN_MASTER_LOOT_LIST", "UPDATE_MASTER_LOOT_LIST" }) do
+    M:On(e, function()
+        local f = _G.MasterLooterFrame
+        local slot = (f and f.slot) or (_G.LootFrame and _G.LootFrame.selectedSlot)
+        M:Debug("%s: slot=%s item=%s frame=%s candidates: %s", e, tostring(slot),
+            tostring(slot and GetLootSlotLink(slot)), tostring(f and f:IsShown()), slot and Candidates(slot) or "-")
+    end)
+end
+if hooksecurefunc and GiveMasterLoot then
+    hooksecurefunc("GiveMasterLoot", function(slot, index)
+        if mmtGiving then return end   -- MMT's own: logged where it is called
+        local ok, name = pcall(GetMasterLootCandidate, slot, index)
+        M:Debug("GiveMasterLoot(%s, %s) by hand: %s -> %s", tostring(slot), tostring(index),
+            tostring(GetLootSlotLink(slot)), ok and MMT.Repr(name and MMT.Resolve(name) or name) or "?")
+    end)
+end
+if hooksecurefunc and StaticPopup_Show then
+    hooksecurefunc("StaticPopup_Show", function(which, a1, a2)
+        if type(which) == "string" and (which:find("LOOT") or which:find("BIND")) then
+            M:Debug("game popup %s (%s, %s)", which, tostring(a1), tostring(a2))
+        end
+    end)
+end
+M:On("UI_ERROR_MESSAGE", function(_, msg)
+    if _G.LootFrame and _G.LootFrame:IsShown() then M:Debug("game error while looting: %s", tostring(msg)) end
+end)
+
 M:On("LOOT_CLOSED", function()
     busy = false
     -- hand-outs still not cleared a moment after the window closed were refused by the game
