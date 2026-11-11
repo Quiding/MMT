@@ -281,6 +281,7 @@ local function TabStrip(page, y, tabs, reserve)
         local p = CreateFrame("Frame", nil, page)
         p:SetPoint("TOPLEFT", 0, panelY)
         p:SetSize(PAGE_W, 564 + panelY - (reserve or 0))
+        p.mmtTab = { label = t[2], show = function() Show(t[1]) end }   -- the settings search opens it (Search.lua)
         panels[t[1]] = p
     end
     Show(tabs[1][1])
