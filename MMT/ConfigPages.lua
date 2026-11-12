@@ -1470,7 +1470,7 @@ ns.RegisterPage("automations", "Automations", function(page)
     end
 
     -- Group-wide Interactions (right, taller: no tile below it) --------------------------------
-    local GROUP_H = 42 + 3 * 28 + 7 * UI.ROW + 12
+    local GROUP_H = 42 + 3 * 28 + 7 * UI.ROW + (UI.ROW + 2) + 12
     local _, R = Tile(page, X2, TOP, TILE_W, GROUP_H, "Group-wide Interactions", "Interface\\Icons\\Ability_Mount_RidingHorse")
     R:Header("Flight paths")
     local gt, stt = Opt("taxi", "enabled")
@@ -1487,6 +1487,12 @@ ns.RegisterPage("automations", "Automations", function(page)
     local gdm, sdm = Opt("mount", "dismount")
     R:Check("Dismount with the leader", gdm, sdm,
         "When the leader dismounts, every team member dismounts too, never in the air. Hold Shift while dismounting to do it alone.")
+    local chosen = R:Cycle("Chosen mount (key)", function()
+        local l = { { value = 0, text = "Random favourite" } }
+        for _, m in ipairs(ns.MountChoices()) do l[#l + 1] = { value = m.id, text = m.name } end
+        return l
+    end, function() return ns.db.mount.chosen or 0 end, function(v) ns.db.mount.chosen = v end)
+    UI.Tooltip(chosen, "Chosen mount (key)", "The mount of the key binding \"Mount team: chosen mount\" (Key Bindings > MMT). Pressed on the leader, it summons this mount and the team follows; where it can't be used, a random favourite. The keys \"Mount team: random favourite\" and \"Dismount team\" are there too. They work even with the two options above off; pressed while mounted, the mount keys dismount the team.")
 
     R:Header("When you die")
     local grl, srl = Opt("death", "release")

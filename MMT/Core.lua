@@ -4,7 +4,7 @@
 local ADDON, ns = ...
 _G.MMT = ns
 ns.title = "MMT"
-ns.version = "1.1.18"
+ns.version = "1.2.0"
 ns.prefix = "MMT"
 ns.LOGO = "Interface\\AddOns\\MMT\\Media\\Logo"   -- the MMT mark (Media/Logo.tga)
 ns.ICON = "Interface\\AddOns\\MMT\\Media\\Icon"   -- the mark on a dark tile (Media/Icon.tga)
@@ -524,6 +524,9 @@ ns.BINDING_CATEGORY = "BINDING_CATEGORY_MMT"
 BINDING_HEADER_MMT = "Core"
 BINDING_NAME_MMT_TOGGLE_CONFIG = "Open / close the MMT settings"
 BINDING_NAME_MMT_TOGGLE_XP = "Show / hide the Info window"
+BINDING_NAME_MMT_MOUNT_RANDOM = "Mount team: random favourite"
+BINDING_NAME_MMT_MOUNT_CHOSEN = "Mount team: chosen mount"
+BINDING_NAME_MMT_DISMOUNT_TEAM = "Dismount team"
 function MMT_ToggleConfig() if ns.ready and ns.ToggleConfig then ns.ToggleConfig() end end
 function MMT_ToggleXPWindow() if ns.ready and ns.ToggleXPWindow then ns.ToggleXPWindow() end end
 

@@ -6,6 +6,12 @@
 -- one of the same kind (ground / flying / ...), else a random favourite; and
 -- dismount, but never in the air. Holding Shift while mounting or
 -- dismounting keeps it to the leader.
+--
+-- Key bindings (Bindings.xml), pressed on the leader: "Mount team: random
+-- favourite", "Mount team: chosen mount" (Automation page) and "Dismount team".
+-- They work even with "Mount up / Dismount with the leader" off: the leader then
+-- sends MOUNTX / DISMOUNTX, which team members follow regardless of those options
+-- (MMT 1.2.0+). Pressed while mounted, the mount keys dismount the team.
 
 local _, ns = ...
 
@@ -78,14 +84,17 @@ local wasMounted = false
 
 local function IsLeader() return ns.IsNoticeLeaderHere and ns.IsNoticeLeaderHere() end
 
+local forced = 0   -- a team key was pressed (until this time): send even with the options off
+
 local function SendMount(mountID)
     local cfg = Cfg()
-    if not (cfg and cfg.mount) or following or not mountID or not IsLeader() then return end
-    if IsShiftKeyDown() then return end
+    local force = GetTime() < forced
+    if not cfg or following or not mountID or mountID == 0 or not IsLeader() then return end
+    if not force and (not cfg.mount or IsShiftKeyDown()) then return end
     if GetTime() - lastSent < 3 then return end
     lastSent = GetTime()
-    ns.Debug("mount: leader mounts %s, telling the team", tostring(mountID))
-    ns.SendAlert("MOUNT:" .. mountID)
+    ns.Debug("mount: leader mounts %s, telling the team%s", tostring(mountID), force and " (team key)" or "")
+    ns.SendAlert((force and "MOUNTX:" or "MOUNT:") .. mountID)
 end
 
 ns.On("UNIT_SPELLCAST_START", function(unit, castGUID, spellID)
@@ -157,4 +166,66 @@ ns.Listen("TEAM_MESSAGE", function(key, sender, text)
         return
     end
     if text == "DISMOUNT" and cfg.dismount and Dismount then DismountHere(key) end
+    -- the leader pressed a team key: followed with the options off too
+    id = text:match("^MOUNTX:(%d+)$")
+    if id then
+        if J and J.SummonByID then MountUp(tonumber(id), key) end
+        return
+    end
+    if text == "DISMOUNTX" and Dismount then DismountHere(key) end
 end)
+
+---------------------------------------------------------------------------
+-- Key bindings (pressed on the leader; on anyone else they mount that character)
+---------------------------------------------------------------------------
+-- collected mounts usable by this character, sorted by name: { { id, name }, ... }
+function ns.MountChoices()
+    local J = C_MountJournal
+    local list = {}
+    if not (J and J.GetMountIDs and J.GetMountInfoByID) then return list end
+    for _, id in ipairs(J.GetMountIDs() or {}) do
+        local name, _, _, _, _, _, _, _, _, hidden, collected = J.GetMountInfoByID(id)
+        if collected and not hidden and type(name) == "string" and not ns.IsSecret(name) then
+            list[#list + 1] = { id = id, name = name }
+        end
+    end
+    table.sort(list, function(a, b) return a.name < b.name end)
+    return list
+end
+
+local function TeamDismount()
+    forced = GetTime() + 2
+    if IsLeader() then
+        ns.Debug("mount: team key, dismounting the team")
+        ns.SendAlert("DISMOUNTX")
+    end
+    if Mounted() and not Safe(IsFlying) then
+        following = true   -- the dismount event mustn't send a second DISMOUNT
+        pcall(Dismount)
+        C_Timer.After(1, function() following = false end)
+    end
+end
+
+local function TeamMount(id)
+    local J = C_MountJournal
+    if not (J and J.SummonByID) then return end
+    if Mounted() then TeamDismount() return end
+    if InCombat() then ns.Print("Can't mount in combat.") return end
+    forced = GetTime() + 5
+    lastSent = 0
+    local ok, err = pcall(J.SummonByID, id or 0)
+    ns.Debug("mount: team key -> SummonByID(%s) %s %s", tostring(id or 0), tostring(ok), tostring(err or ""))
+end
+
+function MMT_MountTeamRandom() TeamMount(0) end   -- 0 = a random favourite
+function MMT_MountTeamChosen()
+    local cfg = Cfg()
+    local id = cfg and cfg.chosen or 0
+    local J = C_MountJournal
+    if id ~= 0 and J and J.GetMountInfoByID then
+        local _, _, _, _, usable = J.GetMountInfoByID(id)
+        if not usable then id = 0 end   -- can't use it here (e.g. a flying mount on the ground): a random favourite
+    end
+    TeamMount(id)
+end
+function MMT_DismountTeam() TeamDismount() end

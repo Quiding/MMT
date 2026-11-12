@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 1.1.16: core addon (MMT) plus optional modules (MMT_*).
+Version 1.2.0: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -441,6 +441,11 @@ Saved data from MMT 0.1.x is converted automatically.
   - "Mount up / Dismount with the leader": when the leader mounts, the team mounts the
     same mount (or one of the same kind, or a random favourite); when it dismounts, the
     team dismounts (never in the air). Hold Shift to ride alone.
+  - Key bindings (Key Bindings > MMT), pressed on the leader: "Mount team: random
+    favourite", "Mount team: chosen mount" (the mount picked under "Chosen mount (key)";
+    a random favourite where it can't be used) and "Dismount team". The team follows even
+    with the two options above off; pressed while mounted, the mount keys dismount the
+    team. On a team member they only mount that character.
   - "Release as team" / "Revive as team": an MMT panel under the game's death dialog and
     under the corpse dialog, on every character it concerns. One click releases every
     dead team member, or revives every ghost at its corpse (one with a corpse delay

@@ -147,7 +147,7 @@ ns.defaults = {
     mail     = { enabled = true, goldTo = "", keepGold = 100 },     -- mailbox button: role items to the team, gold above keepGold
     gbank    = { enabled = true, role = "", tab = 1, gold = false, keepGold = 100 },   -- guild bank button
     -- automations
-    mount    = { mount = true, dismount = true },               -- with the leader
+    mount    = { mount = true, dismount = true, chosen = 0 },   -- with the leader; chosen: the "Mount team: chosen mount" key (0 = random favourite)
     death    = { release = true, revive = true,                 -- team buttons under the death / corpse dialogs
                  acceptRes = { team = true, friends = false, guild = false, anyone = false },
                  acceptSummon = { team = true, friends = false, guild = false, anyone = false } },

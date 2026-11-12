@@ -12,4 +12,13 @@
     <Binding name="MMT_FTL_LEADER" category="BINDING_CATEGORY_MMT">
         MMT_FTL_SetLeader()
     </Binding>
+    <Binding name="MMT_MOUNT_RANDOM" category="BINDING_CATEGORY_MMT">
+        MMT_MountTeamRandom()
+    </Binding>
+    <Binding name="MMT_MOUNT_CHOSEN" category="BINDING_CATEGORY_MMT">
+        MMT_MountTeamChosen()
+    </Binding>
+    <Binding name="MMT_DISMOUNT_TEAM" category="BINDING_CATEGORY_MMT">
+        MMT_DismountTeam()
+    </Binding>
 </Bindings>
