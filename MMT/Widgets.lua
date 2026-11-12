@@ -650,7 +650,15 @@ end
 -- Escape closes the frame without registering it in Blizzard's UISpecialFrames
 -- (that table is read by the protected game menu code and taints it).
 -- The frame only swallows the Escape key; all other keys pass through.
-function UI.CloseOnEscape(frame)
+-- The game doesn't let that pass-through be set in combat: a frame that took the
+-- keyboard in a fight kept EVERY key (key bindings, Escape, moving) until it was
+-- hidden another way. So the keyboard is taken only out of combat - at once, or
+-- when the fight ends. In combat Escape opens the game menu as usual and also
+-- closes these frames (a post-hook of ToggleGameMenu: nothing of the game's changes).
+local escFrames, escWaiting = {}, {}
+local escHooked, escWatch = false, nil
+
+local function ArmEscape(frame)
     frame:EnableKeyboard(true)
     local function Propagate(on)
         if not InCombatLockdown() and frame.SetPropagateKeyboardInput then frame:SetPropagateKeyboardInput(on) end
@@ -666,6 +674,31 @@ function UI.CloseOnEscape(frame)
         end
     end)
 end
+
+function UI.CloseOnEscape(frame)
+    escFrames[#escFrames + 1] = frame
+    if not escHooked and type(rawget(_G, "ToggleGameMenu")) == "function" then
+        escHooked = true
+        hooksecurefunc("ToggleGameMenu", function()
+            if not InCombatLockdown() then return end
+            for _, f in ipairs(escFrames) do
+                if f:IsShown() and not (f.IsProtected and f:IsProtected()) then f:Hide() end
+            end
+        end)
+    end
+    if not InCombatLockdown() then return ArmEscape(frame) end
+    escWaiting[#escWaiting + 1] = frame
+    if not escWatch then
+        escWatch = CreateFrame("Frame")
+        escWatch:SetScript("OnEvent", function(self)
+            for _, f in ipairs(escWaiting) do ArmEscape(f) end
+            wipe(escWaiting)
+            self:UnregisterEvent("PLAYER_REGEN_ENABLED")
+        end)
+    end
+    escWatch:RegisterEvent("PLAYER_REGEN_ENABLED")
+end
+UI.escape = { frames = escFrames, waiting = escWaiting }   -- (tests / debug)
 
 -- Small flat yes/no dialog (instead of Blizzard's StaticPopup, which taints).
 -- onCancel runs when the dialog closes without Accept (Cancel, Escape, or
