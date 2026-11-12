@@ -581,26 +581,76 @@ end
 -- Unit tooltips
 ---------------------------------------------------------------------------
 -- every line, both sides: the name lines on top, and lines further down such as
--- "Master Looter: <name>" and "Loot: <name>" on NPC tooltips
-local function FixTooltip(tt)
+-- "Master Looter: <name>" and "Loot: <name>" on NPC tooltips, the party members'
+-- names under quest objectives, who can loot a corpse.
+-- Tooltip addons (EllesmereUI, ...) may rebuild the lines after the game's post
+-- call, so the check runs again a frame later and every 0.1 s while a tooltip
+-- shows (cheap: a handful of lines, only while the privacy option is on).
+local tipStats = { checked = 0, replaced = 0, secret = 0, again = 0, last = {} }
+local function FixTooltip(tt, later)
     if not Active() or not tt or not tt.NumLines or not tt.GetName or not tt:GetName() then return end
     local name = tt:GetName()
     for i = 1, tt:NumLines() or 0 do
         for _, side in ipairs({ "TextLeft", "TextRight" }) do
             local fs = _G[name .. side .. i]
             local text = fs and fs:GetText()
-            if type(text) == "string" and not ns.IsSecret(text) then
+            if text ~= nil and ns.IsSecret(text) then
+                tipStats.secret = tipStats.secret + 1
+            elseif type(text) == "string" then
+                tipStats.checked = tipStats.checked + 1
                 local new = ns.ReplaceNames(text)
-                if new ~= text then fs:SetText(new) end
+                if new ~= text then
+                    fs:SetText(new)
+                    tipStats.replaced = tipStats.replaced + 1
+                    if later then
+                        -- set again by something after MMT's first pass
+                        tipStats.again = tipStats.again + 1
+                        table.insert(tipStats.last, 1, ("%s %s%d"):format(name, side, i))
+                        if #tipStats.last > 5 then table.remove(tipStats.last) end
+                    end
+                end
             end
         end
     end
 end
 
+ns.PrivacyFixTooltip = FixTooltip   -- (tests / debug)
+
+local function FixNowAndLater(tt)
+    FixTooltip(tt)
+    C_Timer.After(0, function() if tt:IsShown() then FixTooltip(tt, true) end end)
+end
+
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
-    TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, FixTooltip)
+    local all = TooltipDataProcessor.AllTypes
+    if all then
+        TooltipDataProcessor.AddTooltipPostCall(all, FixNowAndLater)
+    else
+        for _, t in ipairs({ "Unit", "Corpse", "Object", "Item" }) do
+            if Enum.TooltipDataType[t] then TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType[t], FixNowAndLater) end
+        end
+    end
 elseif GameTooltip and GameTooltip.HookScript then
-    pcall(GameTooltip.HookScript, GameTooltip, "OnTooltipSetUnit", FixTooltip)
+    pcall(GameTooltip.HookScript, GameTooltip, "OnTooltipSetUnit", FixNowAndLater)
+end
+
+if GameTooltip and GameTooltip.HookScript then
+    local wait = 0
+    GameTooltip:HookScript("OnShow", function(tt) C_Timer.After(0, function() FixTooltip(tt, true) end) end)
+    GameTooltip:HookScript("OnUpdate", function(tt, elapsed)
+        wait = wait - (elapsed or 0)
+        if wait > 0 then return end
+        wait = 0.1
+        FixTooltip(tt, true)
+    end)
+end
+
+-- /mmt debug dump: how the tooltip check went
+function ns.PrivacyTooltipReport(add)
+    add(("-- Privacy  active=%s"):format(tostring(Active())))
+    add(("  tooltips: lines checked=%d replaced=%d (set again after MMT's first pass: %d) secret (unreadable)=%d  last set again: %s"):format(
+        tipStats.checked, tipStats.replaced, tipStats.again, tipStats.secret,
+        #tipStats.last > 0 and table.concat(tipStats.last, ", ") or "-"))
 end
 
 ---------------------------------------------------------------------------
