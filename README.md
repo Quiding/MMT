@@ -317,9 +317,12 @@ Saved data from MMT 0.1.x is converted automatically.
   item with the threshold Poor); it adds no loot time.
   Other addons can pick the receiver of an item first with `MMT.RegisterLootChooser`
   (see CreateModules.md); what they leave goes by the roles as above.
-  "Auto-Round Robin quest items": quest items go to the team in turns (team order).
+  "Auto-Round Robin quest items": quest items go to the team in turns (team order, the master looter's turn
+  last - "Master looter's turn last", on by default - so the first drop goes to someone else).
   The master looter first asks the team who still needs the item (each client checks
-  its quest log) and skips characters whose objective is complete. If the game still
+  its quest log) and skips characters whose objective is complete. A quest item nobody needs any more (everyone's
+  objective is done) is handed out like other loot - its role, else "No role wants it" - or left in the loot window
+  ("Quest item nobody needs"). If the game still
   refuses a hand-out, that character is skipped for that item for 10 minutes.
   A character with full bags still counts as having room for a stackable item that fits
   onto a stack it carries (the master looter asks the team). Items nobody has room for

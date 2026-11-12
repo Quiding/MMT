@@ -123,6 +123,16 @@ M.Page = function(_, page)
     local gq, sq = Opt("questRR")
     masterOnly[#masterOnly + 1] = R:Check("Auto-Round Robin quest items", gq, sq,
         "As master looter, quest items go to the team members in turns, in team order. Only characters the game offers for the item (on the quest and able to receive it) get a turn. Turns are kept per item, so drops spread evenly. The free bag slots setting doesn't apply: quest items are given even into the last slot.")
+    local gl, sl = Opt("questMLLast")
+    masterOnly[#masterOnly + 1] = R:Check("Master looter's turn last", gl, sl,
+        "In the quest item turns the master looter comes after everyone else, so the first drop of an item goes to the next team member instead of into the master looter's bags. Off: team order, the master looter first when it leads the team list.")
+    local gqn, sqn = Opt("questNobody")
+    masterOnly[#masterOnly + 1] = R:Cycle("Quest item nobody needs", {
+        { value = "LOOT", text = "Hand out like other loot" },
+        { value = "LEAVE", text = "Leave for manual" },
+    }, gqn, sqn)
+    UI.Tooltip(masterOnly[#masterOnly], "Quest item nobody needs",
+        "A quest item whose objective is already done for every team member (e.g. Un'Goro Soil once everyone has enough): hand it out like any other item - its role, else \"No role wants it\" - or leave it in the loot window.")
 
     local sparklesRefresh = SparklesTab(panels.sparkles, PANEL_H)
     local neverRefresh = mod.NeverLootTab(panels.never, PANEL_H, root)
