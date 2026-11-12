@@ -616,9 +616,49 @@ end
 
 ns.PrivacyFixTooltip = FixTooltip   -- (tests / debug)
 
-local function FixNowAndLater(tt)
+-- In instances the game hands addons tooltip text as secret values: they can't
+-- be read, so no name can be found in them. What can be read is each line's
+-- type (TooltipDataProcessor data): a QuestPlayer line is always a group
+-- member's name under a quest objective, so it is replaced with a neutral
+-- "team member" (which member it is can't be known). Other secret lines stay.
+local LINE_NAME, NAME_LINES
+local secretTypes = {}   -- [type name] = count (debug)
+local function MaskSecretLines(tt, data)
+    if not (Active() and type(data) == "table" and type(data.lines) == "table") then return end
+    if not LINE_NAME then
+        local LINE = Enum and Enum.TooltipDataLineType or {}
+        LINE_NAME, NAME_LINES = {}, {}
+        for k, v in pairs(LINE) do LINE_NAME[v] = k end
+        if LINE.QuestPlayer then NAME_LINES[LINE.QuestPlayer] = true end
+    end
+    local name = tt.GetName and tt:GetName()
+    if not name then return end
+    for i, line in ipairs(data.lines) do
+        local fs = _G[name .. "TextLeft" .. i]
+        local text = fs and fs:GetText()
+        if text ~= nil and ns.IsSecret(text) then
+            local kind = LINE_NAME[line.type] or tostring(line.type)
+            secretTypes[kind] = (secretTypes[kind] or 0) + 1
+            if NAME_LINES[line.type] then
+                fs:SetText("|cffaaaaaa(team member)|r")
+                tipStats.masked = (tipStats.masked or 0) + 1
+            end
+        end
+    end
+end
+
+ns.PrivacyMaskSecretLines = MaskSecretLines   -- (tests / debug)
+
+local lastData = setmetatable({}, { __mode = "k" })   -- [tooltip] = its data (for the 0.1 s re-check)
+local function FixNowAndLater(tt, data)
+    lastData[tt] = data
     FixTooltip(tt)
-    C_Timer.After(0, function() if tt:IsShown() then FixTooltip(tt, true) end end)
+    pcall(MaskSecretLines, tt, data)
+    C_Timer.After(0, function()
+        if not tt:IsShown() then return end
+        FixTooltip(tt, true)
+        pcall(MaskSecretLines, tt, data)
+    end)
 end
 
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
@@ -637,11 +677,13 @@ end
 if GameTooltip and GameTooltip.HookScript then
     local wait = 0
     GameTooltip:HookScript("OnShow", function(tt) C_Timer.After(0, function() FixTooltip(tt, true) end) end)
+    GameTooltip:HookScript("OnHide", function(tt) lastData[tt] = nil end)
     GameTooltip:HookScript("OnUpdate", function(tt, elapsed)
         wait = wait - (elapsed or 0)
         if wait > 0 then return end
         wait = 0.1
         FixTooltip(tt, true)
+        if lastData[tt] then pcall(MaskSecretLines, tt, lastData[tt]) end
     end)
 end
 
@@ -651,6 +693,11 @@ function ns.PrivacyTooltipReport(add)
     add(("  tooltips: lines checked=%d replaced=%d (set again after MMT's first pass: %d) secret (unreadable)=%d  last set again: %s"):format(
         tipStats.checked, tipStats.replaced, tipStats.again, tipStats.secret,
         #tipStats.last > 0 and table.concat(tipStats.last, ", ") or "-"))
+    local kinds = {}
+    for k, n in pairs(secretTypes) do kinds[#kinds + 1] = k .. "=" .. n end
+    table.sort(kinds)
+    add(("  secret tooltip lines by type: %s  (QuestPlayer masked: %d)"):format(
+        #kinds > 0 and table.concat(kinds, ", ") or "none", tipStats.masked or 0))
 end
 
 ---------------------------------------------------------------------------
