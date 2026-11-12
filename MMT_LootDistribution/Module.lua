@@ -7,8 +7,9 @@
 -- 2. Master loot by roles: the master looter's client gives items at or
 --    above the threshold to the team member whose roles want them. Several
 --    members with that role: the first one in team order who still has more
---    free bag slots than the reserve. Bind on Pickup items are never given:
---    they are announced in group chat for manual assignment.
+--    free bag slots than the reserve. Bind on Pickup items are announced in
+--    group chat for manual assignment; with "Bind on Pickup on a role's item
+--    list" (bopRoles) one that a role lists as an item goes to that role.
 -- 3. Quest items (only the master looter can hand them out on Forever): given
 --    round robin across the team, to the next member in team order that the
 --    game offers as a candidate (= on the quest and able to receive it).
@@ -45,6 +46,7 @@ local M = MMT.NewModule({
         threshold    = 0,          -- item quality (0 = Poor, 2 = Uncommon)
         looter       = "LEADER",   -- master looter: "LEADER" or a team key
         byRoles      = true,
+        bopRoles     = false,      -- Bind on Pickup items a role lists as an item go to that role (else manual)
         reserve      = 2,          -- free bag slots every member keeps
         unassigned   = "RR",       -- items no role wants: LEAVE | SELF | RR (round robin)
         rrNotice     = true,       -- chat line when an item without rule goes round robin
@@ -458,11 +460,21 @@ local function AskStackRoom(items, done)
     C_Timer.After(0.8, function() if roomAsks[ask] then roomAsks[ask].finish() end end)
 end
 
-local function Choose(slot, link, planned, isQuest)
+-- bopOnly: a Bind on Pickup item - only members whose role lists this very
+-- item (not a quality, item group or class rule), and nobody else if they can't
+local function Choose(slot, link, planned, isQuest, bopOnly)
     local cfg = M.db
     -- quest items only need one free slot, whatever the reserve
     local reserve = isQuest and 0 or cfg.reserve
     local all, roles = MMT.MembersForItem(link)
+    if bopOnly then
+        local listed = {}
+        for _, key in ipairs(all) do
+            local _, how = MMT.RoleWantsItem(roles[key], link)
+            if how == 4 then listed[#listed + 1] = key end   -- 4 = an item rule (Team.lua SPECIFIC)
+        end
+        all = listed
+    end
     -- role members who aren't here (offline, out of range) don't count: with none
     -- of them here, the item is treated like one no role wants
     local keys = HereOnly(slot, all)
@@ -499,6 +511,7 @@ local function Choose(slot, link, planned, isQuest)
         M:Debug("skip %s for %s: candidate=%s free=%s reserve=%d", MMT.Repr(key), link,
             tostring(index), tostring(free), reserve)
     end
+    if bopOnly then return nil, nil, (#keys == 0) and "no role lists it" or "no space" end
     if #keys == 0 and cfg.unassigned == "SELF" then
         local me = MMT.PlayerFull()
         local index = CandidateIndex(slot, me)
@@ -1140,9 +1153,25 @@ local function Plan(needOf)
         local bind = link and select(14, MMT.ItemInfo(link))
         local skip = slotType == ITEM_SLOT and link and mod.SkipReason(link, count)
         -- roles, loot choosers, round robin: like any item at or above the threshold
+        local function Give(key, index, role, rr, fromHook)
+            local kind, label, rule = Classify(role, rr, fromHook)
+            plan[#plan + 1] = { slot = slot, link = link, key = key, index = index, role = role, rr = rr,
+                kind = kind, label = label, rule = rule }
+            planned[key] = (planned[key] or 0) + 1
+            if not MMT.IsSelf(key) then NoteGiven(key) end
+        end
         local function HandOut()
             if bind == BOP then
-                AnnounceBoP(link)                -- never auto-assigned, never looted
+                -- only to a role that lists the item (bopRoles), else by hand; never looted
+                local key, index, role
+                if cfg.bopRoles then key, index, role = Choose(slot, link, planned, isQuestItem, true) end
+                if key then
+                    M:Debug("BOP %s: on the item list of %s -> %s", link, tostring(role), MMT.Repr(key))
+                    Give(key, index, role)
+                else
+                    if cfg.bopRoles then M:Debug("BOP %s: %s", link, tostring(role)) end
+                    AnnounceBoP(link)
+                end
             elseif bind == nil then
                 M:Debug("left %s: item data not loaded yet, can't rule out Bind on Pickup", link)
             else
@@ -1150,11 +1179,7 @@ local function Plan(needOf)
                 local fromHook = key ~= nil
                 if not key then key, index, role, rr = Choose(slot, link, planned, isQuestItem) end
                 if key then
-                    local kind, label, rule = Classify(role, rr, fromHook)
-                    plan[#plan + 1] = { slot = slot, link = link, key = key, index = index, role = role, rr = rr,
-                        kind = kind, label = label, rule = rule }
-                    planned[key] = (planned[key] or 0) + 1
-                    if not MMT.IsSelf(key) then NoteGiven(key) end
+                    Give(key, index, role, rr, fromHook)
                 else
                     M:Debug("left %s in the loot window (%s)", link, tostring(role))
                     if role == "no space" then
