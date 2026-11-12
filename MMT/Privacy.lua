@@ -318,14 +318,20 @@ end
 ---------------------------------------------------------------------------
 -- Unit frames, nameplates
 ---------------------------------------------------------------------------
+-- forbidden frames (the game's protected nameplates) can't be read: GetText / GetName on them
+-- error "Attempt to access forbidden object from code tainted by an AddOn"
+local function Forbidden(f)
+    return type(f) == "table" and f.IsForbidden and f:IsForbidden() and true or false
+end
+
 local function NameText(frame)
-    if not frame then return nil end
+    if not frame or Forbidden(frame) then return nil end
     local content = frame.TargetFrameContent and frame.TargetFrameContent.TargetFrameContentMain
     local fs = frame.name or frame.Name or (content and content.Name)
     if not fs and frame.GetName and frame:GetName() then
         fs = _G[frame:GetName() .. "Name"] or _G[frame:GetName() .. "TextureFrameName"]
     end
-    if fs and fs.GetText and fs.SetText then return fs end
+    if fs and fs.GetText and fs.SetText and not Forbidden(fs) then return fs end
 end
 
 local AfterSetText   -- below: replaces and remembers the original text
@@ -538,8 +544,12 @@ end
 ns.PrivacyMeter = { MemberForRow = MemberForRow, RowShowsClass = RowShowsClass, FixMeterRow = FixMeterRow }   -- (tests / debug)
 
 AfterSetText = function(fs, text)
-    if busy or not Active() then return end
-    if text == nil then text = fs:GetText() end
+    if busy or not Active() or Forbidden(fs) then return end
+    if text == nil then
+        local ok, cur = pcall(fs.GetText, fs)
+        if not ok then return end
+        text = cur
+    end
     if ns.IsSecret(text) then FixMeterRow(fs) return end
     if type(text) ~= "string" then return end
     local new = ns.ReplaceNames(text)
