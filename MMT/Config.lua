@@ -85,20 +85,26 @@ local function Overlay(page, frame)
     page.overlay = o
 end
 
+-- a page's frame, built the first time it is needed (shown, or read by the search: Search.lua)
+local function BuildPage(page)
+    if page.frame then return page.frame end
+    local frame = CreateFrame("Frame", nil, window)
+    frame:SetPoint("TOPLEFT", NAV + 16, -44)
+    frame:SetSize(WIDTH - NAV - 32, HEIGHT - 56)
+    frame.widgets = {}
+    page.frame = frame   -- before build: a page that fails half way isn't built twice
+    if current ~= page.key then frame:Hide() end
+    page.build(frame)
+    if page.module then Overlay(page, frame) end
+    return frame
+end
+
 local function Select(key)
     if not pages[key] then key = "team" end
     current = key
     for k, page in pairs(pages) do
         local selected = (k == key)
-        if selected and not page.frame then
-            local frame = CreateFrame("Frame", nil, window)
-            frame:SetPoint("TOPLEFT", NAV + 16, -44)
-            frame:SetSize(WIDTH - NAV - 32, HEIGHT - 56)
-            frame.widgets = {}
-            page.build(frame)
-            if page.module then Overlay(page, frame) end
-            page.frame = frame
-        end
+        if selected and not page.frame then BuildPage(page) end
         if page.frame then page.frame:SetShown(selected) end
     end
     window.pageTitle:SetText(pages[key].title)
@@ -106,6 +112,11 @@ local function Select(key)
     RefreshNav()
     if window.ShowInNav then window.ShowInNav(key) end
 end
+
+-- for the search (Search.lua)
+ns.configPages, ns.ConfigCoreOrder = pages, coreOrder
+ns.ConfigBuildPage = function(page) if window then return BuildPage(page) end end
+ns.ConfigSelect = function(key) if window then Select(key) end end
 
 ---------------------------------------------------------------------------
 -- Navigation
@@ -445,6 +456,7 @@ local function Build()
     w.pageTitle:SetPoint("TOPLEFT", NAV + 16, -14)
     local close = UI.TextButton(w, "x", function() w:Hide() end, 20)
     close:SetPoint("TOPRIGHT", -8, -8)
+    if ns.BuildConfigSearch then ns.BuildConfigSearch(w) end   -- the search box, top right (Search.lua)
 
     w:SetScript("OnShow", function()
         ns.configOpen = true

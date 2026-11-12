@@ -45,6 +45,7 @@ function UI.Label(parent, text, template)
 end
 
 function UI.Tooltip(frame, title, text)
+    frame.mmtTipTitle, frame.mmtTip = title, text   -- what the settings search finds (Search.lua)
     frame:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:SetText(title)
