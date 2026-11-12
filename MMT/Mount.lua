@@ -79,6 +79,8 @@ end
 -- Leader: tell the team
 ---------------------------------------------------------------------------
 local following = false   -- this client mounts because the leader did: don't send
+local quietDismount = 0   -- until then the leader's own dismount sends nothing (the team key sent DISMOUNTX)
+local dismountKeyAt = -10 -- when "Dismount team" (or a mount key while mounted) was pressed here
 local lastSent = 0
 local wasMounted = false
 
@@ -110,7 +112,7 @@ ns.On("PLAYER_MOUNT_DISPLAY_CHANGED", function()
         -- mounts without a cast (or a cast event the game hid): send now
         if GetTime() - lastSent >= 3 then SendMount(ActiveMount()) end
     elseif not mounted and wasMounted then
-        if cfg and cfg.dismount and not following and IsLeader() and not IsShiftKeyDown()
+        if cfg and cfg.dismount and not following and GetTime() >= quietDismount and IsLeader() and not IsShiftKeyDown()
             and not Safe(UnitOnTaxi, "player") then
             ns.Debug("mount: leader dismounted, telling the team")
             ns.SendAlert("DISMOUNT")
@@ -131,9 +133,15 @@ local function LeaderNearby(key)
     return visible ~= false
 end
 
-local function MountUp(mountID, key)
+local function MountUp(mountID, key, tries)
     local J = C_MountJournal
-    if Mounted() or InCombat() then return end
+    if InCombat() then return end
+    if Mounted() then
+        -- still getting off (the leader dismounted and mounted again quickly): try again shortly
+        tries = (tries or 0) + 1
+        if tries <= 8 then C_Timer.After(0.25, function() MountUp(mountID, key, tries) end) end
+        return
+    end
     if Safe(UnitIsDeadOrGhost, "player") or Safe(IsIndoors) then return end
     if not LeaderNearby(key) then return end
     local id = ChooseMount(mountID)
@@ -200,16 +208,25 @@ local function TeamDismount()
         ns.SendAlert("DISMOUNTX")
     end
     if Mounted() and not Safe(IsFlying) then
-        following = true   -- the dismount event mustn't send a second DISMOUNT
+        quietDismount = GetTime() + 2   -- the dismount event mustn't send a second DISMOUNT
+        dismountKeyAt = GetTime()
         pcall(Dismount)
-        C_Timer.After(1, function() following = false end)
     end
 end
 
-local function TeamMount(id)
+local function TeamMount(id, tries)
     local J = C_MountJournal
     if not (J and J.SummonByID) then return end
-    if Mounted() then TeamDismount() return end
+    if Mounted() then
+        -- pressed again right after dismounting: the game may still report the mount; wait for it
+        if GetTime() - dismountKeyAt < 1.5 then
+            tries = (tries or 0) + 1
+            if tries <= 8 then C_Timer.After(0.2, function() TeamMount(id, tries) end) end
+            return
+        end
+        TeamDismount()
+        return
+    end
     if InCombat() then ns.Print("Can't mount in combat.") return end
     forced = GetTime() + 5
     lastSent = 0
