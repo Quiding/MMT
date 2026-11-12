@@ -625,7 +625,7 @@ ns.PrivacyFixTooltip = FixTooltip   -- (tests / debug)
 -- secret lines stay.
 local LINE_NAME, NAME_LINES
 local secretTypes = {}   -- [type name] = count (debug)
-local layouts = {}       -- debug: the line layout of the last living / dead unit tooltip
+local layouts = {}       -- debug: the line layout of the last 3 GameTooltip unit tooltips
 local function Layout(tt, data)
     local name = tt:GetName()
     local unit = select(2, pcall(function() return tt.GetUnit and select(2, tt:GetUnit()) end))
@@ -641,9 +641,35 @@ local function Layout(tt, data)
         if text == nil then shown = "nil"
         elseif ns.IsSecret(text) then shown = "secret"
         else shown = ("%q"):format(ns.ReplaceNames(tostring(text)):sub(1, 30)) end
-        parts[#parts + 1] = ("%d %s %s"):format(i, kind, shown)
+        -- what else the data line carries (to tell lines of the same type apart)
+        local extra = {}
+        if line and kind ~= "QuestObjective" and kind ~= "QuestPlayer" and kind ~= "QuestTitle" then
+            for k, v in pairs(line) do
+                if k ~= "type" and k ~= "leftText" then
+                    local tv = type(v)
+                    if ns.IsSecret(v) then extra[#extra + 1] = k .. "=secret"
+                    elseif tv == "number" or tv == "boolean" then extra[#extra + 1] = k .. "=" .. tostring(v)
+                    elseif tv == "table" and v.GetRGB then
+                        local ok, r, g, b = pcall(v.GetRGB, v)
+                        extra[#extra + 1] = ok and not ns.IsSecret(r) and ("%s=%.2f,%.2f,%.2f"):format(k, r, g, b) or (k .. "=color")
+                    elseif tv == "string" then extra[#extra + 1] = k .. "=" .. ns.ReplaceNames(v):sub(1, 20)
+                    else extra[#extra + 1] = k .. "=" .. tv end
+                end
+            end
+            table.sort(extra)
+        end
+        parts[#parts + 1] = ("%d %s %s%s"):format(i, kind, shown, #extra > 0 and (" {" .. table.concat(extra, " ") .. "}") or "")
     end
-    layouts[dead == true and "dead" or "alive"] = ("lines=%d data=%d: %s"):format(n, #data.lines, table.concat(parts, " | "))
+    local top = {}
+    for k, v in pairs(data) do
+        if k ~= "lines" then
+            top[#top + 1] = k .. "=" .. (ns.IsSecret(v) and "secret" or (type(v) == "table" and "table" or tostring(v):sub(1, 20)))
+        end
+    end
+    table.sort(top)
+    table.insert(layouts, 1, ("dead=%s lines=%d data=%d [%s]: %s"):format(tostring(dead), n, #data.lines,
+        table.concat(top, " "), table.concat(parts, " | ")))
+    while #layouts > 3 do table.remove(layouts) end
 end
 local function MaskSecretLines(tt, data)
     if not (Active() and type(data) == "table" and type(data.lines) == "table") then return end
@@ -657,7 +683,6 @@ local function MaskSecretLines(tt, data)
     end
     local name = tt.GetName and tt:GetName()
     if not name then return end
-    if tt == GameTooltip then pcall(Layout, tt, data) end
     for i, line in ipairs(data.lines) do
         local fs = _G[name .. "TextLeft" .. i]
         local text = fs and fs:GetText()
@@ -679,12 +704,18 @@ local function FixNowAndLater(tt, data)
     lastData[tt] = data
     FixTooltip(tt)
     pcall(MaskSecretLines, tt, data)
+    if tt == GameTooltip and Active() and type(data) == "table" and type(data.lines) == "table" then
+        -- debug layout, once per tooltip, a frame later (what the player sees)
+        C_Timer.After(0, function() if LINE_NAME then pcall(Layout, tt, data) end end)
+    end
     C_Timer.After(0, function()
         if not tt:IsShown() then return end
         FixTooltip(tt, true)
         pcall(MaskSecretLines, tt, data)
     end)
 end
+
+ns.PrivacyFixNowAndLater = FixNowAndLater   -- (tests / debug)
 
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
     local all = TooltipDataProcessor.AllTypes
@@ -723,8 +754,7 @@ function ns.PrivacyTooltipReport(add)
     table.sort(kinds)
     add(("  secret tooltip lines by type: %s  (QuestPlayer / UnitOwner masked: %d)"):format(
         #kinds > 0 and table.concat(kinds, ", ") or "none", tipStats.masked or 0))
-    add("  last unit tooltip (alive): " .. (layouts.alive or "-"))
-    add("  last unit tooltip (corpse): " .. (layouts.dead or "-"))
+    for i, l in ipairs(layouts) do add(("  unit tooltip %d (newest first): %s"):format(i, l)) end
 end
 
 ---------------------------------------------------------------------------
