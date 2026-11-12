@@ -619,8 +619,10 @@ ns.PrivacyFixTooltip = FixTooltip   -- (tests / debug)
 -- In instances the game hands addons tooltip text as secret values: they can't
 -- be read, so no name can be found in them. What can be read is each line's
 -- type (TooltipDataProcessor data): a QuestPlayer line is always a group
--- member's name under a quest objective, so it is replaced with a neutral
--- "team member" (which member it is can't be known). Other secret lines stay.
+-- member's name under a quest objective, a UnitOwner line names who loots a
+-- corpse ("Master Looter: <name>", "Loot: <name>") or owns a pet; both are
+-- replaced with a neutral "team member" (which member can't be known). Other
+-- secret lines stay.
 local LINE_NAME, NAME_LINES
 local secretTypes = {}   -- [type name] = count (debug)
 local function MaskSecretLines(tt, data)
@@ -630,6 +632,8 @@ local function MaskSecretLines(tt, data)
         LINE_NAME, NAME_LINES = {}, {}
         for k, v in pairs(LINE) do LINE_NAME[v] = k end
         if LINE.QuestPlayer then NAME_LINES[LINE.QuestPlayer] = true end
+        -- corpses: "Master Looter: <name>" and "Loot: <name>" (also "<name>'s Pet")
+        if LINE.UnitOwner then NAME_LINES[LINE.UnitOwner] = true end
     end
     local name = tt.GetName and tt:GetName()
     if not name then return end
@@ -696,7 +700,7 @@ function ns.PrivacyTooltipReport(add)
     local kinds = {}
     for k, n in pairs(secretTypes) do kinds[#kinds + 1] = k .. "=" .. n end
     table.sort(kinds)
-    add(("  secret tooltip lines by type: %s  (QuestPlayer masked: %d)"):format(
+    add(("  secret tooltip lines by type: %s  (QuestPlayer / UnitOwner masked: %d)"):format(
         #kinds > 0 and table.concat(kinds, ", ") or "none", tipStats.masked or 0))
 end
 
