@@ -625,6 +625,26 @@ ns.PrivacyFixTooltip = FixTooltip   -- (tests / debug)
 -- secret lines stay.
 local LINE_NAME, NAME_LINES
 local secretTypes = {}   -- [type name] = count (debug)
+local layouts = {}       -- debug: the line layout of the last living / dead unit tooltip
+local function Layout(tt, data)
+    local name = tt:GetName()
+    local unit = select(2, pcall(function() return tt.GetUnit and select(2, tt:GetUnit()) end))
+    local dead = unit and not ns.IsSecret(unit) and UnitIsDead and select(2, pcall(UnitIsDead, unit))
+    local parts = {}
+    local n = tt:NumLines() or 0
+    for i = 1, math.max(n, #data.lines) do
+        local line = data.lines[i]
+        local kind = line and (LINE_NAME[line.type] or tostring(line.type)) or "-"
+        local fs = _G[name .. "TextLeft" .. i]
+        local text = fs and fs:GetText()
+        local shown
+        if text == nil then shown = "nil"
+        elseif ns.IsSecret(text) then shown = "secret"
+        else shown = ("%q"):format(ns.ReplaceNames(tostring(text)):sub(1, 30)) end
+        parts[#parts + 1] = ("%d %s %s"):format(i, kind, shown)
+    end
+    layouts[dead == true and "dead" or "alive"] = ("lines=%d data=%d: %s"):format(n, #data.lines, table.concat(parts, " | "))
+end
 local function MaskSecretLines(tt, data)
     if not (Active() and type(data) == "table" and type(data.lines) == "table") then return end
     if not LINE_NAME then
@@ -637,6 +657,7 @@ local function MaskSecretLines(tt, data)
     end
     local name = tt.GetName and tt:GetName()
     if not name then return end
+    if tt == GameTooltip then pcall(Layout, tt, data) end
     for i, line in ipairs(data.lines) do
         local fs = _G[name .. "TextLeft" .. i]
         local text = fs and fs:GetText()
@@ -702,6 +723,8 @@ function ns.PrivacyTooltipReport(add)
     table.sort(kinds)
     add(("  secret tooltip lines by type: %s  (QuestPlayer / UnitOwner masked: %d)"):format(
         #kinds > 0 and table.concat(kinds, ", ") or "none", tipStats.masked or 0))
+    add("  last unit tooltip (alive): " .. (layouts.alive or "-"))
+    add("  last unit tooltip (corpse): " .. (layouts.dead or "-"))
 end
 
 ---------------------------------------------------------------------------
