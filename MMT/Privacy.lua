@@ -621,8 +621,9 @@ ns.PrivacyFixTooltip = FixTooltip   -- (tests / debug)
 -- type (TooltipDataProcessor data): a QuestPlayer line is always a group
 -- member's name under a quest objective, a UnitOwner line names who loots a
 -- corpse ("Master Looter: <name>", "Loot: <name>") or owns a pet; both are
--- replaced with a neutral "team member" (which member can't be known). Other
--- secret lines stay.
+-- replaced with a neutral "team member" (which member can't be known). On NPC
+-- tooltips in a group the last two generic lines ("Master Looter: <name>",
+-- "Loot: <name>") too, by position. Other secret lines stay.
 local LINE_NAME, NAME_LINES
 local secretTypes = {}   -- [type name] = count (debug)
 local layouts = {}       -- debug: the line layout of the last 3 GameTooltip unit tooltips
@@ -683,13 +684,26 @@ local function MaskSecretLines(tt, data)
     end
     local name = tt.GetName and tt:GetName()
     if not name then return end
+    -- NPC tooltips in a group: "Master Looter: <name>" and "Loot: <name>" are the
+    -- last two generic (None) lines, after the name, the two lines below it
+    -- (level, type) and any quest block. The dumps showed every line, colours
+    -- included, secret, so their position is all there is to go by.
+    local lootLines = {}
+    local NONE = Enum and Enum.TooltipDataLineType and Enum.TooltipDataLineType.None
+    local UNIT = Enum and Enum.TooltipDataType and Enum.TooltipDataType.Unit
+    if NONE and data.type == UNIT and IsInGroup and IsInGroup() then
+        local lines, last = data.lines, #data.lines
+        local j = last
+        while j > 3 and lines[j] and lines[j].type == NONE do j = j - 1 end
+        for i = math.max(j + 1, last - 1), last do lootLines[i] = true end
+    end
     for i, line in ipairs(data.lines) do
         local fs = _G[name .. "TextLeft" .. i]
         local text = fs and fs:GetText()
         if text ~= nil and ns.IsSecret(text) then
             local kind = LINE_NAME[line.type] or tostring(line.type)
             secretTypes[kind] = (secretTypes[kind] or 0) + 1
-            if NAME_LINES[line.type] then
+            if NAME_LINES[line.type] or lootLines[i] then
                 fs:SetText("|cffaaaaaa(team member)|r")
                 tipStats.masked = (tipStats.masked or 0) + 1
             end
