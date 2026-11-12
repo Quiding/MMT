@@ -54,6 +54,8 @@ local M = MMT.NewModule({
         optOut       = false,      -- "Pass on Loot" (SetOptOutOfLoot) while in a group ...
         passExcept   = "GROUP",    -- ... both except on the GROUP leader or the FTL leader
         questRR      = true,       -- quest items round robin across the team
+        questMLLast  = true,       -- ... with the master looter's turn last (else in team order)
+        questNobody  = "LOOT",     -- a quest item no member needs any more: LOOT (roles / round robin, like other items) | LEAVE
         worthOn      = false,      -- never-loot items worth at least worthMin are handed out anyway
         worthMin     = 10000,      -- copper (sell price x the slot's count)
         worthStack   = false,      -- stackable items: a full stack's price instead
@@ -960,6 +962,13 @@ local function NextQuestReceiver(slot, link, planned, needOf)
     local name = ItemName(link)
     local order = HereOnly(slot, MMT.SortedMembers())
     if #order == 0 then return nil end
+    -- the master looter (this client) takes its turn last: the first drop of an item
+    -- goes to the next member, not straight into the master looter's bags
+    if M.db.questMLLast ~= false then
+        for i, key in ipairs(order) do
+            if MMT.IsSelf(key) then table.insert(order, table.remove(order, i)) break end
+        end
+    end
     local start = 1
     local last = M.store.questRR[itemID]
     for i, key in ipairs(order) do if key == last then start = i + 1 end end
@@ -1130,24 +1139,8 @@ local function Plan(needOf)
         local isQuestItem = link and IsQuestLoot(slot, link)
         local bind = link and select(14, MMT.ItemInfo(link))
         local skip = slotType == ITEM_SLOT and link and mod.SkipReason(link, count)
-        if slotType == ITEM_SLOT and link and not MasterLootSlot(slot) then
-            -- gathering, a container, ...: only yours, the game loots it as usual
-            M:Debug("%s is not master loot (gathering or your own loot): left to the game", link)
-        elseif skip then
-            skipped[slot] = true
-            M:Debug("never loot %s (%s): left on the corpse", link, skip)
-        elseif slotType == ITEM_SLOT and link and not locked and isQuestItem and cfg.questRR and bind ~= BOP then
-            local key, index = NextQuestReceiver(slot, link, planned, needOf)
-            if key then
-                plan[#plan + 1] = { slot = slot, link = link, key = key, index = index, role = "quest, round robin",
-                    kind = "quest", label = link }
-                planned[key] = (planned[key] or 0) + 1
-                if not MMT.IsSelf(key) then NoteGiven(key) end
-            else
-                M:Debug("left quest item %s: no team member needs or can receive it", link)
-            end
-        elseif slotType == ITEM_SLOT and link and not locked and (cfg.byRoles or cfg.unassigned == "RR")
-            and (isQuestItem or (quality or 0) >= threshold) then
+        -- roles, loot choosers, round robin: like any item at or above the threshold
+        local function HandOut()
             if bind == BOP then
                 AnnounceBoP(link)                -- never auto-assigned, never looted
             elseif bind == nil then
@@ -1171,6 +1164,31 @@ local function Plan(needOf)
                     end
                 end
             end
+        end
+        if slotType == ITEM_SLOT and link and not MasterLootSlot(slot) then
+            -- gathering, a container, ...: only yours, the game loots it as usual
+            M:Debug("%s is not master loot (gathering or your own loot): left to the game", link)
+        elseif skip then
+            skipped[slot] = true
+            M:Debug("never loot %s (%s): left on the corpse", link, skip)
+        elseif slotType == ITEM_SLOT and link and not locked and isQuestItem and cfg.questRR and bind ~= BOP then
+            local key, index = NextQuestReceiver(slot, link, planned, needOf)
+            if key then
+                plan[#plan + 1] = { slot = slot, link = link, key = key, index = index, role = "quest, round robin",
+                    kind = "quest", label = link }
+                planned[key] = (planned[key] or 0) + 1
+                if not MMT.IsSelf(key) then NoteGiven(key) end
+            elseif cfg.questNobody ~= "LEAVE" and (cfg.byRoles or cfg.unassigned == "RR") then
+                -- nobody's objective needs it (all done, e.g. Un'Goro Soil collected): it is
+                -- still loot - roles and round robin decide, like any other item
+                M:Debug("quest item %s: no team member needs it for a quest - handed out like other loot", link)
+                HandOut()
+            else
+                M:Debug("left quest item %s: no team member needs or can receive it", link)
+            end
+        elseif slotType == ITEM_SLOT and link and not locked and (cfg.byRoles or cfg.unassigned == "RR")
+            and (isQuestItem or (quality or 0) >= threshold) then
+            HandOut()
         end
     end
     if next(skipped) then C_Timer.After(0.2, CloseAssignWindow) end
