@@ -648,6 +648,7 @@ end
 -- quest item in it; otherwise it asks the team as before (fallback).
 ---------------------------------------------------------------------------
 local CACHE_EVERY, CACHE_FRESH, PUSH_FOR = 120, 300, 600
+local ASK_GAP, DUP_GAP = 20, 3   -- team-wide requests at most every 20 s; a request seen twice (party + guild) within 3 s is answered once
 local qcache = {}        -- [key] = { t = GetTime(), list = { { text, done } } }
 local cacheStats = { asked = 0, answers = 0, hits = 0, fallbacks = 0 }
 
@@ -688,8 +689,13 @@ end
 local function CacheOn() return M.enabled and M.db.questCache and IsInGroup() end
 
 -- master looter: ask the team (or one member) for their objectives
+local lastAsk = -1e9
 local function RequestCache(key)
     if not CacheOn() then return end
+    if not key then
+        if GetTime() - lastAsk < ASK_GAP then return end
+        lastAsk = GetTime()
+    end
     cacheStats.asked = cacheStats.asked + 1
     if key then
         MMT.SendAddon("QNR", "WHISPER", MMT.WhisperTarget(key), "NORMAL")
@@ -709,6 +715,7 @@ local function SendSnapshot(to)
 end
 M:Listen("TEAM_MESSAGE", function(key, sender, text)
     if text == "QNR" then
+        if requester == key and GetTime() - requestedAt < DUP_GAP then return end   -- same request on another channel
         requester, requestedAt = key, GetTime()
         SendSnapshot(key)
         return
@@ -735,10 +742,21 @@ end)
 C_Timer.NewTicker(CACHE_EVERY, function()
     if CacheOn() and mod.IsMasterLooter() then RequestCache() end
 end)
+-- the roster changed: ask only when a present member has no entry yet (the
+-- event also fires for loot method, leader and zone changes)
+local rosterSoon = false
 M:On("GROUP_ROSTER_UPDATE", function()
-    if CacheOn() and mod.IsMasterLooter() then
-        C_Timer.After(3, function() RequestCache() end)
-    end
+    if rosterSoon or not (CacheOn() and mod.IsMasterLooter()) then return end
+    rosterSoon = true
+    C_Timer.After(3, function()
+        rosterSoon = false
+        for _, key in ipairs(MMT.SortedMembers()) do
+            if not MMT.IsSelf(key) and MMT.IsOnline(key) and not qcache[key] then
+                RequestCache()
+                return
+            end
+        end
+    end)
 end)
 
 -- a loot window: the cached needOf when it can be trusted, else nil (ask the team)
