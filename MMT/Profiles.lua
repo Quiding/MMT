@@ -139,7 +139,7 @@ ns.defaults = {
     shiftBypass = true,
     -- quest settings moved to the Quest Tracker module (profile.quests of older
     -- profiles is copied over by the module once)
-    gossip   = { vendor = true, taxi = true, dialog = true },
+    gossip   = { vendor = true, taxi = true, bank = true, dialog = true },
     -- items never traded / mailed by MMT, whatever role wants them:
     -- { { itemID, name, trade = true, mail = true }, ... } (Trade / Mail / Vendor > Exclusion List)
     exclusions = {},

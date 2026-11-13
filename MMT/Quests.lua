@@ -1,4 +1,4 @@
--- MMT: gossip goes straight to the vendor pane or the flight map, and
+-- MMT: gossip goes straight to the vendor pane, the bank or the flight map, and
 -- dialog-only NPCs are clicked through (options that only advance the
 -- conversation).
 --
@@ -18,6 +18,20 @@ end
 local VENDOR_ICON = 132060 -- Interface\GossipFrame\VendorGossipIcon
 local CHAT_ICON = 132053   -- Interface\GossipFrame\GossipGossipIcon (plain dialog line)
 local TAXI_ICON = 132057   -- Interface\GossipFrame\TaxiGossipIcon (flight master)
+local BANK_ICON = 132050   -- Interface\GossipFrame\BankerGossipIcon (banker)
+
+-- the banker's "I would like to check my deposit box" line (icon, or the usual texts)
+local BANK_TEXTS = { "check my deposit box", "my deposit box", "access my bank" }
+local function IsBankOption(opt)
+    if opt.icon == BANK_ICON or opt.type == "banker" then return true end
+    local name = opt.name
+    if type(name) ~= "string" or ns.IsSecret(name) then return false end
+    name = name:lower()
+    for _, t in ipairs(BANK_TEXTS) do
+        if name:find(t, 1, true) then return true end
+    end
+    return false
+end
 
 -- the flight master's "I need a ride" line (icon, or the usual texts)
 local TAXI_TEXTS = { "i need a ride", "show me where i can fly", "i'd like to fly", "where can i fly" }
@@ -114,6 +128,15 @@ ns.On("GOSSIP_SHOW", function()
         for _, opt in ipairs(options) do
             if IsTaxiOption(opt) then
                 ns.Debug("Gossip: flight master, opening the flight map")
+                C_GossipInfo.SelectOption(opt.gossipOptionID)
+                return
+            end
+        end
+    end
+    if ns.db.gossip.bank then
+        for _, opt in ipairs(options) do
+            if IsBankOption(opt) then
+                ns.Debug("Gossip: banker, opening the bank")
                 C_GossipInfo.SelectOption(opt.gossipOptionID)
                 return
             end

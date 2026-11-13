@@ -1403,7 +1403,7 @@ ns.RegisterPage("automations", "Automations", function(page)
     local X2 = TILE_W + TILE_GAP
 
     -- NPC Interactions (top left) -------------------------------------------------------
-    local NPC_H = 42 + 4 * UI.ROW + 4 + 40
+    local NPC_H = 42 + 5 * UI.ROW + 4 + 40
     local _, L = Tile(page, 0, TOP, TILE_W, NPC_H, "NPC Interactions", "Interface\\GossipFrame\\GossipGossipIcon")
     local gv, sv = Opt("gossip", "vendor")
     L:Check("Go straight to the vendor", gv, sv,
@@ -1411,6 +1411,9 @@ ns.RegisterPage("automations", "Automations", function(page)
     local gtx, stx = Opt("gossip", "taxi")
     L:Check("Go straight to the flight map", gtx, stx,
         "At a flight master, picks \"I need a ride\" so the flight map opens at once. With \"Take flight paths with the team\" the team members then follow you without clicking.")
+    local gbk, sbk = Opt("gossip", "bank")
+    L:Check("Go straight to the bank", gbk, sbk,
+        "At a banker, picks \"I would like to check my deposit box\" so the bank opens at once.")
     local gdl, sdl = Opt("gossip", "dialog")
     L:Check("Click through NPC dialogs", gdl, sdl,
         "When an NPC has no quests and only plain dialog lines, MMT picks them one after another to advance the conversation. Lines that could cost gold, teleport, train, bind your hearthstone or start a fight are left to you, and NPCs with any other option (vendor, trainer, flights, ...) stay manual.")

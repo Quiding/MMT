@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 1.2.3: core addon (MMT) plus optional modules (MMT_*).
+Version 1.2.4: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -441,7 +441,7 @@ team list. Closing it marks it as seen; `/mmt setup` opens it again.
   same value as "LvlUp available"; needs MMT 1.1.0 or newer). When turning in would reach the next level the shade stops
   at the end of the bar with a bright edge, and the piece shows over 100%.
 - **Automations** (tiles: NPC Interactions, Socializing, Group-wide Interactions; camera
-  and distance window in the "Miscellaneous" side window): gossip to vendor or flight map, click through dialog-only NPCs (plain
+  and distance window in the "Miscellaneous" side window): gossip to vendor, bank or flight map, click through dialog-only NPCs (plain
   dialog lines; anything that could cost gold, teleport, train or start a fight stays
   manual), invites (team, friends, guild, and anyone who whispers the keyword, default
   "mybox"), camera zoom, distance window (distance to your target, mostly for hunters
