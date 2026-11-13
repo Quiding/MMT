@@ -510,8 +510,10 @@ M.Report = function(_, add)
     local nChars, nAcc = 0, 0
     for _ in pairs(s.chars) do nChars = nChars + 1 end
     for _ in pairs(s.accounts) do nAcc = nAcc + 1 end
-    add(("-- Statistics 1.3.2  account=%s characters=%d otherAccounts=%d gold=%s kills=%s share=%s"):format(
-        s.accountId, nChars, nAcc, tostring(M.db.trackGold), tostring(M.db.trackKills), tostring(M.db.share)))
+    local getMeta = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
+    local ver = getMeta and getMeta("MMT_Statistics", "Version") or "?"
+    add(("-- Statistics %s  account=%s characters=%d otherAccounts=%d gold=%s kills=%s share=%s"):format(
+        tostring(ver), s.accountId, nChars, nAcc, tostring(M.db.trackGold), tostring(M.db.trackKills), tostring(M.db.share)))
     for key, c in pairs(s.chars) do
         local n = 0
         for _ in pairs(c.days or {}) do n = n + 1 end
