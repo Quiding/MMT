@@ -954,3 +954,55 @@ function UI.CopyText(title, text)
     f.edit:SetFocus()
     f.edit:HighlightText()
 end
+
+
+-- A key binding button: shows the key of a binding action and changes it.
+-- Click, then press a key (with Shift / Ctrl / Alt); Escape cancels, right-click
+-- clears. Only out of combat (the game doesn't allow changing bindings in combat).
+function UI.KeyBind(parent, width, action)
+    local b = UI.Button(parent, width, "", nil)
+    local waiting = false
+    local function Show()
+        if waiting then b.label:SetText("|cffffd100Press a key...|r") return end
+        local key = GetBindingKey and GetBindingKey(action)
+        b.label:SetText(key and (GetBindingText and GetBindingText(key) or key) or "|cff808080Not bound|r")
+    end
+    local function Stop()
+        waiting = false
+        b:EnableKeyboard(false)
+        Show()
+    end
+    local IGNORE = { LSHIFT = true, RSHIFT = true, LCTRL = true, RCTRL = true, LALT = true, RALT = true, UNKNOWN = true }
+    b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    b:SetScript("OnClick", function(_, button)
+        if InCombatLockdown() then return end
+        if button == "RightButton" then
+            local key = GetBindingKey(action)
+            while key do SetBinding(key) key = GetBindingKey(action) end
+            SaveBindings(GetCurrentBindingSet())
+            Stop()
+            return
+        end
+        waiting = true
+        b:EnableKeyboard(true)
+        if b.SetPropagateKeyboardInput then b:SetPropagateKeyboardInput(false) end
+        Show()
+    end)
+    b:SetScript("OnKeyDown", function(_, key)
+        if not waiting then return end
+        if key == "ESCAPE" then Stop() return end
+        if IGNORE[key] then return end
+        local combo = (IsAltKeyDown() and "ALT-" or "") .. (IsControlKeyDown() and "CTRL-" or "") .. (IsShiftKeyDown() and "SHIFT-" or "") .. key
+        if not InCombatLockdown() then
+            local old = GetBindingKey(action)
+            while old do SetBinding(old) old = GetBindingKey(action) end
+            SetBinding(combo, action)
+            SaveBindings(GetCurrentBindingSet())
+        end
+        Stop()
+    end)
+    b:SetScript("OnHide", function() if waiting then Stop() end end)
+    b.Refresh = Show
+    Show()
+    return b
+end

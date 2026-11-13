@@ -310,3 +310,58 @@ ns.On("GROUP_ROSTER_UPDATE", function()
 end)
 ns.OnLogin(function() C_Timer.After(2, function() ns.FTLUpdateMacros("login") end) end)
 ns.Listen("PROFILE_CHANGED", function() if ns.ready then ns.FTLUpdateMacros("profile") end end)
+
+---------------------------------------------------------------------------
+-- Follow-Train (key binding "Create a Follow-Train"): the characters follow
+-- each other in a line in team order, starting with the train leader: the
+-- second follows the leader, the third the second, and so on.
+--
+-- WoW lets a client start following only on a key press or click on that very
+-- client (FollowUnit needs a hardware event), so the key must reach every
+-- window (key broadcasting). Each client then works out its place on its own:
+-- the train leader is the FTL leader (the character you play) when one is
+-- known and in the group, else the character the key was pressed on. Members
+-- not in the group are skipped.
+---------------------------------------------------------------------------
+local function TrainOrder(head)
+    local present = {}
+    for _, key in ipairs(ns.SortedMembers()) do
+        if ns.IsSelf(key) or (ns.UnitForMember and ns.UnitForMember(key)) then present[#present + 1] = key end
+    end
+    local start
+    for i, key in ipairs(present) do if ns.NormKey(key) == ns.NormKey(head) then start = i break end end
+    if not start then return present end
+    local order = {}
+    for n = 0, #present - 1 do order[#order + 1] = present[(start - 1 + n) % #present + 1] end
+    return order
+end
+
+function MMT_FollowTrain()
+    if not (ns.ready and ns.db) then return end
+    local me = ns.PlayerFull()
+    local leader = ns.FTLLeader()
+    local head = me
+    if leader and (ns.IsSelf(leader) or (ns.UnitForMember and ns.UnitForMember(leader))) then head = leader end
+    local order = TrainOrder(head)
+    local names = {}
+    for _, key in ipairs(order) do names[#names + 1] = ns.ShownName(key) end
+    local line = table.concat(names, " > ")
+    if ns.NormKey(head) == ns.NormKey(me) then
+        ns.Print("Follow-Train: you lead (%s).", line)
+        ns.Debug("follow train: leading %s", line)
+        return
+    end
+    local prev
+    for i, key in ipairs(order) do
+        if ns.IsSelf(key) then prev = order[i - 1] break end
+    end
+    if not prev then
+        ns.Print("Follow-Train: this character isn't in the group with the train.")
+        return
+    end
+    local unit = ns.UnitForMember and ns.UnitForMember(prev)
+    local ok, err = pcall(FollowUnit, unit or ns.RealName(prev))
+    ns.Debug("follow train: %s follows %s (%s) -> %s %s", ns.Repr(me), ns.Repr(prev), tostring(unit), tostring(ok), tostring(err or ""))
+    if not ok then ns.Print("Follow-Train: couldn't follow %s.", ns.ShownName(prev)) end
+end
+BINDING_NAME_MMT_FOLLOW_TRAIN = "Create a Follow-Train"

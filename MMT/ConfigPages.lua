@@ -1226,6 +1226,14 @@ ns.RegisterPage("ftl", "FTL", function(page)
     local ga, sa = Opt("ftl", "announce")
     L:Check("Chat line when the leader changes", ga, sa)
 
+    L:Header("Follow-Train")
+    local trainKey = UI.KeyBind(st, 160, "MMT_FOLLOW_TRAIN")
+    trainKey:SetPoint("TOPLEFT", st, "TOPLEFT", 8 + 150, L.y)
+    local trainLabel = UI.Label(st, "Create a Follow-Train")
+    trainLabel:SetPoint("TOPLEFT", st, "TOPLEFT", 8, L.y - 4)
+    UI.Tooltip(trainKey, "Create a Follow-Train", "Pressing this keybinding will have the characters follow each other in a line in the order of the team list, starting with the character you pressed the keybinding on.\n\nClick, then press the key; right-click clears it. The key must reach every window (key broadcasting): WoW lets a character start following only on a key press on its own client. With key broadcasting the train starts at the FTL leader (the character you play).")
+    L:Space(UI.ROW + 2)
+
     L:Header("Changing the leader")
     L:Note("- Click the character in the Info window\n- Key binding \"Make this character the leader\" (Esc > Options > Keybindings > MMT (Manage My Team))\n- /mmt leader (this character) or /mmt leader <name>\n- Automatically when you move a character on its own (setting above). Not when several team characters start moving at once (movement keys or Interact with Target broadcast to every window: the leader stays), and not while following, feared or charmed.")
     local current = L:Note("")
@@ -1470,7 +1478,7 @@ ns.RegisterPage("automations", "Automations", function(page)
     end
 
     -- Group-wide Interactions (right, taller: no tile below it) --------------------------------
-    local GROUP_H = 42 + 3 * 28 + 7 * UI.ROW + (UI.ROW + 2) + 12
+    local GROUP_H = 42 + 3 * 28 + 8 * UI.ROW + (UI.ROW + 2) + 36 + 12
     local _, R = Tile(page, X2, TOP, TILE_W, GROUP_H, "Group-wide Interactions", "Interface\\Icons\\Ability_Mount_RidingHorse")
     R:Header("Flight paths")
     local gt, stt = Opt("taxi", "enabled")
@@ -1478,7 +1486,11 @@ ns.RegisterPage("automations", "Automations", function(page)
         "When a team member picks a destination at a flight master, every team member that is talking to a flight master too (flight map open, or opened within 5 seconds) flies to the same destination. Needs MMT on every client.")
     R:Check("Print to chat", Opt("taxi", "report"))
     local gtl, stl = Opt("taxi", "tellLeader")
-    R:Check("Tell the leader", gtl, stl, "The leader's chat says who took the flight too, and who couldn't (the FTL leader; without one online, the group leader if in the team, else the first online team member).")
+    R:Check("Tell the leader", gtl, stl, "Every team member answers the one who picked the flight: its chat says who took the flight too, and who couldn't and why (flight path not known, can't be reached, not at a flight master, in combat, already flying).")
+    R:Slider("Delay before following (s)", 1, 5, 1, function() return ns.db.taxi.delay or 1 end, function(v) ns.db.taxi.delay = v end)
+    local gtr, str = Opt("taxi", "train")
+    R:Check("Enable Flight-Train", gtr, str,
+        "Enabling this option will have the team take the same flight as the leader, one by one, forming a \"line\" after the specified delay.")
 
     R:Header("Mounts")
     local gmo, smo = Opt("mount", "mount")

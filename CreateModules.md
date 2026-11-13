@@ -361,7 +361,7 @@ end)
 
 - **Your own tag:** start every message with a tag of your own, e.g. `EXPING:`. These
   tags are taken by MMT: XP, XP2, BYE, PING, PONG, SYNC, SYNCHI, SYNCACK, EQREQ, EQD,
-  EQS, QNQ, QNA, LH, LHGO, LHC, QTREQ, QTS, QTD, QTAB, FOL, CC, TAXI, NOTE, MOUNT,
+  EQS, QNQ, QNA, QNR, QNC, LH, LHGO, LHC, QTREQ, QTS, QTD, QTAB, FOL, CC, TAXI, NOTE, MOUNT,
   DISMOUNT, MOUNTX, DISMOUNTX, DEATH, RELEASE, REVIVE, IBS, IBA, IBC, RMQ, RMA, MPT, FTL, FTLM, SHC,
   SHQ, STA, STQ, REPW, and the prefixes `@L:` and `@F:`.
 - **Size:** keep single messages under 250 bytes; use `MMT.SendLong` for more.

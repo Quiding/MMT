@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 1.2.1: core addon (MMT) plus optional modules (MMT_*).
+Version 1.2.3: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -15,6 +15,11 @@ Install them on **every** account/client you multibox with.
 If you used OMT: keep it enabled for the first login with MMT (its settings are
 copied into the "Default" profile), then disable or delete OMT.
 Saved data from MMT 0.1.x is converted automatically.
+
+## Quick Setup
+At the first login with an empty team, MMT opens a small Quick Setup window: invite your
+characters into a group (ISBoxer: Shift + Alt + I), click "Add Group" and check the
+team list. Closing it marks it as seen; `/mmt setup` opens it again.
 
 ## Core and modules
 - **Core** (`MMT`, always on): Team, Roles, Info Window, Alerts, FTL, Automations, Trade / Mail / Vendor, Profiles, plus team
@@ -183,6 +188,11 @@ Saved data from MMT 0.1.x is converted automatically.
   the same way on every client. The idea comes from ISBoxer, but unlike there the
   FTL target **cannot change during combat**: WoW only lets addons edit macros outside
   combat, so a change in combat is applied when combat ends.
+  Follow-Train: the key binding "Create a Follow-Train" (Key Bindings > MMT, also set on
+  the FTL page) lines the team up in team order: the first character (the FTL leader, else
+  the one pressing the key) leads, everybody else follows the character before it.
+  The game only starts following on a key press on that client, so broadcast the key to
+  every window.
   Sending the macros to the team: characters on the same account with the same profile
   already have them; for other accounts use Profiles > Sync to team (`/mmt sync`). Each
   character still needs the macros on an action bar once.
@@ -330,6 +340,10 @@ Saved data from MMT 0.1.x is converted automatically.
   The "keep free bag slots" reserve doesn't apply to quest items: they are given even
   into the last free slot, and with full bags they are still tried (they may stack).
   Items are recognised as quest items by the loot window or by their item class.
+  "Speed up assignment by caching quest items" (on by default): the master looter keeps a
+  snapshot of every member's quest items, refreshed every 2 minutes and after each quest
+  item it gives, so no question to the team is needed while looting. A missing or old
+  snapshot falls back to asking the team as before.
   "No role wants it": leave for manual assignment, give to the master looter, or
   "Round robin to the team" (in turns, keeping the reserve; not for quest items or
   Bind on Pickup). Only members the game offers as receivers count (in the group, online
@@ -438,6 +452,11 @@ Saved data from MMT 0.1.x is converted automatically.
     opened within 5 seconds) flies to the same destination (as in EMA). "Tell the
     leader": the leader's chat shows who took the flight too or couldn't (one line for
     everybody within 3 seconds: "Taxi: John and Monika fly to Ironforge too.").
+    The one who picked the flight sees "Taxi: you fly to X; the team follows in N s", and
+    each member answers whether it flies too or why not (not at a flight master, in combat,
+    already on a flight, refused by the game). "Delay before following" (1-5 s, default 1)
+    sets how long the team waits; "Enable Flight-Train" (off by default) lets the team take
+    off one by one in team order, every N seconds, instead of all at once.
   - "Mount up / Dismount with the leader": when the leader mounts, the team mounts the
     same mount (or one of the same kind, or a random favourite); when it dismounts, the
     team dismounts (never in the air). Hold Shift to ride alone.

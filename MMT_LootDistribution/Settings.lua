@@ -136,6 +136,9 @@ M.Page = function(_, page)
     }, gqn, sqn)
     UI.Tooltip(masterOnly[#masterOnly], "Quest item nobody needs",
         "A quest item whose objective is already done for every team member (e.g. Un'Goro Soil once everyone has enough): hand it out like any other item - its role, else \"No role wants it\" - or leave it in the loot window.")
+    local gqc, sqc = Opt("questCache")
+    masterOnly[#masterOnly + 1] = R:Check("Speed up assignment by caching quest items", gqc, sqc,
+        "Enabling this option should speed up automatic loot distribution for quest items.\nMMT will snapshot the status of quest items per member regularly outside of looting, instead of asking the team on every looting about the quest status.\nDisable it if you experience issues looting quest items.")
 
     local sparklesRefresh = SparklesTab(panels.sparkles, PANEL_H)
     local neverRefresh = mod.NeverLootTab(panels.never, PANEL_H, root)
@@ -360,6 +363,7 @@ function M.Report(_, add)
         tostring(M.db.multiRole), tostring(M.db.noRoom), tostring(M.db.autoPass), tostring(M.db.optOut),
         tostring(GetOptOutOfLoot and GetOptOutOfLoot()), tostring(M.db.passExcept)))
     add("quest round robin=" .. tostring(M.db.questRR))
+    if mod.QuestCacheReport then mod.QuestCacheReport(add) end
     local never = {}
     for _, e in ipairs(MMT.db.exclusions or {}) do if e.loot then never[#never + 1] = tostring(e.itemID) end end
     local others = {}

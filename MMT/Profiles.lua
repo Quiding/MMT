@@ -91,6 +91,8 @@ ns.defaults = {
         enabled = true,   -- take the flight path a team member picks (flight map open here)
         report  = true,   -- chat line when following a flight
         tellLeader = true, -- the leader's chat says who followed (or couldn't)
+        delay   = 1,      -- seconds (1-5) before following, so the flight maps can open
+        train   = false,  -- Flight-Train: one by one, "delay" seconds apart, in team order
     },
 
     -- privacy (Privacy.lua): how characters are shown

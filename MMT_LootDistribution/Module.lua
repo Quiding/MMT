@@ -58,6 +58,7 @@ local M = MMT.NewModule({
         questRR      = true,       -- quest items round robin across the team
         questMLLast  = true,       -- ... with the master looter's turn last (else in team order)
         questNobody  = "LOOT",     -- a quest item no member needs any more: LOOT (roles / round robin, like other items) | LEAVE
+        questCache   = true,       -- quest needs from a cache refreshed every 2 min instead of asking per loot window
         worthOn      = false,      -- never-loot items worth at least worthMin are handed out anyway
         worthMin     = 10000,      -- copper (sell price x the slot's count)
         worthStack   = false,      -- stackable items: a full stack's price instead
@@ -634,6 +635,164 @@ local function AskQuestNeed(names, done)
     if #waitFor == 0 then asks[id].finish() return end
     MMT.SendToTeam(("QNQ:%s:%s"):format(id, table.concat(names, ";")), true, "ALERT")
     C_Timer.After(0.8, function() if asks[id] then asks[id].finish() end end)
+end
+
+---------------------------------------------------------------------------
+-- Quest item cache (option "Speed up assignment by caching quest items"):
+-- the master looter keeps every member's item objectives instead of asking on
+-- each loot window. It asks the team every 2 minutes (QNR); every client
+-- answers with its item objectives (QNC:<objective>=Y|N;...), and again by
+-- itself when they change, for 10 minutes after a request. A member's entry
+-- is refreshed after it got a quest item. A loot window only uses the cache
+-- when every present member's entry is fresh (5 min) and somebody needs every
+-- quest item in it; otherwise it asks the team as before (fallback).
+---------------------------------------------------------------------------
+local CACHE_EVERY, CACHE_FRESH, PUSH_FOR = 120, 300, 600
+local qcache = {}        -- [key] = { t = GetTime(), list = { { text, done } } }
+local cacheStats = { asked = 0, answers = 0, hits = 0, fallbacks = 0 }
+
+-- this client's item objectives as text: "red wool bandana=Y;head of targorr=N"
+local function OwnSnapshot()
+    local parts = {}
+    for _, o in ipairs(ItemObjectives()) do
+        local text = (o.text or ""):lower():gsub("%d+%s*/%s*%d+", ""):gsub("[:;=]", " "):gsub("%s+", " ")
+        text = text:match("^%s*(.-)%s*$")
+        if text ~= "" then parts[#parts + 1] = text .. "=" .. (o.done and "N" or "Y") end
+    end
+    return table.concat(parts, ";")
+end
+
+local function ParseSnapshot(s)
+    local list = {}
+    for item in (s or ""):gmatch("[^;]+") do
+        local text, code = item:match("^(.-)=([YN])$")
+        if text then list[#list + 1] = { text = text, done = code == "N" } end
+    end
+    return list
+end
+
+-- the cached code of one member for an item name (same rule as NeedCode)
+local function CachedCode(key, name)
+    local e = qcache[key]
+    if not (e and name) then return "U" end
+    local lower, code = name:lower(), "U"
+    for _, o in ipairs(e.list) do
+        if o.text:find(lower, 1, true) then
+            if not o.done then return "Y" end
+            code = "N"
+        end
+    end
+    return code
+end
+
+local function CacheOn() return M.enabled and M.db.questCache and IsInGroup() end
+
+-- master looter: ask the team (or one member) for their objectives
+local function RequestCache(key)
+    if not CacheOn() then return end
+    cacheStats.asked = cacheStats.asked + 1
+    if key then
+        MMT.SendAddon("QNR", "WHISPER", MMT.WhisperTarget(key), "NORMAL")
+    else
+        MMT.SendToTeam("QNR", true, "NORMAL")
+    end
+    M:Debug("quest cache: asked %s", key and MMT.Repr(key) or "the team")
+end
+mod.RequestQuestCache = RequestCache
+
+-- every client: answer requests, and push changes for a while after one
+local requester, requestedAt, lastPushed = nil, -1e9, nil
+local function SendSnapshot(to)
+    local snap = OwnSnapshot()
+    lastPushed = snap
+    MMT.SendLong("QNC:" .. snap, MMT.WhisperTarget(to), "NORMAL")
+end
+M:Listen("TEAM_MESSAGE", function(key, sender, text)
+    if text == "QNR" then
+        requester, requestedAt = key, GetTime()
+        SendSnapshot(key)
+        return
+    end
+    local snap = text:match("^QNC:(.*)$")
+    if snap then
+        qcache[key] = { t = GetTime(), list = ParseSnapshot(snap) }
+        cacheStats.answers = cacheStats.answers + 1
+        M:Debug("quest cache: %s has %d item objective(s)", MMT.Repr(key), #qcache[key].list)
+    end
+end)
+local pushSoon = false
+M:On("QUEST_LOG_UPDATE", function()
+    if not requester or GetTime() - requestedAt > PUSH_FOR or pushSoon then return end
+    pushSoon = true
+    C_Timer.After(2, function()
+        pushSoon = false
+        if requester and OwnSnapshot() ~= lastPushed then
+            SendSnapshot(requester)
+            M:Debug("quest cache: objectives changed, sent to %s", MMT.Repr(requester))
+        end
+    end)
+end)
+C_Timer.NewTicker(CACHE_EVERY, function()
+    if CacheOn() and mod.IsMasterLooter() then RequestCache() end
+end)
+M:On("GROUP_ROSTER_UPDATE", function()
+    if CacheOn() and mod.IsMasterLooter() then
+        C_Timer.After(3, function() RequestCache() end)
+    end
+end)
+
+-- a loot window: the cached needOf when it can be trusted, else nil (ask the team)
+local function CachedNeed(names)
+    if not CacheOn() then return nil end
+    local now = GetTime()
+    local present = {}
+    for _, key in ipairs(MMT.SortedMembers()) do
+        if not MMT.IsSelf(key) and MMT.IsOnline(key) then
+            local e = qcache[key]
+            if not e or now - e.t > CACHE_FRESH then
+                cacheStats.fallbacks = cacheStats.fallbacks + 1
+                M:Debug("quest cache: no fresh entry for %s, asking the team", MMT.Repr(key))
+                RequestCache()
+                return nil
+            end
+            present[#present + 1] = key
+        end
+    end
+    local function needOf(key, name)
+        if MMT.IsSelf(key) then return mod.NeedCode(name) end
+        return CachedCode(key, name)
+    end
+    -- somebody must still need every quest item, else ask (the cache may be behind)
+    for _, name in ipairs(names) do
+        local any = mod.NeedCode(name) == "Y"
+        for _, key in ipairs(present) do if needOf(key, name) == "Y" then any = true break end end
+        if not any then
+            cacheStats.fallbacks = cacheStats.fallbacks + 1
+            M:Debug("quest cache: nobody needs %s by the cache, asking the team (and refreshing the cache)", name)
+            RequestCache()
+            return nil
+        end
+    end
+    cacheStats.hits = cacheStats.hits + 1
+    M:Debug("quest cache: used for %s", table.concat(names, ", "))
+    return needOf
+end
+mod.CachedQuestNeed = CachedNeed
+
+-- a quest item was given: that member's entry is refreshed in a moment
+function mod.QuestItemGiven(key)
+    if not CacheOn() or MMT.IsSelf(key) then return end
+    C_Timer.After(1.5, function() RequestCache(key) end)
+end
+
+function mod.QuestCacheReport(add)
+    local parts = {}
+    for key, e in pairs(qcache) do
+        parts[#parts + 1] = ("%s %d obj %ds ago"):format(MMT.Repr(key), #e.list, math.floor(GetTime() - e.t))
+    end
+    add(("quest cache: on=%s asked=%d answers=%d used=%d fallbacks=%d  %s"):format(tostring(M.db.questCache),
+        cacheStats.asked, cacheStats.answers, cacheStats.hits, cacheStats.fallbacks,
+        #parts > 0 and table.concat(parts, ", ") or "(empty)"))
 end
 
 ---------------------------------------------------------------------------
@@ -1226,6 +1385,7 @@ local function Plan(needOf)
                 mmtGiving = true
                 pcall(GiveMasterLoot, p.slot, p.index)
                 mmtGiving = false
+                if p.kind == "quest" and mod.QuestItemGiven then mod.QuestItemGiven(p.key) end
                 C_Timer.After(0.2, CloseAssignWindow)
                 M:Debug("GiveMasterLoot(%d, %d) %s -> %s", p.slot, p.index, p.link, MMT.Repr(p.key))
                 AddToSummary(p)   -- printed together after 5 seconds
@@ -1282,7 +1442,12 @@ local function Distribute()
         if #names == 0 then
             Plan(function() return "U" end)
         else
-            AskQuestNeed(names, function(needOf) if busy then Plan(needOf) end end)
+            local cached = mod.CachedQuestNeed(names)
+            if cached then
+                Plan(cached)
+            else
+                AskQuestNeed(names, function(needOf) if busy then Plan(needOf) end end)
+            end
         end
     end)
 end
