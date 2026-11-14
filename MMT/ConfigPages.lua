@@ -2264,14 +2264,19 @@ ns.RegisterPage("profiles", "Profiles", function(page)
     -- Export / Import (bottom right) ------------------------------------------------------------------
     local et, E = Tile(page, X2, Y2, TILE_W, BOTTOM_H, "Export / Import", "Interface\\Icons\\INV_Scroll_04")
     E:Note("For another account or a backup: Export, copy the text (Ctrl+A, Ctrl+C) and paste it there, then Import. Import uses the name in New & Copy if filled, overwrites a profile of that name and activates it.")
+    local anonymous = false
+    local anon = UI.Check(et, TILE_IN, "Export without names (Paladin1, Mage1, ...)",
+        function() return anonymous end, function(v) anonymous = v and true or false end,
+        "Every team member becomes their class and a number (in team order) everywhere in the export: the team list, the roles and the settings of the modules kept per character. To share your setup without your characters' names. Your own profile isn't changed.")
+    E:Add(anon, UI.ROW)
     local areaH = BOTTOM_H + E.y - (UI.ROW + 6) - 10
     local area = UI.TextArea(et, TILE_IN, areaH)
     E:Add(area, areaH + 6)
     local export = UI.Button(et, half, "Export", function()
-        area.edit:SetText(ns.ExportProfile())
+        area.edit:SetText(ns.ExportProfile(anonymous))
         area.edit:SetFocus()
         area.edit:HighlightText()
-        status.Show_(("Exported \"%s\"."):format(ns.CurrentProfileName()))
+        status.Show_(("Exported \"%s\"%s."):format(ns.CurrentProfileName(), anonymous and " without names" or ""))
     end)
     E:Add(export, 0)
     local import = UI.Button(et, half, "Import", function()

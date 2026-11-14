@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 1.2.4: core addon (MMT) plus optional modules (MMT_*).
+Version 1.2.5: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -515,7 +515,7 @@ team list. Closing it marks it as seen; `/mmt setup` opens it again.
 
 - **Shift**: hold it while an NPC window opens to keep that page manual; pick an option
   without Shift and the next page (dialog, quest, reward) is automated again.
-- **Profiles** ("Show Minimap button" on top; tiles: Active Profile, New & Copy, Share with the Team, Export / Import): per character; copy, reset, delete, export/import. After a reset or a new
+- **Profiles** ("Show Minimap button" on top; tiles: Active Profile, New & Copy, Share with the Team, Export / Import): per character; copy, reset, delete, export/import (the export optionally without names: every team member becomes their class and a number, Paladin1, Mage1, ...). After a reset or a new
   empty profile, MMT asks whether to switch the modules back to their default (on or off) too.
 - **Sync to team**: `/mmt sync` (or the blue button in the bottom right of Profiles) sends
   the core settings of the active profile: team, roles, Info window incl. its position,

@@ -505,8 +505,97 @@ function ns.Deserialize(s)
     return nil
 end
 
-function ns.ExportProfile()
+-- anonymous: every team member becomes their class and a number (Paladin1, Paladin2,
+-- Mage1, ... in team order) everywhere in the export - see ns.AnonymousProfile
+function ns.ExportProfile(anonymous)
+    if anonymous then
+        local data, name = ns.AnonymousProfile(ns.db, ns.CurrentProfileName())
+        return "MMT1:" .. ns.Serialize({ name = name, data = data })
+    end
     return "MMT1:" .. ns.Serialize({ name = ns.CurrentProfileName(), data = ns.db })
+end
+
+-- Without names: a renamed deep copy of a profile's data (and the profile name), each
+-- member's key ("First-Last") replaced by Class + number wherever it stands as a whole
+-- name - table keys and texts, "CHAR:First-Last" in module settings too. A first name
+-- alone only where a key or text is exactly that name (inside a longer text it could be
+-- a word), and only when no other member has the same first name.
+local function ClassWord(class)
+    local loc = class and LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[class]
+    local w = type(loc) == "string" and loc or (type(class) == "string" and class ~= "" and (class:sub(1, 1) .. class:sub(2):lower())) or "Member"
+    return (w:gsub("[^%w]", ""))
+end
+
+-- a byte that belongs to a name (letters, digits, - and ', any non-ASCII byte)
+local function IsNameChar(c)
+    return c ~= "" and (c:find("^[%w%-']") ~= nil or c:byte() >= 128)
+end
+
+local function ReplaceWord(s, word, repl)
+    if not s:find(word, 1, true) then return s end
+    local out, i = {}, 1
+    while true do
+        local a, b = s:find(word, i, true)
+        if not a then break end
+        if not IsNameChar(s:sub(a - 1, a - 1)) and not IsNameChar(s:sub(b + 1, b + 1)) then
+            out[#out + 1] = s:sub(i, a - 1)
+            out[#out + 1] = repl
+        else
+            out[#out + 1] = s:sub(i, b)
+        end
+        i = b + 1
+    end
+    out[#out + 1] = s:sub(i)
+    return table.concat(out)
+end
+
+function ns.AnonymousProfile(data, profileName)
+    local members = {}
+    for key, m in pairs(type(data) == "table" and type(data.team) == "table" and data.team or {}) do
+        if type(key) == "string" and type(m) == "table" then
+            members[#members + 1] = { key = key, first = type(m.name) == "string" and m.name or nil, class = m.class, order = tonumber(m.order) or 999 }
+        end
+    end
+    table.sort(members, function(a, b) if a.order ~= b.order then return a.order < b.order end return a.key < b.key end)
+    local count, firsts = {}, {}
+    for _, m in ipairs(members) do if m.first then firsts[m.first] = (firsts[m.first] or 0) + 1 end end
+    -- placeholders go in through tokens, so a new name is never matched again
+    local reps, final, exact, newOf = {}, {}, {}, {}
+    for i, m in ipairs(members) do
+        local w = ClassWord(m.class)
+        count[w] = (count[w] or 0) + 1
+        local new = w .. count[w]
+        local tok = "\001" .. i .. "\001"
+        final[tok] = new
+        reps[#reps + 1] = { old = m.key, tok = tok }
+        newOf[m.key] = new
+        if m.first and m.first ~= m.key and firsts[m.first] == 1 then exact[m.first] = new end
+    end
+    table.sort(reps, function(a, b) return #a.old > #b.old end)   -- "Anna-Smith" before "Anna"
+    local function Str(s)
+        if exact[s] then return exact[s] end
+        for _, r in ipairs(reps) do s = ReplaceWord(s, r.old, r.tok) end
+        if s:find("\001", 1, true) then s = s:gsub("\001%d+\001", final) end
+        return s
+    end
+    local seen = {}
+    local function CopyRenamed(v, depth)
+        if type(v) == "string" then return Str(v) end
+        if type(v) ~= "table" then return v end
+        if seen[v] or depth > 40 then return nil end
+        seen[v] = true
+        local t = {}
+        for k, x in pairs(v) do t[type(k) == "string" and Str(k) or k] = CopyRenamed(x, depth + 1) end
+        seen[v] = nil
+        return t
+    end
+    local out = CopyRenamed(data, 0)
+    -- the team records: the placeholder is the whole name
+    for _, new in pairs(newOf) do
+        local m = out.team and out.team[new]
+        if type(m) == "table" then m.name, m.last = new, nil end
+    end
+    return out, profileName and Str(profileName) or nil
 end
 
 -- returns name, data (or nil)
