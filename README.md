@@ -445,6 +445,8 @@ team list. Closing it marks it as seen; `/mmt setup` opens it again.
   "Enable 'Pass on Loot' while in a group" (off by default): switches on the game's Pass
   on Loot for every character in a group except that same leader; it is switched off
   again when the character leaves the group or becomes the leader (only if MMT set it).
+  "Do not 'Pass on Loot' with outsider in group" (on): while a player outside the team is
+  in the group, Pass on Loot stays off, so every character gets its own loot.
   Sparkles tab: "Sparkles" (off by default; switching it on with Master Looter (in use, or
   set as the loot method MMT uses when you lead) while
   the game's "Enable Interact Key" is off asks first, as the interact key changes how

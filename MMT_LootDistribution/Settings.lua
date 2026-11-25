@@ -91,6 +91,9 @@ M.Page = function(_, page)
         { value = "GROUP", text = "Group leader" },
         { value = "FTL", text = "FTL leader (character you play)" },
     }, ge, se)
+    local goo, soo = Opt("optOutOutsider")
+    L:Check("Do not 'Pass on Loot' with outsider in group", goo, soo,
+        "While a player outside the team is in the group, \"Pass on Loot\" stays off on every character, so each one gets its own share of the loot. It comes back on when the outsider leaves. Set it on every client.")
 
     -- Master Loot by Roles (top right) ----------------------------------------------------------
     local _, R = Tile(page, X2, TOP, TILE_W, TOP_H + 8 + BOTTOM_H, "Master Loot by Roles", "Interface\\Icons\\INV_Misc_Coin_02")
@@ -460,11 +463,11 @@ function M.Report(_, add)
     add(("-- Loot Distribution  current=%s partyML=%s raidML=%s threshold=%s isMaster=%s leader=%s"):format(
         tostring(method), tostring(partyIndex), tostring(raidIndex), tostring(mod.GetThreshold()),
         tostring(mod.IsMasterLooter()), tostring(IsInGroup() and UnitIsGroupLeader("player"))))
-    add(("settings: auto=%s outsiderGroup=%s keepRaid=%s method=%s threshold=%s looter=%s byRoles=%s reserve=%s unassigned=%s rrNotice=%s multiRole=%s noRoom=%s autoPass=%s optOut=%s (game: %s) passExcept=%s"):format(
+    add(("settings: auto=%s outsiderGroup=%s keepRaid=%s method=%s threshold=%s looter=%s byRoles=%s reserve=%s unassigned=%s rrNotice=%s multiRole=%s noRoom=%s autoPass=%s optOut=%s (game: %s) passExcept=%s optOutOutsider=%s"):format(
         tostring(M.db.autoMethod), tostring(M.db.outsiderGroup), tostring(M.db.keepRaid), tostring(M.db.method), tostring(M.db.threshold), tostring(M.db.looter),
         tostring(M.db.byRoles), tostring(M.db.reserve), tostring(M.db.unassigned), tostring(M.db.rrNotice),
         tostring(M.db.multiRole), tostring(M.db.noRoom), tostring(M.db.autoPass), tostring(M.db.optOut),
-        tostring(GetOptOutOfLoot and GetOptOutOfLoot()), tostring(M.db.passExcept)))
+        tostring(GetOptOutOfLoot and GetOptOutOfLoot()), tostring(M.db.passExcept), tostring(M.db.optOutOutsider)))
     add("quest round robin=" .. tostring(M.db.questRR))
     if mod.QuestCacheReport then mod.QuestCacheReport(add) end
     if mod.StackCacheReport then mod.StackCacheReport(add) end

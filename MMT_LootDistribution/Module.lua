@@ -62,6 +62,7 @@ local M = MMT.NewModule({
         autoPass     = false,      -- pass on loot rolls (Need/Greed) ...
         optOut       = false,      -- "Pass on Loot" (SetOptOutOfLoot) while in a group ...
         passExcept   = "GROUP",    -- ... both except on the GROUP leader or the FTL leader
+        optOutOutsider = true,     -- ... but not while a player outside the team is in the group
         questRR      = true,       -- quest items round robin across the team
         questMLLast  = true,       -- ... with the master looter's turn last (else in team order)
         questNobody  = "LOOT",     -- a quest item no member needs any more: LOOT (roles / round robin, like other items) | LEAVE
@@ -1748,7 +1749,8 @@ function mod.UpdatePassOnLoot()
     if not (GetOptOut and SetOptOut) then return end
     M.store.optOutSet = M.store.optOutSet or false
     local cfg = M.db
-    local want = M.enabled and cfg.optOut and IsInGroup() and not mod.KeepsRolls()
+    local outsider = cfg.optOutOutsider ~= false and mod.HasOutsider()
+    local want = M.enabled and cfg.optOut and IsInGroup() and not mod.KeepsRolls() and not outsider
     local now = GetOptOut() and true or false
     if want and not now then
         pcall(SetOptOut, true)
@@ -1759,7 +1761,7 @@ function mod.UpdatePassOnLoot()
         pcall(SetOptOut, false)
         M.store.optOutSet = false
         M:Debug("Pass on Loot off")
-        if cfg.report then MMT.Print("Pass on Loot is off.") end
+        if cfg.report then MMT.Print(outsider and "Pass on Loot is off (a player outside the team is in the group)." or "Pass on Loot is off.") end
     elseif not now then
         M.store.optOutSet = false   -- switched off elsewhere (e.g. by hand)
     end
