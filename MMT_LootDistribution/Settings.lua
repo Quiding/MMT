@@ -37,7 +37,7 @@ M.Page = function(_, page)
     local SparklesTab = mod.SparklesTab
     page = panels.loot
     local TOP = 0
-    local TOP_H, BOTTOM_H = 320, 124
+    local TOP_H, BOTTOM_H = 296, 148
     local Y2 = TOP - TOP_H - 8
 
     -- Loot Method (top left) ----------------------------------------------------------------
