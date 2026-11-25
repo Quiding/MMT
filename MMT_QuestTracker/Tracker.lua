@@ -56,6 +56,7 @@ f:SetScript("OnDragStop", function(self)
     if not dragging then return end
     dragging, dragEnd = false, GetTime()
     SavePosition(self)
+    if mod.PlaceQuestItems then mod.PlaceQuestItems() end
 end)
 -- a click that ends a drag is not a click
 local function JustDragged() return dragging or GetTime() - dragEnd < 0.2 end
@@ -983,6 +984,11 @@ function mod.Redraw()
         queued = false
         local ok, err = pcall(Draw)
         if not ok then M:Debug("tracker draw error: %s", tostring(err)) end
+        -- the quest item buttons follow their rows (QuestItems.lua; after combat when in it)
+        if mod.PlaceQuestItems then
+            local ok2, err2 = pcall(mod.PlaceQuestItems)
+            if not ok2 then M:Debug("quest item buttons error: %s", tostring(err2)) end
+        end
     end)
 end
 

@@ -48,6 +48,7 @@ local M = MMT.NewModule({
         hideOthers    = true,     -- Questie's / EllesmereUI's quest tracker (Tracker.lua)
         locked        = false,
         clickThrough  = false,
+        questItems    = true,     -- the quest's usable item as a button beside its row (QuestItems.lua)
         showHeader    = true,
         onlyWatched   = false,    -- only quests you track in the quest log
         teamQuests    = true,     -- also quests only teammates have

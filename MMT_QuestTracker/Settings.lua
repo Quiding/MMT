@@ -72,6 +72,9 @@ M.Page = function(_, page)
     local glc, slc = Opt("levelColors")
     L:Check("Quest level in difficulty colour", glc, slc, "Colours the [level] by how hard the quest is for your character.")
     L:Check("Time left of timed quests", Opt("showTimers"))
+    local gqi, sqi = Opt("questItems")
+    L:Check("Quest item buttons", gqi, function(v) sqi(v) mod.Redraw() end,
+        "The item a quest wants you to use (e.g. a bottle to fill or a torch), as a button beside the quest's row, on the tracker's outer edge. Click it to use the item. In combat the buttons can't move: they follow the tracker again after the fight.")
     L:Space(6)
     L:Button("Request update from team", function()
         mod.RequestAll()
@@ -242,6 +245,7 @@ function M.Report(_, add)
         GetQuestTimers and table.concat({ tostringall(GetQuestTimers()) }, ",") or "no API",
         tostring(C_QuestLog and C_QuestLog.GetTimeAllowed ~= nil), tostring(GetQuestLogTimeLeft ~= nil), mod.QuestTimersReport()))
     add(("other trackers: hideOthers=%s  %s"):format(tostring(M.db.hideOthers), mod.OtherTrackersReport()))
+    if mod.QuestItemsReport then mod.QuestItemsReport(add) end
     add(mod.ArrangeReport())
     if mod.QuestXPReport then add(mod.QuestXPReport()) end
     for _, id in ipairs(mod.ownOrder or {}) do

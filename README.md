@@ -515,6 +515,9 @@ team list. Closing it marks it as seen; `/mmt setup` opens it again.
   redraws only when the order changed.
   Background colour and opacity, width, maximum height (scrolls beyond; a scrolling list keeps that height, and a thin scroll bar shows while scrolling or under the mouse, then fades; drag it or click the track to scroll), indent,
   alignment, outline, and font, size and colour for each of the four levels.
+  "Quest item buttons" (on): the item a quest of yours wants you to use shows as a
+  clickable button beside the quest's row, on the tracker's outer edge (it can't move in
+  combat and follows the tracker again after the fight).
   "Hide other addons' quest trackers" (on by default): Questie's tracker window and
   EllesmereUI Quest Tracker are hidden while the module is on (their own settings stay
   untouched) and come back when the option or the module is switched off.
