@@ -91,6 +91,7 @@ local M = MMT.NewModule({
 mod.M = M
 
 local BOP = (Enum and Enum.ItemBind and Enum.ItemBind.OnAcquire) or 1
+local RECIPE = (Enum and Enum.ItemClass and Enum.ItemClass.Recipe) or 9
 local QUEST_CLASS = (Enum and Enum.ItemClass and Enum.ItemClass.Questitem) or 12
 
 -- quest item: the loot window says so, the item's class is "Quest", or it is
@@ -339,8 +340,61 @@ local function MasterLootSlot(slot)
 end
 mod.MasterLootSlot = MasterLootSlot
 
--- loot window candidate index for a team member
+-- classes an item is limited to ("Classes: Mage" on its tooltip, e.g. Forever's mage
+-- scrolls): { [CLASS] = true }, or false for any class. The game refuses to give such an
+-- item to anyone else ("can't grant"), which blocked that member and left the item for
+-- the next loot window - one wrong member per opening.
+local classesOf = {}   -- [itemID] = table | false
+local CLASS_LINE = ITEM_CLASSES_ALLOWED and ("^" .. ITEM_CLASSES_ALLOWED:gsub("%%s", "(.+)") .. "$")
+local function ItemClasses(link)
+    local id = link and tonumber(link:match("item:(%d+)"))
+    if not id or not CLASS_LINE then return false end
+    if classesOf[id] ~= nil then return classesOf[id] end
+    if not (C_TooltipInfo and C_TooltipInfo.GetHyperlink) then return false end
+    local ok, data = pcall(C_TooltipInfo.GetHyperlink, link)
+    if not ok or type(data) ~= "table" or type(data.lines) ~= "table" then return false end   -- not cached: next time
+    local found = false
+    for _, line in ipairs(data.lines) do
+        local text = line.leftText
+        local list = type(text) == "string" and not (MMT.IsSecret and MMT.IsSecret(text)) and text:match(CLASS_LINE)
+        if list then
+            found = {}
+            for token, localized in pairs(LOCALIZED_CLASS_NAMES_MALE or {}) do
+                if list:find(localized, 1, true) then found[token] = true end
+            end
+            for token, localized in pairs(LOCALIZED_CLASS_NAMES_FEMALE or {}) do
+                if list:find(localized, 1, true) then found[token] = true end
+            end
+            if not next(found) then found = false end
+            break
+        end
+    end
+    -- "no class line" only counts once the item is loaded (a tooltip read before that has
+    -- no lines yet, and a cached false let every class have it for the whole session)
+    local loaded = not (C_Item and C_Item.IsItemDataCachedByID) or C_Item.IsItemDataCachedByID(id)
+    if found or loaded then classesOf[id] = found
+    elseif C_Item and C_Item.RequestLoadItemDataByID then C_Item.RequestLoadItemDataByID(id) end
+    M:Debug("classes of %s: %s%s", link, found and table.concat((function() local t = {} for c in pairs(found) do t[#t + 1] = c end return t end)(), ",") or "any",
+        (found or loaded) and "" or " (item not loaded yet)")
+    return found
+end
+
+-- can this team member take an item limited to classes? (unknown class: yes, the game decides)
+local function ClassMayHave(key, link)
+    local classes = ItemClasses(link)
+    if not classes then return true end
+    local m = MMT.db and MMT.db.team and MMT.db.team[key]
+    local class = m and m.class
+    if not class then return true end
+    return classes[class] and true or false
+end
+mod.ClassMayHave = ClassMayHave
+
+-- loot window candidate index for a team member; nil also for a member whose class the
+-- item doesn't allow (so roles, round robin and quest items all pass them by)
 local function CandidateIndex(slot, key)
+    local link = GetLootSlotLink and GetLootSlotLink(slot)
+    if link and not ClassMayHave(key, link) then return nil end
     for i = 1, 40 do
         local name = GetMasterLootCandidate(slot, i)
         if name and MMT.Resolve(name) == key then return i end
@@ -1462,6 +1516,7 @@ end
 local busy = false
 local loggedFrames = false   -- the frame / addon details are logged once per loot window
 local handedOut = {}   -- [slot] = true: MMT gave this slot away in the open loot window
+local retried = {}     -- [slot] = true: handed out again after the game refused it (UI_ERROR_MESSAGE)
 local skipped = {}     -- [slot] = true: never looted (Exclusion List / loot skips)
 
 -- Blizzard's master loot assignment window (opened by Auto Loot or a click):
@@ -1514,9 +1569,12 @@ local function Plan(needOf)
         end
         local function HandOut()
             if bind == BOP then
-                -- only to a role that lists the item (bopRoles), else by hand; never looted
+                -- only to a role that lists the item (bopRoles), else by hand; never looted.
+                -- Recipes (patterns, plans, ...) always by hand: the master looter decides who learns it
                 local key, index, role
-                if cfg.bopRoles then key, index, role = Choose(slot, link, planned, isQuestItem, true) end
+                local recipe = select(12, MMT.ItemInfo(link)) == RECIPE
+                if cfg.bopRoles and not recipe then key, index, role = Choose(slot, link, planned, isQuestItem, true) end
+                if recipe and cfg.bopRoles then role = "a recipe: the master looter assigns it" end
                 if key then
                     M:Debug("BOP %s: on the item list of %s -> %s", link, tostring(role), MMT.Repr(key))
                     Give(key, index, role)
@@ -1572,8 +1630,8 @@ local function Plan(needOf)
     if #plan == 0 then busy = false return end
     for i, p in ipairs(plan) do
         C_Timer.After((i - 1) * 0.25, function()
-            if busy and GetLootSlotLink(p.slot) == p.link then
-                pending[p.slot] = { link = p.link, key = p.key }
+            if busy and GetLootSlotLink(p.slot) == p.link and not handedOut[p.slot] then
+                pending[p.slot] = { link = p.link, key = p.key, time = GetTime() }
                 handedOut[p.slot] = true
                 mmtGiving = true
                 pcall(GiveMasterLoot, p.slot, p.index)
@@ -1654,6 +1712,7 @@ M:On("LOOT_OPENED", function(autoLoot)
     M:Debug("loot window opened: items=%d autoLoot=%s", GetNumLootItems() or 0, tostring(autoLoot))
     wipe(pending)
     wipe(handedOut)
+    wipe(retried)
     wipe(skipped)
     C_Timer.After(0.1, Distribute)
 end)
@@ -1772,8 +1831,31 @@ if hooksecurefunc and StaticPopup_Show then
         end
     end)
 end
+-- the game refused one of MMT's hand-outs right away ("Can't assign item to that player"):
+-- that member is blocked for the item and the window is handed out once more, so the next
+-- member gets it now instead of at the next opening (once per slot and window: retried)
 M:On("UI_ERROR_MESSAGE", function(_, msg)
-    if _G.LootFrame and _G.LootFrame:IsShown() then M:Debug("game error while looting: %s", tostring(msg)) end
+    if not (_G.LootFrame and _G.LootFrame:IsShown()) then return end
+    M:Debug("game error while looting: %s", tostring(msg))
+    local slot, last
+    for s, p in pairs(pending) do
+        if p.time and GetTime() - p.time < 1 and (not last or p.time > last.time) then slot, last = s, p end
+    end
+    if not slot or retried[slot] then return end
+    retried[slot] = true
+    local id = ItemID(last.link)
+    blocked[id] = blocked[id] or {}
+    blocked[id][last.key] = GetTime()
+    pending[slot] = nil
+    handedOut[slot] = nil
+    RemoveFromSummary(last.link, last.key)
+    M:Debug("give refused: %s to %s - handing out again", last.link, MMT.Repr(last.key))
+    local function Again()
+        if not (_G.LootFrame and _G.LootFrame:IsShown()) then return end
+        if busy then C_Timer.After(0.3, Again) return end
+        Distribute()
+    end
+    C_Timer.After(0.3, Again)
 end)
 
 M:On("LOOT_CLOSED", function()

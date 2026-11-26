@@ -18,6 +18,7 @@
 --   IBS:<slot>:<itemID>      slot set (0 = empty)
 --   IBA:<n>:<id,id,...>      the whole bar (refresh button; empty list = clear)
 --   IBC:<id>,<bags>,<bank>,<guild bank>;...   this character's counts
+--   IBQ:                                       "send me your counts" (after a login / reload)
 --                                          (guild bank -1 = not seen)
 
 local _, mod = ...
@@ -37,6 +38,7 @@ local M = MMT.NewModule({
         showRefresh = true,
         showClear   = true,
         guildBank   = false,      -- guild bank count in the tooltip
+        teamCount   = true,       -- the number on a slot: the team's total in bags (false: this character's)
         locked      = false,
         items       = {},         -- [slot] = itemID
         point       = { "CENTER", "CENTER", 0, -220 },
@@ -101,6 +103,8 @@ M:Listen("TEAM_MESSAGE", function(key, sender, text)
     end
 
 
+    if text == "IBQ:" then mod.SendCountsSoon() return end
+
     local counts = text:match("^IBC:(.*)$")
     if counts then
         local t = {}
@@ -108,6 +112,7 @@ M:Listen("TEAM_MESSAGE", function(key, sender, text)
             t[tonumber(id)] = { tonumber(bags), tonumber(bank), tonumber(gbank) }
         end
         mod.counts[key] = t
+        if M.db.teamCount and mod.Update then mod.Update() end
     end
 end)
 
@@ -126,6 +131,21 @@ function mod.OwnCount(id)
     local bags = Count(id, false)
     local total = Count(id, true)
     return bags, math.max(0, total - bags), guildBank[id] or -1
+end
+
+-- the number on a slot: the whole team's count in bags (this character live, the
+-- others from their last IBC message), or only this character's
+function mod.ShownCount(id)
+    local own = Count(id, false)
+    if not M.db.teamCount then return own end
+    local total = own
+    for _, key in ipairs(MMT.SortedMembers()) do
+        if not MMT.IsSelf(key) then
+            local c = mod.counts[key] and mod.counts[key][id]
+            if c then total = total + (c[1] or 0) end
+        end
+    end
+    return total
 end
 
 function mod.SendCounts()
@@ -185,11 +205,15 @@ M:On("GUILDBANKBAGSLOTS_CHANGED", function() C_Timer.After(0.5, ScanGuildBank) e
 
 M.OnEnable = function()
     if mod.Update then mod.Update() end
-    C_Timer.After(3, mod.SendCounts)
+    C_Timer.After(3, function()
+        if not M.enabled then return end
+        mod.SendCounts()
+        Send("IBQ:", "BULK")   -- the others' counts: this client has none after a login / reload
+    end)
 end
 M.OnDisable = function() if mod.Hide then mod.Hide() end end
-M.OnProfileChanged = function() if mod.Update then mod.Update() end end
-M.OnSyncReceived = function() if mod.Update then mod.Update() end end
+M.OnProfileChanged = function() if mod.Update then mod.Update() end if mod.ApplyPosition then mod.ApplyPosition() end end
+M.OnSyncReceived = function() if mod.Update then mod.Update() end if mod.ApplyPosition then mod.ApplyPosition() end end
 
 M.Report = function(_, add)
     local ids = {}

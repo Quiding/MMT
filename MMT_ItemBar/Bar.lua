@@ -196,8 +196,9 @@ local function UpdateIcons(n)
         if id then
             b.icon:SetTexture(ItemIcon(id))
             local have = (C_Item and C_Item.GetItemCount and C_Item.GetItemCount(id)) or (GetItemCount and GetItemCount(id)) or 0
-            b.count:SetText(have > 1 and have or (have == 1 and "" or "0"))
-            b.icon:SetDesaturated(have == 0)
+            local shown = mod.ShownCount and mod.ShownCount(id) or have
+            b.count:SetText(shown > 1 and shown or (shown == 1 and "" or "0"))
+            b.icon:SetDesaturated(have == 0)   -- grey: this character has none to use
             b.icon:Show()
         else
             b.icon:Hide()
@@ -253,6 +254,16 @@ function mod.Update()
     end
 end
 
+-- the saved position (settings from Sync to team or another profile: the bar is already shown)
+local pendingPosition = false
+function mod.ApplyPosition()
+    if InCombatLockdown() then pendingPosition = true return end
+    if not f:IsShown() then return end   -- Update places it when it shows
+    local p = M.db.point or M.defaults.point
+    f:ClearAllPoints()
+    f:SetPoint(p[1], UIParent, p[2], p[3], p[4])
+end
+
 function mod.Hide() if not InCombatLockdown() then f:Hide() else pendingAttributes = true end end
 
 function mod.ResetPosition()
@@ -264,6 +275,7 @@ end
 
 M:On("PLAYER_REGEN_ENABLED", function()
     if pendingAttributes then pendingAttributes = false mod.Update() end
+    if pendingPosition then pendingPosition = false mod.ApplyPosition() end
 end)
 MMT.OnRefresh(function() if MMT.ready then mod.Update() end end)
 

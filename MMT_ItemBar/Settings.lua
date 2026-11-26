@@ -15,7 +15,7 @@ end
 M.Page = function(_, page)
     local Tile, TILE_W, X2 = H.Tile, H.TILE_W, H.TILE_W + H.TILE_GAP
     local TOP = H.Intro(page, "Item slots that are the same on every team member. Drop an item from your bags on a slot: it appears there on every character, also on those that don't have it.")
-    local TOP_H, BOTTOM_H = 214, 160
+    local TOP_H, BOTTOM_H = 214, 186
     local Y2 = TOP - TOP_H - 8
 
     -- Bar (top left) --------------------------------------------------------------------------
@@ -39,6 +39,8 @@ M.Page = function(_, page)
     L:Check("Show refresh button", gr, sr, "Sends this bar to every team member and asks for their counts.")
     local gc, sc = Opt("showClear")
     L:Check("Show clear button", gc, sc, "Removes every item from the bar, on every team member (asks first).")
+    local gt, st = Opt("teamCount")
+    L:Check("Team total on the slots", gt, st, "The number on a slot is the whole team's count in bags. Off: only this character's. The icon turns grey when this character has none.")
     local gg, sg = Opt("guildBank")
     L:Check("Guild bank in the tooltip", gg, sg, "Adds the guild bank count. It is counted whenever a team member opens the guild bank.")
 
