@@ -194,23 +194,30 @@ local function Clock(sec)
     return ("%d:%02d"):format(math.floor(sec / 60), sec % 60)
 end
 
--- "Fly to X, mm:ss" while a member is on a flight (the name takes turns with it), else nil
-function ns.FlightText(key, s)
+-- "Fly to X, mm:ss" while a member is on a flight, "arrived X" for 5 seconds after
+-- landing (the name takes turns with it, XPWindow.lua), else nil
+local function FlyText(key, s)
     local to, left = ns.FlightOf(key, s)
     if not to then return nil end
     return Hex(0.55, 0.85, 1) .. (to == "?" and "Flying" or ("Fly to " .. to)) .. (left and (", " .. Clock(left)) or "") .. "|r"
 end
+function ns.FlightText(key, s)
+    local to = ArrivedAt(key)
+    if to then return Hex(0.3, 1, 0.3) .. (to == "?" and "arrived" or ("arrived " .. to)) .. "|r" end
+    return FlyText(key, s)
+end
 
 -- text, pulse: what the row shows instead of its XP, or nil
 function ns.RowNotice(key, s)
-    local flightsOn = ns.db.xp.flightHint ~= false
+    -- with flights in the name column (Name cogwheel) they show only there
+    local flightsOn = ns.db.xp.flightHint ~= false and ns.db.xp.flightName == false
     if flightsOn then
         local to = ArrivedAt(key)
         if to then return Hex(0.3, 1, 0.3) .. (to == "?" and "arrived" or ("arrived " .. to)) .. "|r", true end
     end
     local fly
     if flightsOn then
-        fly = ns.FlightText(key, s)
+        fly = FlyText(key, s)
     end
     local lvl = ns.db.xp.levelUpHint ~= false and ns.db.xp.barMode ~= "REP" and ns.CanLevelUp and ns.CanLevelUp(key, s)
     local phase = math.floor(GetTime() / 5) % 2 == 0

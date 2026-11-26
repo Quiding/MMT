@@ -178,7 +178,7 @@ ns.RegisterXPPiece{ id = "value", title = "XP / Reputation", side = "RIGHT", on 
         OCheck("Highlight when I can level up", "levelUpHint", true,
             "A pulsing \"LvlUp available\" in place of the XP when turning in the quests that are ready would reach the next level."),
         OCheck("Show flights", "flightHint", true,
-            "\"Fly to X, mm:ss\" in place of the XP while a character is on a flight path, and \"arrived X\" for 5 seconds after landing. Flight times are learned: the first flight on a route shows no time. Takes turns with \"LvlUp available\" every 5 seconds."),
+            "\"Fly to X, mm:ss\" in place of the XP while a character is on a flight path, and \"arrived X\" for 5 seconds after landing. Flight times are learned: the first flight on a route shows no time. Takes turns with \"LvlUp available\" every 5 seconds. Only while \"Show flights\" of the Name column is off (otherwise flights show in the name)."),
         { "Button", "Export flight times", function() ns.ExportFlightTimes() end },
         OCheck("Highlight big XP gains", "xpFlash", true,
             "The XP bar and the XP value light up when a character gets at least 3% of the level's XP at once (e.g. from quest turn-ins)."),
@@ -491,7 +491,7 @@ ns.RegisterXPPiece{ id = "name", title = "Name", side = "RIGHT", on = true, fixe
     tip = "The character's name (with the leader crown and notes like \"no follow\"). Always shown; it takes the free space with the layout \"Name takes the free space\".",
     options = {
         OCheck("Show flights", "flightName", true,
-            "While a character is on a flight path, \"Fly to X, mm:ss\" and the name take turns (as long as each Info Cycling value, 3 seconds by default)."),
+            "While a character is on a flight path, \"Fly to X, mm:ss\" (and \"arrived X\" for 5 seconds after landing) and the name take turns (as long as each Info Cycling value, 3 seconds by default). Flights then show only in the name column."),
     },
     text = function() return nil end }
 

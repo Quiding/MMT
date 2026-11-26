@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 1.2.35: core addon (MMT) plus optional modules (MMT_*).
+Version 1.2.36: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -133,7 +133,8 @@ team list. Closing it marks it as seen; `/mmt setup` opens it again.
   column list (click it to give it back its own column) (default: XP / Reputation, Quest XP
   available, Rested XP, Undermine Real).
   "Show flights" (Name cogwheel, on): while a character is on a flight path, "Fly to X, mm:ss"
-  and the name take turns (as long as each Info Cycling value). "New mail" (off by
+  and the name take turns (as long as each Info Cycling value); flights then show only there,
+  not in place of the XP. "New mail" (off by
   default): a letter for characters with unread mail waiting (sent with the heartbeat,
   and when it changes). "Highlight when I can level up" (Basics, on): every client adds up
   the XP of its quests that are ready to turn in and sends it with the heartbeat; when that
