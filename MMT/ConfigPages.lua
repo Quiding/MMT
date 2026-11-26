@@ -2300,6 +2300,11 @@ ns.RegisterPage("profiles", "Profiles", function(page)
         function(v) if ns.SetMinimapButton then ns.SetMinimapButton(v) end end,
         "A button on the minimap: left-click opens these settings (like /mmt), right-click shows or hides the Info window, drag it to move it. This choice belongs to this account (all its characters and profiles).")
     mm:SetPoint("TOPLEFT", page, "TOPLEFT", 0, TOP + 2)
+    local gmb = UI.Check(page, 300, "Button in the game menu (Esc)",
+        function() return ns.GameMenuButtonShown and ns.GameMenuButtonShown() end,
+        function(v) if ns.SetGameMenuButton then ns.SetGameMenuButton(v) end end,
+        "An MMT button below the game menu (Esc) opens these settings. This choice belongs to this account (all its characters and profiles).")
+    gmb:SetPoint("TOPLEFT", page, "TOPLEFT", 320, TOP + 2)
     TOP = TOP - UI.ROW - 4
     local X2 = TILE_W + TILE_GAP
     local TOP_H = 42 + 4 * (UI.ROW + 6) + 8

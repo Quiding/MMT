@@ -881,7 +881,11 @@ local function Draw()
     local entries, zones = mod.BuildEntries()
     mod.drawnSig = mod.orderSig
     local ownCount = #(mod.ownOrder or {})
-    if #entries == 0 and ownCount == 0 then f:Hide() return end
+    if #entries == 0 and ownCount == 0 then
+        -- HUF's unlock mode with no quests: made-up ones, to see the tracker while moving it
+        if not mod.preview then f:Hide() return end
+        entries, zones = mod.SampleEntries()
+    end
 
     local width = cfg.width - PAD * 2
     local y = PAD
@@ -973,6 +977,35 @@ local function Draw()
     f:EnableMouse(not cfg.clickThrough)
     f:EnableMouseWheel(not cfg.clickThrough)
     f:Show()
+end
+
+-- HUF's unlock mode: example quests while there are none of your own (Draw)
+function mod.SampleEntries()
+    local function Q(level, title)
+        local lc = LevelColour(level, nil)
+        local tag = "[" .. level .. "]"
+        return { kind = "quest", text = (lc and (lc .. tag .. "|r") or tag) .. " " .. title, indent = 1 }
+    end
+    local function O(text) return { kind = "objective", text = text, indent = 2 } end
+    local entries = {
+        { kind = "zone", text = "Elwynn Forest", indent = 0 },
+        Q(7, "The Fargodeep Mine"),
+        O("Explore the Fargodeep Mine"),
+        Q(10, "Princess Must Die!"),
+        O("Princess slain  0/1"),
+        Q(9, "Gold Dust Exchange"),
+        O(GREEN .. "Gold Dust  10/10"),
+        { kind = "zone", text = "Westfall", indent = 0 },
+        Q(12, "The Defias Brotherhood"),
+        O("Defias Pillager slain  4/10"),
+        O("Defias Looter slain  7/10"),
+    }
+    return entries, { "Elwynn Forest", "Westfall" }
+end
+function mod.SetPreview(on)
+    mod.preview = on and true or nil
+    local ok, err = pcall(Draw)
+    if not ok then M:Debug("tracker preview draw error: %s", tostring(err)) end
 end
 
 -- redraws are bundled (many quest events arrive at once)
@@ -1184,6 +1217,7 @@ end, 1))
 MMT.OnLogin(function()
     if MMT.HUFMover then
         local get, set = MMT.HUFPlace(function() return M.db end, "point", f)
-        MMT.HUFMover("questtracker", "Quest tracker", f, function(fr) M.db.point = MMT.PointOf(fr) end, nil, "QuestTracker", get, set)
+        MMT.HUFMover("questtracker", "Quest tracker", f, function(fr) M.db.point = MMT.PointOf(fr) end, nil, "QuestTracker", get, set,
+            mod.SetPreview)
     end
 end)

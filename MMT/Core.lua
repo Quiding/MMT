@@ -522,13 +522,14 @@ function ns.OnLogin(fn) ns.Listen("LOGIN", fn) end
 -- call it from their login code. Without HUF: nothing.
 -- get / set (optional): the window's place, carried in HUF's profile export /
 -- import, so one HUF import places MMT's windows on every client too
-function ns.HUFMover(id, label, frame, save, shown, page, get, set)
+-- preview (optional): preview(on) when HUF's unlock mode starts / ends (example content)
+function ns.HUFMover(id, label, frame, save, shown, page, get, set, preview)
     local H = _G.HUF
     if type(H) ~= "table" or type(H.RegisterMover) ~= "function" then return false end
     local ok = pcall(H.RegisterMover, "MMT:" .. id, {
         label = "MMT " .. label, frame = frame, save = save, shown = shown,
         settings = page and function() ns.ToggleConfig(page) end,
-        get = get, set = set,
+        get = get, set = set, preview = preview,
     })
     return ok
 end
