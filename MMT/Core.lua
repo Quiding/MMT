@@ -560,6 +560,17 @@ function ns.HUFScaleGrips(id, tbl, key, frame, lo, hi)
             f:SetScale(v)
         end,
         done = function() ns.Refresh() end,
+        -- Shift + drag in HUF: the same scale
+        scale = {
+            get = function() return tbl()[key] or 1 end,
+            set = function(v)
+                local f = Frame()
+                if not f or InCombatLockdown() then return end
+                v = math.floor(math.max(lo or 0.5, math.min(hi or 2, v)) * 100 + 0.5) / 100
+                tbl()[key] = v
+                f:SetScale(v)
+            end,
+        },
     }
     return pcall(H.RegisterMover, "MMT:" .. id, spec)
 end
