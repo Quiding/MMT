@@ -1185,5 +1185,6 @@ MMT.OnLogin(function()
     if MMT.HUFMover then
         local get, set = MMT.HUFPlace(function() return M.db end, "point", f)
         MMT.HUFMover("questtracker", "Quest tracker", f, function(fr) M.db.point = MMT.PointOf(fr) end, nil, "QuestTracker", get, set)
+        if MMT.HUFScaleGrips then MMT.HUFScaleGrips("questtracker", function() return M.db end, "scale", f, 0.5, 2) end
     end
 end)

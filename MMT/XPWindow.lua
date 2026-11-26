@@ -1139,4 +1139,5 @@ ns.OnLogin(function()
     local get, set = ns.HUFPlace(function() return ns.db.xp end, "point", f)
     ns.HUFMover("info", "Info window", f, function(fr) ns.db.xp.point = ns.PointOf(fr) end,
         function() return ns.db.xp.enabled end, "xp", get, set)
+    ns.HUFScaleGrips("info", function() return ns.db.xp end, "scale", f, 0.5, 2)
 end)

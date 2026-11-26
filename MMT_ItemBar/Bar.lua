@@ -272,5 +272,6 @@ MMT.OnLogin(function()
     if MMT.HUFMover then
         local get, set = MMT.HUFPlace(function() return M.db end, "point", f)
         MMT.HUFMover("itembar", "Item bar", f, function(fr) M.db.point = MMT.PointOf(fr) end, nil, "mod:ItemBar", get, set)
+        if MMT.HUFScaleGrips then MMT.HUFScaleGrips("itembar", function() return M.db end, "scale", f, 0.8, 2) end
     end
 end)
