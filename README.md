@@ -429,7 +429,10 @@ team list. Closing it marks it as seen; `/mmt setup` opens it again.
   stay in the loot window with a chat note.
   The "keep free bag slots" reserve doesn't apply to quest items: they are given even
   into the last free slot, and with full bags they are still tried (they may stack).
-  Items are recognised as quest items by the loot window or by their item class.
+  Items are recognised as quest items by the loot window, by their item class, or by
+  being an item objective of a quest in your or a teammate's log (e.g. "Jungle Remedy",
+  an ordinary item). An item the team just said nobody needs (or whose objectives are
+  complete for everyone) isn't asked about again for 2 minutes.
   "Speed up assignment by caching" (on by default): the master looter keeps a
   snapshot of every member's quest items, refreshed every 2 minutes and after each quest
   item it gives, so no question to the team is needed while looting. Members with full

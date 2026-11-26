@@ -93,14 +93,19 @@ mod.M = M
 local BOP = (Enum and Enum.ItemBind and Enum.ItemBind.OnAcquire) or 1
 local QUEST_CLASS = (Enum and Enum.ItemClass and Enum.ItemClass.Questitem) or 12
 
--- quest item: the loot window says so, or the item's class is "Quest"
--- (the loot window flag is missing for some quest items)
+-- quest item: the loot window says so, the item's class is "Quest", or it is
+-- an item objective of a quest in your log or a teammate's (quest cache): the
+-- loot window flag is missing for some quest items, and some objectives (e.g.
+-- "Jungle Remedy") are ordinary items
 local function IsQuestLoot(slot, link)
     if select(7, GetLootSlotInfo(slot)) then return true end
     local instant = (C_Item and C_Item.GetItemInfoInstant) or GetItemInfoInstant
-    if not (link and instant) then return false end
-    local ok, _, _, _, _, _, classID = pcall(instant, link)
-    return ok and classID == QUEST_CLASS
+    if link and instant then
+        local ok, _, _, _, _, _, classID = pcall(instant, link)
+        if ok and classID == QUEST_CLASS then return true end
+    end
+    local name = link and link:match("%[(.-)%]")
+    return name and mod.IsObjectiveItem and mod.IsObjectiveItem(name) or false
 end
 local ITEM_SLOT = (Enum and Enum.LootSlotType and Enum.LootSlotType.Item) or 1
 
@@ -761,6 +766,12 @@ local function AskQuestNeed(names, done)
     asks[id] = { names = names, answers = {}, waitFor = waitFor, finish = function()
         if finished then return end
         finished = true
+        -- items nobody needs: not asked about again for a while (quest cache)
+        for _, name in ipairs(names) do
+            local any = mod.NeedCode(name) == "Y"
+            for _, key in ipairs(waitFor) do if needOf(key, name) == "Y" then any = true break end end
+            if not any and mod.NobodyNeeds then mod.NobodyNeeds(name) end
+        end
         done(needOf)
         asks[id] = nil
     end }
@@ -782,6 +793,8 @@ end
 local CACHE_EVERY, CACHE_FRESH, PUSH_FOR = 120, 300, 600
 local ASK_GAP, DUP_GAP = 20, 3   -- team-wide requests at most every 20 s; a request seen twice (party + guild) within 3 s is answered once
 local qcache = {}        -- [key] = { t = GetTime(), list = { { text, done } } }
+local NOBODY_FOR = 120   -- an item the team said nobody needs is not asked about again for 2 minutes
+local nobody = {}        -- [item name] = GetTime() of that answer
 local cacheStats = { asked = 0, answers = 0, hits = 0, fallbacks = 0 }
 
 -- this client's item objectives as text: "red wool bandana=Y;head of targorr=N"
@@ -819,6 +832,26 @@ local function CachedCode(key, name)
 end
 
 local function CacheOn() return M.enabled and M.db.questCache and IsInGroup() end
+
+function mod.NobodyNeeds(name) nobody[name] = GetTime() end
+-- every one of these items: the team said nobody needs it a moment ago
+function mod.NobodyNeedsAll(names)
+    for _, name in ipairs(names) do
+        if not (nobody[name] and GetTime() - nobody[name] < NOBODY_FOR) or mod.NeedCode(name) == "Y" then return false end
+    end
+    return true
+end
+
+-- an item objective of your quest log, or of a teammate's (fresh cache entry)
+function mod.IsObjectiveItem(name)
+    if not name or name == "" then return false end
+    if mod.NeedCode(name) ~= "U" then return true end
+    if not CacheOn() then return false end
+    for key, e in pairs(qcache) do
+        if GetTime() - e.t <= CACHE_FRESH and CachedCode(key, name) ~= "U" then return true end
+    end
+    return false
+end
 
 -- master looter: ask the team (or one member) for their objectives
 local lastAsk = -1e9
@@ -912,11 +945,21 @@ local function CachedNeed(names)
         if MMT.IsSelf(key) then return mod.NeedCode(name) end
         return CachedCode(key, name)
     end
-    -- somebody must still need every quest item, else ask (the cache may be behind)
+    -- somebody must still need every quest item, else ask (the cache may be behind);
+    -- not when the cache knows the objective as complete (N) or the team said
+    -- nobody needs it a moment ago
     for _, name in ipairs(names) do
-        local any = mod.NeedCode(name) == "Y"
-        for _, key in ipairs(present) do if needOf(key, name) == "Y" then any = true break end end
-        if not any then
+        local own = mod.NeedCode(name)
+        local any, known = own == "Y", own == "N"
+        for _, key in ipairs(present) do
+            local c = needOf(key, name)
+            if c == "Y" then any = true break end
+            if c == "N" then known = true end
+        end
+        local recent = nobody[name] and now - nobody[name] < NOBODY_FOR
+        if not any and (known or recent) then
+            M:Debug("quest cache: nobody needs %s (%s), not asking", name, known and "objectives complete" or "asked a moment ago")
+        elseif not any then
             cacheStats.fallbacks = cacheStats.fallbacks + 1
             M:Debug("quest cache: nobody needs %s by the cache, asking the team (and refreshing the cache)", name)
             RequestCache()
@@ -1595,6 +1638,10 @@ local function Distribute()
             local cached = mod.CachedQuestNeed(names)
             if cached then
                 Plan(cached)
+            elseif mod.NobodyNeedsAll(names) then
+                -- (quest cache off) asked a moment ago: nobody needs them
+                M:Debug("quest need: nobody needed %s a moment ago, not asking", table.concat(names, ", "))
+                Plan(function(key, name) if MMT.IsSelf(key) then return mod.NeedCode(name) end return "U" end)
             else
                 AskQuestNeed(names, function(needOf) if busy then Plan(needOf) end end)
             end
