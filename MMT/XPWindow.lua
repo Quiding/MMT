@@ -279,6 +279,10 @@ local function RowTooltip(row)
         end
     end
     if s.money then tip:AddDoubleLine("Gold", TipCoins(s.money), 1, 1, 1, 1, 1, 1) end
+    for _, c in ipairs({ { "mf", "Merchant's Favor" }, { "ur", "Undermine Real" } }) do
+        local n = ns.CurrencyOf(key, s, c[1])
+        if n then tip:AddDoubleLine(ns.CurrencyName(c[1], c[2]), tostring(n), 1, 1, 1, 1, 1, 1) end
+    end
     if s.free then tip:AddDoubleLine("Bags", ("%d of %d slots free"):format(s.free, s.slots or 0), 1, 1, 1, 1, 1, 1) end
     if s.durMin then
         tip:AddDoubleLine("Durability", ("lowest %d%%, average %d%%"):format(s.durMin, s.durAvg or s.durMin), 1, 1, 1, 1, 1, 1)
@@ -529,7 +533,17 @@ local function SetPiece(p, piece, h, arranging)
     local pad = (arranging and 10 or 0) + (piece.lead or 0)
     p.text:ClearAllPoints()
     p.text:SetPoint("LEFT", pad, 0)
-    p:SetSize(math.ceil(p.text:GetStringWidth() or 0) + pad + (arranging and 3 or 0), h)
+    local w = p.text:GetStringWidth() or 0
+    if piece.alts then
+        -- values taking turns (Info Cycling, flights in the name): as wide as the widest
+        for _, t in ipairs(piece.alts) do
+            p.text:SetText(t)
+            w = math.max(w, p.text:GetStringWidth() or 0)
+        end
+        p.text:SetText(piece.text)
+    end
+    p:SetSize(math.ceil(w) + pad + (arranging and 3 or 0), h)
+    p.fade = (piece.fade and not arranging) and true or nil
     p.id = piece.id
     local draggable = arranging and piece.id ~= nil
     local c = piece.id == "name" and ns.XP_NAME_COLOUR or ns.XP_PIECE_COLOUR
@@ -538,6 +552,7 @@ local function SetPiece(p, piece, h, arranging)
     p.grip:SetShown(draggable)
     p:EnableMouse(draggable)
     p:SetAlpha((drag and drag.kind == "piece" and drag.id == piece.id and drag.row == p:GetParent()) and 0.4 or 1)
+    if p.fade then p:SetAlpha(ns.XPFadeAlpha()) end
     if piece.pulse then
         if not p.pulse:IsPlaying() then p.pulse:Play() end
     elseif p.pulse:IsPlaying() then
@@ -790,6 +805,16 @@ local function Place(row, cols, total, nameIndex, shift)
     end
 end
 
+local cycleSlot   -- the 3 second slot the window was drawn in (Info Cycling)
+
+-- values taking turns fade out and in at the end / start of each slot
+local FADE = 0.35
+function ns.XPFadeAlpha()
+    local T = ns.XP_CYCLE_TIME
+    local t = GetTime() % T
+    return math.max(0, math.min(1, t / FADE, (T - t) / FADE))
+end
+
 local function Update()
     local x = ns.db.xp
     if not x.enabled or not ns.ready then f:Hide() return end
@@ -800,6 +825,13 @@ local function Update()
     local h = math.max(x.barHeight, x.size + 4)
     local lined = x.pieceAlign ~= "OFF"
     local shift = (x.pieceAlign == "ICONS") and "ICONS" or SHIFT[x.pieceAlign] or 0.5
+
+    -- Info Cycling / flights in the name: what is shown in this 3 second slot
+    local slot = math.floor(GetTime() / ns.XP_CYCLE_TIME)
+    cycleSlot = slot
+    ns.xpCycleIds = ns.XPCycleActive(list, StatusOf)
+    local nIds = #ns.xpCycleIds
+    ns.xpCycleNow = nIds > 0 and ns.xpCycleIds[slot % nIds + 1] or nil
 
     -- first pass: set up the pieces of every row, the name with its crown, notes and Layer Hop
     local rows = {}
@@ -839,6 +871,12 @@ local function Update()
             if piece.name then
                 piece = { id = "name", text = name, lead = lead,
                     colour = useClass and { cr, cg, cb } or { 1, 1, 1 } }
+                -- on a flight: the flight and the name take turns
+                local fly = not arranging and x.flightName ~= false and ns.FlightText and ns.FlightText(key, s)
+                if fly then
+                    piece.alts, piece.fade = { name, fly }, true
+                    if slot % 2 == 1 then piece.text = fly end
+                end
                 nameIndex = n
             end
             SetPiece(p, piece, h, arranging)
@@ -981,6 +1019,29 @@ local function Update()
     f:Show()
 end
 ns.UpdateXPWindow = Update
+
+-- a new slot redraws the window (the next value); in between the fading
+local fader = CreateFrame("Frame")
+fader:SetScript("OnUpdate", function()
+    if not f:IsShown() or ns.xpArrange then return end
+    local now, T = GetTime(), ns.XP_CYCLE_TIME
+    local slot = math.floor(now / T)
+    local any = false
+    for _, row in ipairs(f.rows) do
+        if row:IsShown() then
+            for _, p in ipairs(row.pieces) do if p.fade and p:IsShown() then any = true break end end
+        end
+        if any then break end
+    end
+    if not any then return end
+    if slot ~= cycleSlot then Update() end
+    local a = ns.XPFadeAlpha()
+    for _, row in ipairs(f.rows) do
+        if row:IsShown() then
+            for _, p in ipairs(row.pieces) do if p.fade and p:IsShown() then p:SetAlpha(a) end end
+        end
+    end
+end)
 
 local function Layout()
     local x = ns.db.xp

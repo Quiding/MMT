@@ -194,6 +194,13 @@ local function Clock(sec)
     return ("%d:%02d"):format(math.floor(sec / 60), sec % 60)
 end
 
+-- "Fly to X, mm:ss" while a member is on a flight (the name takes turns with it), else nil
+function ns.FlightText(key, s)
+    local to, left = ns.FlightOf(key, s)
+    if not to then return nil end
+    return Hex(0.55, 0.85, 1) .. (to == "?" and "Flying" or ("Fly to " .. to)) .. (left and (", " .. Clock(left)) or "") .. "|r"
+end
+
 -- text, pulse: what the row shows instead of its XP, or nil
 function ns.RowNotice(key, s)
     local flightsOn = ns.db.xp.flightHint ~= false
@@ -203,10 +210,7 @@ function ns.RowNotice(key, s)
     end
     local fly
     if flightsOn then
-        local to, left = ns.FlightOf(key, s)
-        if to then
-            fly = Hex(0.55, 0.85, 1) .. (to == "?" and "Flying" or ("Fly to " .. to)) .. (left and (", " .. Clock(left)) or "") .. "|r"
-        end
+        fly = ns.FlightText(key, s)
     end
     local lvl = ns.db.xp.levelUpHint ~= false and ns.db.xp.barMode ~= "REP" and ns.CanLevelUp and ns.CanLevelUp(key, s)
     local phase = math.floor(GetTime() / 5) % 2 == 0
@@ -237,7 +241,7 @@ ns.OnLogin(function()
         if on and not flight then TakeOff()
         elseif not on and flight then Land() end
         -- redraw while somebody flies or just arrived (mm:ss counts down)
-        if not ns.UpdateXPWindow or ns.db.xp.flightHint == false then return end
+        if not ns.UpdateXPWindow or (ns.db.xp.flightHint == false and ns.db.xp.flightName == false) then return end
         local busy = flight or (arrivedOwn and GetTime() < arrivedOwn.untl + 1)
         if not busy then
             for key in pairs(wasFlying) do busy = true break end

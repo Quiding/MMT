@@ -983,7 +983,9 @@ ns.RegisterPage("xp", "Info Window", function(page)
             local close = UI.TextButton(p, "x", function() p:Hide() end, 18)
             close:SetPoint("TOPRIGHT", -4, -4)
             local col = UI.Column(p, 10, -30, 220)
-            for _, o in ipairs(def.options) do
+            local opts = def.options
+            if type(opts) == "function" then opts = opts() end
+            for _, o in ipairs(type(opts) == "table" and opts or {}) do
                 local fn = col[o[1]]
                 if type(fn) == "function" then
                     local w = fn(col, select(2, unpack(o)))
@@ -1024,6 +1026,7 @@ ns.RegisterPage("xp", "Info Window", function(page)
         return out
     end
     local function Redraw() pieces:Render(Shown()) end
+    ns.RefreshXPPieceList = function() if pieces and pieces:IsVisible() then Redraw() end end
     pieces = List(ctile, TILE_IN, PIECE_ROWS, PIECE_H, function(parent, i)
         local row = CreateFrame("Frame", nil, parent)
         RowBackground(row, i)
@@ -1081,7 +1084,8 @@ ns.RegisterPage("xp", "Info Window", function(page)
         row.entry, row.index = e, index
         local d = ns.xpPieces[e.id]
         local on = e.on or (d and d.fixed)
-        row.text:SetText(d and d.title or e.id)
+        local cycled = ns.XPPieceCycled and ns.XPPieceCycled(e.id)
+        row.text:SetText((d and d.title or e.id) .. (cycled and " |cff8899aa(in Info Cycling)|r" or ""))
         row.text:SetTextColor(on and 1 or 0.5, on and 1 or 0.5, on and 1 or 0.5)
         local c = e.id == "name" and ns.XP_NAME_COLOUR or ns.XP_PIECE_COLOUR
         row.strip:SetColorTexture(c[1], c[2], c[3], on and 0.9 or 0.4)

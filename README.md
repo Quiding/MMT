@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 1.2.33: core addon (MMT) plus optional modules (MMT_*).
+Version 1.2.34: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -125,7 +125,13 @@ team list. Closing it marks it as seen; `/mmt setup` opens it again.
   the game gives addons no way to read it. The column hides while no hunter of the team
   has a pet out and comes back when one is summoned; the row tooltip keeps the last known
   value ("?" when the game gives no happiness: `/mmt debug dump` shows what the client
-  can read). "New mail" (off by
+  can read). "Currency: Money" (gold), "Currency: Merchants Favor" and "Currency: Undermine
+  Real" (both off by default): the Forever currencies of the character sheet's Currency tab,
+  found by name and sent with the heartbeat. "Info Cycling" (on): the columns picked in its
+  cogwheel take turns in one column, 3 seconds each, fading over to the next; a picked column
+  isn't shown on its own (default: Bar value, Completed quest XP, Rested XP, Undermine Real).
+  "Show flights" (Name cogwheel, on): while a character is on a flight path, "Fly to X, mm:ss"
+  and the name take turns every 3 seconds. "New mail" (off by
   default): a letter for characters with unread mail waiting (sent with the heartbeat,
   and when it changes). "Highlight when I can level up" (Basics, on): every client adds up
   the XP of its quests that are ready to turn in and sends it with the heartbeat; when that
@@ -149,7 +155,7 @@ team list. Closing it marks it as seen; `/mmt setup` opens it again.
   without class colours, the level-up and XP-gain highlights), Rested
   XP and Completed quest XP (colour and opacity on the bar; the R % / Q % text follows in a
   lighter shade), Free bag slots and Durability (when they turn yellow / red; durability
-  lowest or average), Gold (format), Level ("L60" or "60"), Layer (orange when not your
+  lowest or average), Currency: Money (format), Level ("L60" or "60"), Layer (orange when not your
   layer), Reputation ("Watch my faction on every character": every team character watches
   the faction this one watches, so the Info window compares the same one). Window-wide choices (class colours, what the bars show) stay in Basics
   ("Enable drag&drop mode for the Info window" /

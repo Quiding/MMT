@@ -23,7 +23,8 @@ ns.xpPieceIds = {}    -- registration order
 --         right after the fill (before rested XP), capped at the end of the bar,
 --         barColour = function() -> r, g, b, a: the colour of that shade,
 --         barTitle = its line in the row tooltip (no line without),
---         options = { { kind, ... }, ... }: settings of the piece, shown in a small popup
+--         options = { { kind, ... }, ... } (or a function returning it, called when the
+--         popup is first opened): settings of the piece, shown in a small popup
 --         behind a cogwheel in its row of "Column Visibility & Order". kind is a method
 --         of UI.Column ("Color", "Slider", "Check", "Cycle", "Note", "Space"), the rest
 --         its arguments as usual, e.g. { "Color", "Colour", get, set } }
@@ -128,7 +129,7 @@ local DUR_ICON = "|TInterface\\Icons\\Trade_BlackSmithing:0:0:0:0:64:64:6:58:6:5
 ---------------------------------------------------------------------------
 -- Built-in pieces
 ---------------------------------------------------------------------------
-ns.RegisterXPPiece{ id = "gold", title = "Gold", side = "LEFT", on = true, sample = "123" .. GOLD_ICON, icon = "END",
+ns.RegisterXPPiece{ id = "gold", title = "Currency: Money", side = "LEFT", on = true, sample = "123" .. GOLD_ICON, icon = "END",
     tip = "Gold of the character (format: cogwheel).",
     options = {
         OCycle("Show as", { { value = "GOLD", text = "Gold only" }, { value = "FULL", text = "Gold, silver, copper" } },
@@ -293,9 +294,192 @@ ns.RegisterXPPiece{ id = "layer", title = "Layer", side = "RIGHT", on = false, s
         return Hex(0.7, 0.7, 0.7) .. "#" .. s.layer .. "|r"
     end }
 
+---------------------------------------------------------------------------
+-- Forever currencies (character sheet > Currency), found by name in the
+-- currency list: "mf" Merchant's Favor, "ur" Undermine Real. This character's
+-- amounts are read on CURRENCY_DISPLAY_UPDATE and sent with the heartbeat
+-- ("mf=<n>,ur=<n>"); team members' come from theirs.
+---------------------------------------------------------------------------
+local CURRENCIES = {
+    mf = { words = { "merchant", "favo" } },
+    ur = { words = { "undermine", "real" } },
+}
+local ownCurrency = {}   -- [key] = { qty, icon, name }
+
+local function Plain(v) if v == nil or ns.IsSecret(v) then return nil end return v end
+local function Norm(name)
+    name = Plain(name)
+    if type(name) ~= "string" then return "" end
+    return (name:lower():gsub("[^%a]", ""))
+end
+local function Which(name)
+    local n = Norm(name)
+    if n == "" then return nil end
+    for key, c in pairs(CURRENCIES) do
+        local all = true
+        for _, w in ipairs(c.words) do if not n:find(w, 1, true) then all = false break end end
+        if all then return key end
+    end
+end
+local function ListSize()
+    local CI = C_CurrencyInfo
+    local fn = (CI and CI.GetCurrencyListSize) or GetCurrencyListSize
+    if not fn then return 0 end
+    local ok, n = pcall(fn)
+    return ok and tonumber(Plain(n)) or 0
+end
+-- name, isHeader, quantity, icon, expanded
+local function ListEntry(i)
+    local CI = C_CurrencyInfo
+    if CI and CI.GetCurrencyListInfo then
+        local ok, d = pcall(CI.GetCurrencyListInfo, i)
+        if ok and type(d) == "table" then
+            return Plain(d.name), Plain(d.isHeader), Plain(d.quantity), Plain(d.iconFileID), Plain(d.isHeaderExpanded)
+        end
+    elseif GetCurrencyListInfo then
+        local ok, name, isHeader, isExpanded, _, _, count, icon = pcall(GetCurrencyListInfo, i)
+        if ok then return Plain(name), Plain(isHeader), Plain(count), Plain(icon), Plain(isExpanded) end
+    end
+end
+local function Expand(i)
+    local CI = C_CurrencyInfo
+    if CI and CI.ExpandCurrencyList then pcall(CI.ExpandCurrencyList, i, true)
+    elseif ExpandCurrencyList then pcall(ExpandCurrencyList, i, 1) end
+end
+
+local function ScanCurrencies()
+    local found, expanded = {}, false
+    local n = ListSize()
+    local i = 1
+    while i <= n and i < 500 do
+        local name, isHeader, qty, icon, open = ListEntry(i)
+        if isHeader then
+            -- a collapsed header hides its currencies from the list: opened once
+            if open == false and not expanded then Expand(i) expanded = true n = ListSize() end
+        else
+            local key = Which(name)
+            if key then found[key] = { qty = tonumber(qty) or 0, icon = icon, name = name } end
+        end
+        i = i + 1
+    end
+    local changed = false
+    for key in pairs(CURRENCIES) do
+        local old, new = ownCurrency[key], found[key]
+        if (old and old.qty) ~= (new and new.qty) then changed = true end
+        ownCurrency[key] = new
+    end
+    if changed and ns.ready and ns.UpdateXPWindow then ns.UpdateXPWindow() end
+end
+ns.On("CURRENCY_DISPLAY_UPDATE", function() ScanCurrencies() end)
+ns.OnLogin(function() C_Timer.After(2, ScanCurrencies) end)
+for key in pairs(CURRENCIES) do
+    ns.CoreHeartbeat(key, function() local c = ownCurrency[key] return c and tostring(c.qty) or nil end)
+end
+
+-- amount of a currency ("mf" / "ur") of a member, or nil when not known
+function ns.CurrencyOf(key, s, which)
+    if ns.IsSelf(key) then local c = ownCurrency[which] return c and c.qty end
+    local v = s and s.ext and s.ext[which]
+    return tonumber(v)
+end
+-- the game's name of a currency (when this character has it), else the given one
+function ns.CurrencyName(which, default)
+    local c = ownCurrency[which]
+    return c and c.name or default
+end
+local function CurrencyIcon(which)
+    local c = ownCurrency[which]
+    if not c or not c.icon then return "" end
+    return "|T" .. c.icon .. ":0:0:0:0:64:64:6:58:6:58|t"
+end
+
+local function CurrencyPiece(id, which, title)
+    ns.RegisterXPPiece{ id = id, title = title, side = "LEFT", on = false, sample = "123", icon = "END",
+        tip = "Amount of this currency (character sheet: Currency). Needs MMT 1.2.34 or newer on teammates.",
+        text = function(key, s)
+            local n = ns.CurrencyOf(key, s, which)
+            if not n then return nil end
+            local icon = CurrencyIcon(which)
+            return Thousands(n) .. (icon ~= "" and (" " .. icon) or "")
+        end }
+end
+CurrencyPiece("mfavor", "mf", "Currency: Merchants Favor")
+CurrencyPiece("ureal", "ur", "Currency: Undermine Real")
+
+---------------------------------------------------------------------------
+-- Info Cycling: the columns picked in its cogwheel, one after another for
+-- XP_CYCLE_TIME seconds each, fading over (XPWindow.lua). A picked column is
+-- left out of the row while Info Cycling is on.
+---------------------------------------------------------------------------
+ns.XP_CYCLE_TIME = 3
+local CYCLE_DEFAULT = { value = true, questxp = true, rested = true, ureal = true }
+
+function ns.XPCycleSet()
+    local x = ns.db.xp
+    if type(x.cycle) ~= "table" then
+        x.cycle = {}
+        for k, v in pairs(CYCLE_DEFAULT) do x.cycle[k] = v end
+    end
+    return x.cycle
+end
+
+-- shown in Info Cycling instead of its own column
+function ns.XPPieceCycled(id)
+    if id == "name" or id == "cycle" or not ns.xpPieces[id] then return false end
+    return ns.XPCycleSet()[id] and ns.XPPieceOn("cycle") or false
+end
+
+ns.RegisterXPPiece{ id = "cycle", title = "Info Cycling", side = "RIGHT", on = true, sample = "Info Cycling",
+    tip = "Shows the columns picked in its cogwheel one after another, each for 3 seconds, fading over to the next. A picked column isn't shown on its own while Info Cycling is on.",
+    options = function()
+        local list = { { "Note", "Columns shown one after another (each 3 seconds):" } }
+        for _, id in ipairs(ns.xpPieceIds) do
+            local d = ns.xpPieces[id]
+            if d and id ~= "name" and id ~= "cycle" then
+                list[#list + 1] = { "Check", d.title,
+                    function() return ns.XPCycleSet()[id] and true or false end,
+                    function(v)
+                        ns.XPCycleSet()[id] = v and true or false
+                        if ns.UpdateXPWindow then ns.UpdateXPWindow() end
+                        if ns.RefreshXPPieceList then ns.RefreshXPPieceList() end
+                    end }
+            end
+        end
+        return list
+    end,
+    text = function() return nil end }   -- filled by XPRowPieces
+
+-- the cycled pieces with a value on at least one of the given rows, in order;
+-- XPWindow.lua picks the one of the moment: ns.xpCycleNow
+function ns.XPCycleActive(keys, statusOf)
+    local out = {}
+    if not ns.XPPieceOn("cycle") then return out end
+    for _, e in ipairs(ns.XPPieceOrder()) do
+        local d = ns.xpPieces[e.id]
+        if d and ns.XPPieceCycled(e.id) then
+            local hide = false
+            if d.hidden then local ok, h = pcall(d.hidden) hide = ok and h end
+            if not hide then
+                for _, key in ipairs(keys) do
+                    local s = statusOf(key)
+                    if s and not s.noData then
+                        local ok, text = pcall(d.text, key, s)
+                        if ok and text and text ~= "" then out[#out + 1] = e.id break end
+                    end
+                end
+            end
+        end
+    end
+    return out
+end
+
 -- the name: placed and filled by XPWindow.lua (crown, "(no follow)", Layer Hop)
 ns.RegisterXPPiece{ id = "name", title = "Name", side = "RIGHT", on = true, fixed = true, sample = "Name",
     tip = "The character's name (with the leader crown and notes like \"no follow\"). Always shown; it takes the free space with the layout \"Name takes the free space\".",
+    options = {
+        OCheck("Show flights", "flightName", true,
+            "While a character is on a flight path, \"Fly to X, mm:ss\" and the name take turns every 3 seconds."),
+    },
     text = function() return nil end }
 
 ---------------------------------------------------------------------------
@@ -436,6 +620,23 @@ function ns.XPRowPieces(key, s, arranging)
         if d then
             if p.id == "name" then
                 out[#out + 1] = { id = "name", def = d, name = true }
+            elseif ns.XPPieceCycled(p.id) then
+                -- shown by Info Cycling
+            elseif p.id == "cycle" and not arranging then
+                -- the cycled piece of the moment; alts: all its values (the column keeps its width)
+                local alts, text, pulse = {}, nil, nil
+                for _, id in ipairs(ns.xpCycleIds or {}) do
+                    local cd = ns.xpPieces[id]
+                    local ok, t, pl = pcall(cd.text, key, s)
+                    if ok and t and t ~= "" then
+                        alts[#alts + 1] = t
+                        if id == ns.xpCycleNow then text, pulse = t, pl end
+                    end
+                end
+                if #alts > 0 then
+                    out[#out + 1] = { id = "cycle", def = d, text = text or "", alts = alts,
+                        pulse = pulse or nil, fade = #(ns.xpCycleIds or {}) > 1 }
+                end
             else
                 local ok, text, pulse = pcall(d.text, key, s)
                 if not ok or text == "" then text, pulse = nil, nil end
