@@ -810,7 +810,7 @@ local cycleSlot   -- the 3 second slot the window was drawn in (Info Cycling)
 -- values taking turns fade out and in at the end / start of each slot
 local FADE = 0.35
 function ns.XPFadeAlpha()
-    local T = ns.XP_CYCLE_TIME
+    local T = ns.XPCycleTime()
     local t = GetTime() % T
     return math.max(0, math.min(1, t / FADE, (T - t) / FADE))
 end
@@ -827,7 +827,7 @@ local function Update()
     local shift = (x.pieceAlign == "ICONS") and "ICONS" or SHIFT[x.pieceAlign] or 0.5
 
     -- Info Cycling / flights in the name: what is shown in this 3 second slot
-    local slot = math.floor(GetTime() / ns.XP_CYCLE_TIME)
+    local slot = math.floor(GetTime() / ns.XPCycleTime())
     cycleSlot = slot
     ns.xpCycleIds = ns.XPCycleActive(list, StatusOf)
     local nIds = #ns.xpCycleIds
@@ -1024,7 +1024,7 @@ ns.UpdateXPWindow = Update
 local fader = CreateFrame("Frame")
 fader:SetScript("OnUpdate", function()
     if not f:IsShown() or ns.xpArrange then return end
-    local now, T = GetTime(), ns.XP_CYCLE_TIME
+    local now, T = GetTime(), ns.XPCycleTime()
     local slot = math.floor(now / T)
     local any = false
     for _, row in ipairs(f.rows) do

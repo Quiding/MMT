@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 1.2.34: core addon (MMT) plus optional modules (MMT_*).
+Version 1.2.35: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -127,18 +127,20 @@ team list. Closing it marks it as seen; `/mmt setup` opens it again.
   value ("?" when the game gives no happiness: `/mmt debug dump` shows what the client
   can read). "Currency: Money" (gold), "Currency: Merchants Favor" and "Currency: Undermine
   Real" (both off by default): the Forever currencies of the character sheet's Currency tab,
-  found by name and sent with the heartbeat. "Info Cycling" (on): the columns picked in its
-  cogwheel take turns in one column, 3 seconds each, fading over to the next; a picked column
-  isn't shown on its own (default: Bar value, Completed quest XP, Rested XP, Undermine Real).
+  found by name and sent with the heartbeat. "Info Cycling" (on, right after Level): the columns
+  picked in its cogwheel take turns in one column, 3 seconds each (slider in the cogwheel),
+  fading over to the next; a picked column isn't shown on its own and is marked "Cycl" in the
+  column list (click it to give it back its own column) (default: XP / Reputation, Quest XP
+  available, Rested XP, Undermine Real).
   "Show flights" (Name cogwheel, on): while a character is on a flight path, "Fly to X, mm:ss"
-  and the name take turns every 3 seconds. "New mail" (off by
+  and the name take turns (as long as each Info Cycling value). "New mail" (off by
   default): a letter for characters with unread mail waiting (sent with the heartbeat,
   and when it changes). "Highlight when I can level up" (Basics, on): every client adds up
   the XP of its quests that are ready to turn in and sends it with the heartbeat; when that
   reaches the next level, the row shows a pulsing "LvlUp available" instead of XP % and
   rested XP, 5 seconds on, 5 seconds off (row tooltip: "Ready quests"). "Highlight big XP
   gains" (Basics, on): a gain of at least 3% of the level's XP at once lights up the gained
-  part of the bar and the XP value. "Show flights" (Bar value cogwheel, on): while a character is on a
+  part of the bar and the XP value. "Show flights" (XP / Reputation cogwheel, on): while a character is on a
   flight path its row shows "Fly to X, mm:ss" instead of the XP, and "arrived X" for 5
   seconds after landing; with "LvlUp available" at the same time the two take turns every
   5 seconds. Flight times are learned per route on this account (the game doesn't tell
@@ -148,12 +150,12 @@ team list. Closing it marks it as seen; `/mmt setup` opens it again.
   Look & Feel (with a "Fonts, Bars, Scale, Opacity" side window), Column Visibility & Order
   and Miscellaneous (Layer Hop). Each of
   these is a piece, and so is the name: one order left to right (default: Durability, Free
-  bag slots, Gold, Name, Level, Bar value, Rested XP), the bar behind the whole row. Switch
+  bag slots, Currency: Money, Name, Level, Info Cycling, XP / Reputation, Rested XP), the bar behind the whole row. Switch
   pieces on or off (the name is always shown) and drag them into place in the Info Window
   page's list ("Restore Default Column Order" resets it) or in the window itself. A
-  cogwheel in a piece's row opens its own settings: Bar value (decimals, the bar colour
+  cogwheel in a piece's row opens its own settings: XP / Reputation ("XP 45.0%" / "Rep 40.0%": decimals, the bar colour
   without class colours, the level-up and XP-gain highlights), Rested
-  XP and Completed quest XP (colour and opacity on the bar; the R % / Q % text follows in a
+  XP ("RXP 35%") and Quest XP available ("QXP 20%") (colour and opacity on the bar; the RXP / QXP text follows in a
   lighter shade), Free bag slots and Durability (when they turn yellow / red; durability
   lowest or average), Currency: Money (format), Level ("L60" or "60"), Layer (orange when not your
   layer), Reputation ("Watch my faction on every character": every team character watches
@@ -537,7 +539,7 @@ team list. Closing it marks it as seen; `/mmt setup` opens it again.
   [Item] - it starts a quest!", on by default), and abandon a quest on the whole team (asks first:
   "Do you want to abort this quest on your entire team?"). The quest settings of
   Core > Automations are copied over once.
-  Completed quest XP (Info window piece "Completed quest XP", "Q 20%", on by default;
+  Quest XP available (Info window piece "Quest XP available", "QXP 20%", on by default;
   switched on and off on the Info Window page): the XP of the quests ready to turn in,
   shaded like rested XP but in its own colour (default gold; colour and opacity in the
   piece's cogwheel) right after the XP, on every member's bar in the Info window. The game's own XP bar is left alone. The XP is the core's turn-in XP (the

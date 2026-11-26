@@ -1038,10 +1038,14 @@ ns.RegisterPage("xp", "Info Window", function(page)
         row.grip = Grip(row)
         row.toggle = UI.TextButton(row, "", function()
             local e = row.entry
-            if e and not (ns.xpPieces[e.id] and ns.xpPieces[e.id].fixed) then ns.SetXPPiece(e.id, not e.on); Redraw() end
+            if e and ns.XPPieceCycled and ns.XPPieceCycled(e.id) then
+                -- "Cycl": out of Info Cycling, back in its own column
+                ns.XPCycleSet()[e.id] = false
+                ns.SetXPPiece(e.id, true); Redraw()
+            elseif e and not (ns.xpPieces[e.id] and ns.xpPieces[e.id].fixed) then ns.SetXPPiece(e.id, not e.on); Redraw() end
         end, 40)
         row.toggle:SetPoint("RIGHT", -2, 0)
-        UI.Tooltip(row.toggle, "On / off", "Switched-off pieces stay in the list but aren't shown. The name is always shown.")
+        UI.Tooltip(row.toggle, "On / off", "Switched-off pieces stay in the list but aren't shown. The name is always shown. \"Cycl\": shown in Info Cycling (click: back in its own column).")
         -- cogwheel: the piece's own settings (only pieces with options)
         row.gear = CreateFrame("Button", nil, row)
         row.gear:SetSize(14, 14)
@@ -1085,13 +1089,14 @@ ns.RegisterPage("xp", "Info Window", function(page)
         local d = ns.xpPieces[e.id]
         local on = e.on or (d and d.fixed)
         local cycled = ns.XPPieceCycled and ns.XPPieceCycled(e.id)
-        row.text:SetText((d and d.title or e.id) .. (cycled and " |cff8899aa(in Info Cycling)|r" or ""))
+        row.text:SetText(d and d.title or e.id)
         row.text:SetTextColor(on and 1 or 0.5, on and 1 or 0.5, on and 1 or 0.5)
-        local c = e.id == "name" and ns.XP_NAME_COLOUR or ns.XP_PIECE_COLOUR
+        local c = (cycled and ns.XP_CYCLE_COLOUR) or (e.id == "name" and ns.XP_NAME_COLOUR) or ns.XP_PIECE_COLOUR
         row.strip:SetColorTexture(c[1], c[2], c[3], on and 0.9 or 0.4)
         row.tint:SetColorTexture(c[1], c[2], c[3], e.id == "name" and 0.12 or 0.05)
         row.gear:SetShown(d and d.options and true or false)
-        row.toggle.label:SetText((d and d.fixed) and "|cff999999always|r" or (on and "|cff55ff55on|r" or "|cff777777off|r"))
+        row.toggle.label:SetText((d and d.fixed) and "|cff999999always|r" or (cycled and "|cffb57dffCycl|r")
+            or (on and "|cff55ff55on|r" or "|cff777777off|r"))
     end)
     V:Add(pieces, PIECE_ROWS * PIECE_H + 6)
     DragReorder(pieces, PIECE_ROWS, PIECE_H, function(from, before)
@@ -1100,7 +1105,7 @@ ns.RegisterPage("xp", "Info Window", function(page)
         Redraw()
     end)
     local resetOrder = V:Button("Restore Default Column Order", function() ns.ResetXPPieceOrder(); Redraw() end)
-    UI.Tooltip(resetOrder, "Restore Default Column Order", "Durability, Free bag slots, Gold, Name, Level, Bar value, Rested XP, then the others. On / off stays as it is.")
+    UI.Tooltip(resetOrder, "Restore Default Column Order", "Durability, Free bag slots, Gold, Name, Level, Info Cycling, XP / Reputation, Rested XP, then the others. On / off stays as it is.")
     local arrange
     arrange = V:Button("", function() ns.ToggleXPArrange() end)
     local function ArrangeText()

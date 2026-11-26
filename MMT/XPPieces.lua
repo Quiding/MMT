@@ -42,6 +42,7 @@ end
 -- colours while arranging and in the settings list: pieces blue, the name gold
 ns.XP_PIECE_COLOUR = { 0.31, 0.70, 1.00 }
 ns.XP_NAME_COLOUR = { 1.00, 0.82, 0.00 }
+ns.XP_CYCLE_COLOUR = { 0.71, 0.49, 1.00 }   -- pieces shown in Info Cycling (settings list)
 ns.XP_SIDE_COLOUR = { LEFT = ns.XP_PIECE_COLOUR, RIGHT = ns.XP_PIECE_COLOUR }   -- (old name)
 
 ---------------------------------------------------------------------------
@@ -168,10 +169,10 @@ ns.RegisterXPPiece{ id = "level", title = "Level", side = "RIGHT", on = true, sa
     text = function(_, s)
         return Hex(0.75, 0.75, 0.75) .. (ns.db.xp.levelPrefix == false and "" or "L") .. s.level .. "|r"
     end }
-ns.RegisterXPPiece{ id = "value", title = "Bar value (XP % or reputation)", side = "RIGHT", on = true, sample = "45.0%",
+ns.RegisterXPPiece{ id = "value", title = "XP / Reputation", side = "RIGHT", on = true, sample = "XP 45.0%",
     tip = "What the bar shows (Bar shows): the XP in percent, or the standing with the watched faction.",
     options = {
-        OCycle("Decimals of the XP %", { { value = 0, text = "45%" }, { value = 1, text = "45.0%" }, { value = 2, text = "45.03%" } },
+        OCycle("Decimals of the %", { { value = 0, text = "XP 45%" }, { value = 1, text = "XP 45.0%" }, { value = 2, text = "XP 45.03%" } },
             XOpt("valueDecimals", 1)),
         O("Color", "Bar colour without class colors", XColour("barColour", 0.31, 0.70, 1.00)),
         OCheck("Highlight when I can level up", "levelUpHint", true,
@@ -187,9 +188,15 @@ ns.RegisterXPPiece{ id = "value", title = "Bar value (XP % or reputation)", side
         local notice, pulse
         if ns.RowNotice then notice, pulse = ns.RowNotice(key, s) end
         if notice then return notice, pulse end
-        if ns.db.xp.barMode == "REP" then return RepText(s) end
-        if s.isMax or s.max <= 0 then return "max" end
-        local text = ("%." .. (tonumber(ns.db.xp.valueDecimals) or 1) .. "f%%"):format(s.cur / s.max * 100)
+        local fmt = "%." .. (tonumber(ns.db.xp.valueDecimals) or 1) .. "f%%"
+        if ns.db.xp.barMode == "REP" then
+            local r = s.rep
+            if not r then return Hex(0.5, 0.5, 0.5) .. "no faction|r" end
+            local pct = (r.max or 0) > 0 and r.cur / r.max * 100 or 100
+            return Hex(ns.XPRepColour(r.standing)) .. "Rep " .. fmt:format(pct) .. "|r"
+        end
+        if s.isMax or s.max <= 0 then return "XP max" end
+        local text = "XP " .. fmt:format(s.cur / s.max * 100)
         if ns.XPGainFlashing and ns.XPGainFlashing(key) then return Hex(1, 0.85, 0.2) .. text .. "|r", true end
         return text
     end }
@@ -210,12 +217,12 @@ local function RestedOptions()
         { "Slider", "Opacity on the bar", 0.05, 1, 0.05,
             function() return ns.db.xp.restedAlpha or 0.30 end,
             function(v) ns.db.xp.restedAlpha = v ns.UpdateXPWindow() end, "%.2f" },
-        { "Note", "The R % text uses a lighter shade of the same colour." },
+        { "Note", "The RXP % text uses a lighter shade of the same colour." },
     }
 end
 
-ns.RegisterXPPiece{ id = "rested", title = "Rested XP (%)", side = "RIGHT", on = true, sample = Hex(0.75, 0.6, 1) .. "R 35%|r",
-    tip = "Rested XP in percent of the current level, e.g. R 35%. Also shaded on the bar.",
+ns.RegisterXPPiece{ id = "rested", title = "Rested XP", side = "RIGHT", on = true, sample = Hex(0.75, 0.6, 1) .. "RXP 35%|r",
+    tip = "Rested XP in percent of the current level, e.g. RXP 35%. Also shaded on the bar.",
     options = RestedOptions(),
     text = function(key, s)
         local notice, pulse
@@ -227,7 +234,7 @@ ns.RegisterXPPiece{ id = "rested", title = "Rested XP (%)", side = "RIGHT", on =
         end
         if ns.db.xp.barMode == "REP" or s.isMax or s.max <= 0 then return nil end
         if s.rested <= 0 then return nil end
-        return Hex(ns.XPRestedTextColour()) .. ("R %d%%"):format(math.floor(s.rested / s.max * 100 + 0.5)) .. "|r"
+        return Hex(ns.XPRestedTextColour()) .. ("RXP %d%%"):format(math.floor(s.rested / s.max * 100 + 0.5)) .. "|r"
     end }
 -- Watch a faction (by name) on the reputation bar: the cogwheel's "Watch it on every
 -- character". Headers are expanded so a faction under a collapsed one is found too.
@@ -408,10 +415,13 @@ CurrencyPiece("ureal", "ur", "Currency: Undermine Real")
 
 ---------------------------------------------------------------------------
 -- Info Cycling: the columns picked in its cogwheel, one after another for
--- XP_CYCLE_TIME seconds each, fading over (XPWindow.lua). A picked column is
+-- ns.XPCycleTime() seconds each (cogwheel, 3 by default), fading over (XPWindow.lua). A picked column is
 -- left out of the row while Info Cycling is on.
 ---------------------------------------------------------------------------
-ns.XP_CYCLE_TIME = 3
+function ns.XPCycleTime()
+    local t = tonumber(ns.db and ns.db.xp.cycleTime) or 3
+    return math.max(1, math.min(15, t))
+end
 local CYCLE_DEFAULT = { value = true, questxp = true, rested = true, ureal = true }
 
 function ns.XPCycleSet()
@@ -430,9 +440,12 @@ function ns.XPPieceCycled(id)
 end
 
 ns.RegisterXPPiece{ id = "cycle", title = "Info Cycling", side = "RIGHT", on = true, sample = "Info Cycling",
-    tip = "Shows the columns picked in its cogwheel one after another, each for 3 seconds, fading over to the next. A picked column isn't shown on its own while Info Cycling is on.",
+    tip = "Shows the columns picked in its cogwheel one after another, each for a few seconds (3 by default, cogwheel), fading over to the next. A picked column isn't shown on its own while Info Cycling is on.",
     options = function()
-        local list = { { "Note", "Columns shown one after another (each 3 seconds):" } }
+        local list = {
+            OSlider("Seconds per value", 1, 15, 1, XOpt("cycleTime", 3)),
+            { "Note", "Columns shown one after another:" },
+        }
         for _, id in ipairs(ns.xpPieceIds) do
             local d = ns.xpPieces[id]
             if d and id ~= "name" and id ~= "cycle" then
@@ -478,7 +491,7 @@ ns.RegisterXPPiece{ id = "name", title = "Name", side = "RIGHT", on = true, fixe
     tip = "The character's name (with the leader crown and notes like \"no follow\"). Always shown; it takes the free space with the layout \"Name takes the free space\".",
     options = {
         OCheck("Show flights", "flightName", true,
-            "While a character is on a flight path, \"Fly to X, mm:ss\" and the name take turns every 3 seconds."),
+            "While a character is on a flight path, \"Fly to X, mm:ss\" and the name take turns (as long as each Info Cycling value, 3 seconds by default)."),
     },
     text = function() return nil end }
 
@@ -486,7 +499,7 @@ ns.RegisterXPPiece{ id = "name", title = "Name", side = "RIGHT", on = true, fixe
 -- The saved order
 ---------------------------------------------------------------------------
 -- the default order, left to right
-local DEFAULT_ORDER = { "durability", "bags", "gold", "name", "level", "value", "rested", "rep", "pet", "mail", "layer" }
+local DEFAULT_ORDER = { "durability", "bags", "gold", "name", "level", "cycle", "value", "rested", "rep", "pet", "mail", "layer" }
 -- old switch of a built-in piece (kept in step for clients without pieces)
 local SWITCH = { gold = "showGold", bags = "showBags", durability = "showDurability", level = "showLevel", rested = "showRested" }
 
@@ -537,6 +550,19 @@ function ns.XPPieceOrder()
                 for k, p in ipairs(x.pieces) do if p.id == before then at = k end end
             end
             table.insert(x.pieces, at, e)
+        end
+    end
+    -- MMT 1.2.35: Info Cycling right after Level (once)
+    if not x.cycleMoved then
+        x.cycleMoved = true
+        local ci, li
+        for k, p in ipairs(x.pieces) do
+            if p.id == "cycle" then ci = k elseif p.id == "level" then li = k end
+        end
+        if ci and li and ci ~= li + 1 then
+            local p = table.remove(x.pieces, ci)
+            if ci < li then li = li - 1 end
+            table.insert(x.pieces, li + 1, p)
         end
     end
     return x.pieces
